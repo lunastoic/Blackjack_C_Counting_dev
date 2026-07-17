@@ -44,14 +44,9 @@ export function QuizFlashStage({ step, stepIndex, totalSteps }: QuizFlashStagePr
       pulse.value = 1;
       return;
     }
-    pulse.value = withRepeat(
-      withTiming(1.08, { duration: 300 }),
-      2,
-      true,
-      () => {
-        pulse.value = 1;
-      },
-    );
+    // No completion callback here: withRepeat callbacks crash Fabric in this
+    // Expo Go / Reanimated pairing, and reverse:true already ends at 1.
+    pulse.value = withRepeat(withTiming(1.08, { duration: 300 }), 2, true);
   }, [stepIndex, reducedMotion, pulse]);
 
   const ringStyle = useAnimatedStyle(() => ({
