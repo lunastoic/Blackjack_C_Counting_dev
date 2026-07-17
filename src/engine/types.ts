@@ -6,6 +6,7 @@ import { GameMode } from './blackjack/rules';
 import { DeckCount } from './shoe/shoe';
 import { LifetimeStats } from './achievements/stats';
 
+/** Tools active while the Count Coach is Full (the old Training Mode kit). */
 export interface TrainingAidSettings {
   /** Green/gray/red per-card glow (default on). */
   readonly cardUnderglow: boolean;
@@ -17,6 +18,14 @@ export interface TrainingAidSettings {
   readonly distributionCharts: boolean;
 }
 
+/**
+ * Count Coach — how much counting help the player gets at the table.
+ * Off = pure casino play. Learn = play normally, get quizzed on the count.
+ * Full = every live aid the old Training Mode had.
+ */
+export const COUNT_COACH_LEVELS = ['off', 'learn', 'full'] as const;
+export type CountCoachLevel = (typeof COUNT_COACH_LEVELS)[number];
+
 export interface GameSettings {
   readonly soundEnabled: boolean;
   readonly hapticsEnabled: boolean;
@@ -25,6 +34,8 @@ export interface GameSettings {
   /** Decks per mode, user-selectable in in-game settings (default 6). */
   readonly deckCounts: Readonly<Record<GameMode, DeckCount>>;
   readonly trainingAids: TrainingAidSettings;
+  /** Counting assistance at the table (default full = every aid on). */
+  readonly countCoachLevel: CountCoachLevel;
   /** Collapses gameplay animation for accessibility. */
   readonly reducedMotion: boolean;
 }
@@ -33,13 +44,14 @@ export const DEFAULT_SETTINGS: GameSettings = {
   soundEnabled: true,
   hapticsEnabled: true,
   dealerSpeed: 1.0,
-  deckCounts: { training: 6, regular: 6, quiz: 6 },
+  deckCounts: { regular: 6, quiz: 6 },
   trainingAids: {
     cardUnderglow: true,
     strategyHints: true,
     countPulse: false,
     distributionCharts: false,
   },
+  countCoachLevel: 'full',
   reducedMotion: false,
 };
 

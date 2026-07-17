@@ -7,6 +7,7 @@ import { SecondaryButton } from '../components/common/SecondaryButton';
 import { SectionCard } from '../components/common/SectionCard';
 import { ProgressionHeader } from '../components/progression/ProgressionHeader';
 import {
+  CountCoachRow,
   DealerSpeedStepper,
   DeckCountRow,
   ToggleRow,
@@ -30,9 +31,11 @@ export default function SettingsScreen() {
   const setDisplayName = useProfileStore((state) => state.setDisplayName);
   const [nameDraft, setNameDraft] = useState(displayName);
 
-  function handleDeckCount(mode: 'training' | 'regular' | 'quiz', count: number) {
+  function handleDeckCount(mode: 'regular' | 'quiz', count: number) {
     settings.setDeckCount(mode, count);
-    applyDeckCountChange(mode);
+    if (mode === 'regular') {
+      applyDeckCountChange();
+    }
   }
 
   function commitName() {
@@ -106,21 +109,28 @@ export default function SettingsScreen() {
 
         <SectionCard title="Decks">
           <DeckCountRow
-            label="Training Mode"
-            mode="training"
-            selected={settings.deckCounts.training}
-            onSelect={handleDeckCount}
-          />
-          <Divider />
-          <DeckCountRow
-            label="Regular Mode"
+            label="Table"
             mode="regular"
             selected={settings.deckCounts.regular}
             onSelect={handleDeckCount}
           />
+          <Divider />
+          <DeckCountRow
+            label="Quiz"
+            mode="quiz"
+            selected={settings.deckCounts.quiz}
+            onSelect={handleDeckCount}
+          />
         </SectionCard>
 
-        <SectionCard title="Training aids">
+        <SectionCard title="Count Coach">
+          <CountCoachRow
+            selected={settings.countCoachLevel}
+            onSelect={settings.setCountCoachLevel}
+          />
+        </SectionCard>
+
+        <SectionCard title="Full coach tools">
           <ToggleRow
             label="Card underglow"
             value={settings.trainingAids.cardUnderglow}

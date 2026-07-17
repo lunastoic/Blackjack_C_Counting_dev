@@ -6,7 +6,7 @@ import { z } from 'zod';
  * (GameSettings, LifetimeStats, PlayerProgress) rather than duplicating logic.
  */
 
-export const SAVE_SCHEMA_VERSION = 3;
+export const SAVE_SCHEMA_VERSION = 5;
 
 export const MAX_DISPLAY_NAME_LENGTH = 20;
 export const DEFAULT_DISPLAY_NAME = 'Player';
@@ -39,12 +39,17 @@ export const progressionSchema = z.object({
   unlockedMapIds: z.array(z.number().int().min(1).max(6)).min(1),
 });
 
+const countCoachLevelSchema = z.union([
+  z.literal('off'),
+  z.literal('learn'),
+  z.literal('full'),
+]);
+
 export const settingsSchema = z.object({
   soundEnabled: z.boolean(),
   hapticsEnabled: z.boolean(),
   dealerSpeed: z.number().min(0.5).max(2),
   deckCounts: z.object({
-    training: deckCountSchema,
     regular: deckCountSchema,
     quiz: deckCountSchema,
   }),
@@ -54,6 +59,7 @@ export const settingsSchema = z.object({
     countPulse: z.boolean(),
     distributionCharts: z.boolean(),
   }),
+  countCoachLevel: countCoachLevelSchema,
   reducedMotion: z.boolean(),
 });
 
@@ -117,9 +123,17 @@ export const quizStatsSchema = z.object({
   chipsEarned: statCount,
 });
 
+/** Learn coach count-check stats added in schema v5. */
+export const learnStatsSchema = z.object({
+  checksAsked: statCount,
+  checksCorrect: statCount,
+  bestStreak: statCount,
+});
+
 export const modeStatsSchema = z.object({
   regular: regularStatsSchema,
   quiz: quizStatsSchema,
+  learn: learnStatsSchema,
 });
 
 export const saveDataSchema = z.object({
@@ -143,3 +157,4 @@ export type SaveData = z.infer<typeof saveDataSchema>;
 export type SaveEnvelope = z.infer<typeof saveEnvelopeSchema>;
 export type RegularStats = z.infer<typeof regularStatsSchema>;
 export type QuizStats = z.infer<typeof quizStatsSchema>;
+export type LearnStats = z.infer<typeof learnStatsSchema>;

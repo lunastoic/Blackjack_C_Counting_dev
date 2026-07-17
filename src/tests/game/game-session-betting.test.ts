@@ -20,7 +20,7 @@ function resetStores(chips = 500, lastBet = 0): void {
   useAchievementStore.getState().hydrate(defaults.achievements, defaults.mapAchievements);
   useSettingsStore.getState().hydrate({
     ...defaults.settings,
-    deckCounts: { training: 1, regular: 6, quiz: 6 },
+    deckCounts: { regular: 1, quiz: 6 },
   });
 }
 
@@ -36,7 +36,7 @@ function session() {
 beforeEach(() => {
   jest.useFakeTimers();
   resetStores();
-  expect(session().startSession(1, 'training')).toBe(true);
+  expect(session().startSession(1)).toBe(true);
 });
 
 afterEach(() => {
@@ -53,7 +53,7 @@ describe('betting', () => {
 
   it('refuses chips the player cannot afford', () => {
     resetStores(20);
-    session().startSession(1, 'training');
+    session().startSession(1);
     expect(session().addChipToBet(25)).toBe(false);
     expect(session().wager).toBe(0);
     expect(useEconomyStore.getState().chips).toBe(20);
@@ -61,7 +61,7 @@ describe('betting', () => {
 
   it('enforces the Luna Luxe 1,000 max bet', () => {
     resetStores(5_000);
-    session().startSession(1, 'training');
+    session().startSession(1);
     for (let i = 0; i < 10; i++) {
       expect(session().addChipToBet(100)).toBe(true);
     }
@@ -81,7 +81,7 @@ describe('betting', () => {
 
   it('Redo Bet replays the previous bet when affordable', () => {
     resetStores(500, 75);
-    session().startSession(1, 'training');
+    session().startSession(1);
     session().redoBet();
     expect(session().wager).toBe(75);
     expect(useEconomyStore.getState().chips).toBe(425);
@@ -89,7 +89,7 @@ describe('betting', () => {
 
   it('Redo Bet replaces the current wager instead of stacking on top', () => {
     resetStores(500, 75);
-    session().startSession(1, 'training');
+    session().startSession(1);
     session().addChipToBet(100);
     session().redoBet();
     expect(session().wager).toBe(75);
@@ -98,7 +98,7 @@ describe('betting', () => {
 
   it('Redo Bet does nothing when the previous bet is unaffordable', () => {
     resetStores(50, 200);
-    session().startSession(1, 'training');
+    session().startSession(1);
     session().redoBet();
     expect(session().wager).toBe(0);
     expect(useEconomyStore.getState().chips).toBe(50);
@@ -111,7 +111,7 @@ describe('betting', () => {
 
   it('records an all-in bet for achievements', () => {
     resetStores(100);
-    session().startSession(1, 'training');
+    session().startSession(1);
     rig('5', 'K', '6', '4');
     session().addChipToBet(100);
     session().deal();
@@ -163,7 +163,7 @@ describe('shuffle lifecycle', () => {
     session().addChipToBet(100);
     session().deal();
     jest.advanceTimersByTime(3500);
-    useSettingsStore.getState().setDeckCount('training', 2);
+    useSettingsStore.getState().setDeckCount('regular', 2);
     session().act('stand');
     jest.runAllTimers();
 
@@ -184,8 +184,8 @@ describe('shuffle lifecycle', () => {
     expect(session().phase).toBe('betting');
     expect(session().runningCount).not.toBe(0);
 
-    useSettingsStore.getState().setDeckCount('training', 2);
-    session().applyDeckCountChange('training');
+    useSettingsStore.getState().setDeckCount('regular', 2);
+    session().applyDeckCountChange();
 
     const state = session();
     expect(state.phase).toBe('betting');

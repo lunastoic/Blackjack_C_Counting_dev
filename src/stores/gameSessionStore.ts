@@ -3,7 +3,7 @@ import { GameplayEvent } from '../engine/achievements/events';
 import { CasinoMap, mapById } from '../engine/betting/casino';
 import { isValidBet } from '../engine/betting/bets';
 import { ACTION_COOLDOWN_MS } from '../engine/blackjack/constants';
-import { canDouble, canSplit, GameMode, PlayerAction } from '../engine/blackjack/rules';
+import { canDouble, canSplit, PlayerAction } from '../engine/blackjack/rules';
 import {
   applyPlayerAction,
   IllegalActionError,
@@ -17,7 +17,7 @@ import { resolveRound, RoundResolution } from '../engine/blackjack/resolve';
 import { recommendForHand } from '../engine/strategy/recommend';
 import { hiLoValue } from '../engine/counting/hiLo';
 import { trueCount } from '../engine/counting/trueCount';
-import { xpForHandResult } from '../engine/progression/progression';
+import { XP_AWARDS, xpForHandResult } from '../engine/progression/progression';
 import { RoundPayout, settleRound } from '../engine/payouts/payouts';
 import {
   cardsRemaining,
@@ -34,6 +34,12 @@ import {
   INITIAL_DEAL_CARD_COUNT,
 } from '../utils/dealSequence';
 import { durations } from '../theme';
+import {
+  buildCountChoices,
+  CountCheckKind,
+  countCheckKind,
+  isCountCheckDue,
+} from '../utils/countCoach';
 import { useEconomyStore } from './economyStore';
 import { useModeStatsStore } from './modeStatsStore';
 import { useSettingsStore, clampDealerSpeed } from './settingsStore';
@@ -58,10 +64,26 @@ export interface LevelUpNotice {
   readonly chipReward: number;
 }
 
+/**
+ * Learn coach pop quiz: after a round the player picks the count from four
+ * choices. `runningCount` / `trueCount` snapshot the table at question time so
+ * feedback stays truthful even after a shuffle resets the live count.
+ */
+export interface CountCheck {
+  readonly kind: CountCheckKind;
+  readonly correct: number;
+  readonly choices: readonly number[];
+  readonly selected: number | null;
+  readonly wasCorrect: boolean | null;
+  readonly runningCount: number;
+  readonly trueCount: number;
+  /** The shoe shuffled right after this round — the next count starts at 0. */
+  readonly shuffledAfter: boolean;
+}
+
 interface GameSessionState {
   readonly sessionActive: boolean;
   readonly map: CasinoMap | null;
-  readonly mode: GameMode;
   readonly phase: RoundPhase;
   readonly shoe: Shoe | null;
   readonly round: RoundState | null;
@@ -95,7 +117,16 @@ interface GameSessionState {
    */
   readonly initialDealStep: number;
 
-  startSession(mapId: number, mode: GameMode): boolean;
+  /** Learn coach: pending / answered count check (null = none showing). */
+  readonly countCheck: CountCheck | null;
+  /** Consecutive correct count-check answers (drives the adaptive cadence). */
+  readonly learnStreak: number;
+  /** Count checks asked this session (alternates running/true at high streaks). */
+  readonly learnChecksAsked: number;
+  /** Rounds finished since the last count check. */
+  readonly roundsSinceCountCheck: number;
+
+  startSession(mapId: number): boolean;
   endSession(): void;
   startAutoplay(): boolean;
   /** Stops after the current hand finishes (mid-round autoplay keeps playing it out). */
@@ -116,12 +147,15 @@ interface GameSessionState {
   /** Cards remaining as the player perceives them (excludes unrevealed dealer draws). */
   getCardsRemainingVisible(): number;
   dismissLevelUp(): void;
+  /** Learn coach: answer the pending count check. Returns true when correct. */
+  answerCountCheck(choice: number): boolean;
+  dismissCountCheck(): void;
   /**
-   * When the player changes deck count for this session's mode: reshuffle
-   * immediately between hands (betting), or after the current round finishes.
-   * Always resets the running count when the shoe is rebuilt.
+   * When the player changes the table deck count: reshuffle immediately
+   * between hands (betting), or after the current round finishes. Always
+   * resets the running count when the shoe is rebuilt.
    */
-  applyDeckCountChange(mode: GameMode): void;
+  applyDeckCountChange(): void;
 }
 
 /** Nominal bet used only so engine hands exist during the stake-free autoplay drill. */
@@ -155,8 +189,8 @@ function schedule(fn: () => void, delay: number): void {
   timers.add(timer);
 }
 
-function newShoe(mode: GameMode): Shoe {
-  const deckCount: DeckCount = useSettingsStore.getState().deckCounts[mode];
+function newShoe(): Shoe {
+  const deckCount: DeckCount = useSettingsStore.getState().deckCounts.regular;
   return createShoe(deckCount);
 }
 
@@ -229,17 +263,14 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
         useEconomyStore.getState().creditChips(payout.totalReturned);
       }
 
-      // XP + achievements per hand (+ persisted Regular Mode stats).
-      const isRegular = get().mode === 'regular';
+      // XP + achievements per hand (+ persisted table stats).
       let totalXp = 0;
       for (let i = 0; i < resolution.hands.length; i++) {
         const hand = resolution.hands[i];
         totalXp += xpForHandResult(hand.result);
-        if (isRegular) {
-          useModeStatsStore
-            .getState()
-            .recordRegularHand(hand.result, payout.hands[i]?.profit ?? 0);
-        }
+        useModeStatsStore
+          .getState()
+          .recordRegularHand(hand.result, payout.hands[i]?.profit ?? 0);
         recordMapEvent({
           type: 'HAND_COMPLETED',
           result: hand.result,
@@ -274,13 +305,50 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
     }, scaledDelay(BASE_DELAYS.resolutionPause));
   }
 
+  /**
+   * Learn coach: one round just finished — decide whether to pop a count
+   * check. Runs before any shuffle so the question snapshots the real count.
+   */
+  function maybeQueueCountCheck(willShuffle: boolean): void {
+    if (get().isAutoplayRound) {
+      return;
+    }
+    if (useSettingsStore.getState().countCoachLevel !== 'learn') {
+      return;
+    }
+    const rounds = get().roundsSinceCountCheck + 1;
+    const { learnStreak, learnChecksAsked } = get();
+    if (!isCountCheckDue(rounds, learnStreak)) {
+      set({ roundsSinceCountCheck: rounds });
+      return;
+    }
+    const runningCount = get().runningCount;
+    const trueCountValue = get().getTrueCount();
+    const kind = countCheckKind(learnStreak, learnChecksAsked);
+    const correct = kind === 'running' ? runningCount : trueCountValue;
+    set({
+      roundsSinceCountCheck: rounds,
+      countCheck: {
+        kind,
+        correct,
+        choices: buildCountChoices(correct, Math.random, kind === 'true' ? 0.5 : 1),
+        selected: null,
+        wasCorrect: null,
+        runningCount,
+        trueCount: trueCountValue,
+        shuffledAfter: willShuffle,
+      },
+    });
+  }
+
   function collectRound(): void {
     toPhase('collecting');
     schedule(() => {
-      const { shoe, mode } = get();
-      const settingsDecks = useSettingsStore.getState().deckCounts[mode];
+      const { shoe } = get();
+      const settingsDecks = useSettingsStore.getState().deckCounts.regular;
       const needsShuffle =
         !shoe || isShufflePending(shoe) || shoe.deckCount !== settingsDecks;
+      maybeQueueCountCheck(needsShuffle);
 
       if (needsShuffle) {
         // Clear the felt but keep the spent shoe so discard + remaining cards
@@ -297,7 +365,7 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
         });
         schedule(() => {
           set({
-            shoe: newShoe(mode),
+            shoe: newShoe(),
             runningCount: 0,
             shufflePending: false,
           });
@@ -362,7 +430,7 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
       step = startRound(AUTOPLAY_NOMINAL_BET, shoe);
     } catch (error) {
       if (error instanceof EmptyShoeError) {
-        set({ shoe: newShoe(get().mode), runningCount: 0, shufflePending: false });
+        set({ shoe: newShoe(), runningCount: 0, shufflePending: false });
         resumeAutoplayIfActive();
         return;
       }
@@ -512,7 +580,6 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
   return {
     sessionActive: false,
     map: null,
-    mode: 'training',
     phase: 'betting',
     shoe: null,
     round: null,
@@ -530,8 +597,12 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
     isAutoplayRound: false,
     autoplaySpeed: 1,
     initialDealStep: 0,
+    countCheck: null,
+    learnStreak: 0,
+    learnChecksAsked: 0,
+    roundsSinceCountCheck: 0,
 
-    startSession: (mapId, mode) => {
+    startSession: (mapId) => {
       const map = mapById(mapId);
       if (!map) {
         return false;
@@ -540,9 +611,8 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
       set({
         sessionActive: true,
         map,
-        mode,
         phase: 'betting',
-        shoe: newShoe(mode),
+        shoe: newShoe(),
         round: null,
         wager: 0,
         runningCount: 0,
@@ -558,15 +628,20 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
         isAutoplayRound: false,
         autoplaySpeed: 1,
         initialDealStep: 0,
+        countCheck: null,
+        learnStreak: 0,
+        learnChecksAsked: 0,
+        roundsSinceCountCheck: 0,
       });
       return true;
     },
 
     startAutoplay: () => {
-      const { sessionActive, phase, mode, wager } = get();
-      // Autoplay is a Training Mode drill and starts only from a clean betting
-      // phase. Any staged wager is returned first — nothing is at stake.
-      if (!sessionActive || mode !== 'training' || phase !== 'betting') {
+      const { sessionActive, phase, wager } = get();
+      // Autoplay is a Full-coach counting drill and starts only from a clean
+      // betting phase. Any staged wager is returned first — nothing at stake.
+      const coachFull = useSettingsStore.getState().countCoachLevel === 'full';
+      if (!sessionActive || !coachFull || phase !== 'betting') {
         return false;
       }
       if (wager > 0) {
@@ -631,6 +706,10 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
         isAutoplayRound: false,
         autoplaySpeed: 1,
         initialDealStep: 0,
+        countCheck: null,
+        learnStreak: 0,
+        learnChecksAsked: 0,
+        roundsSinceCountCheck: 0,
       });
     },
 
@@ -699,7 +778,7 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
       } catch (error) {
         if (error instanceof EmptyShoeError) {
           // Extremely defensive: force a shuffle and stay in betting.
-          set({ shoe: newShoe(get().mode), runningCount: 0, shufflePending: false });
+          set({ shoe: newShoe(), runningCount: 0, shufflePending: false });
           return false;
         }
         throw error;
@@ -808,12 +887,44 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
 
     dismissLevelUp: () => set({ levelUpNotice: null }),
 
-    applyDeckCountChange: (mode) => {
-      const { sessionActive, mode: sessionMode, phase, shoe } = get();
-      if (!sessionActive || mode !== sessionMode) {
+    answerCountCheck: (choice) => {
+      const check = get().countCheck;
+      if (!check || check.selected !== null) {
+        return false;
+      }
+      const correct = choice === check.correct;
+      const newStreak = correct ? get().learnStreak + 1 : 0;
+      useModeStatsStore.getState().recordLearnCheck(correct, newStreak);
+
+      let levelUpNotice: LevelUpNotice | null = null;
+      if (correct) {
+        const outcome = awardXpWithRewards(XP_AWARDS.quizCorrect);
+        if (outcome.progression.levelsGained > 0) {
+          levelUpNotice = {
+            level: outcome.progression.newLevel,
+            chipReward: outcome.progression.chipReward,
+          };
+        }
+      }
+
+      set({
+        countCheck: { ...check, selected: choice, wasCorrect: correct },
+        learnStreak: newStreak,
+        learnChecksAsked: get().learnChecksAsked + 1,
+        roundsSinceCountCheck: 0,
+        levelUpNotice: levelUpNotice ?? get().levelUpNotice,
+      });
+      return correct;
+    },
+
+    dismissCountCheck: () => set({ countCheck: null }),
+
+    applyDeckCountChange: () => {
+      const { sessionActive, phase, shoe } = get();
+      if (!sessionActive) {
         return;
       }
-      const settingsDecks = useSettingsStore.getState().deckCounts[mode];
+      const settingsDecks = useSettingsStore.getState().deckCounts.regular;
       if (!shoe || shoe.deckCount === settingsDecks) {
         return;
       }
@@ -823,7 +934,7 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
         return;
       }
       set({
-        shoe: newShoe(mode),
+        shoe: newShoe(),
         runningCount: 0,
         shufflePending: false,
         justShuffled: true,

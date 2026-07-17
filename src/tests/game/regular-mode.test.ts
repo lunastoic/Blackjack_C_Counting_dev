@@ -9,8 +9,9 @@ import { useProgressionStore } from '../../stores/progressionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 
 /**
- * Regular Mode, per-map configuration, mode switching, the autoplay drill,
- * and the pendingReveals true-count fix. Shoes are rigged; timers are faked.
+ * The merged table (one mode, Count Coach dial), per-map configuration, the
+ * Full-coach autoplay drill, Learn-coach count checks, and the
+ * pendingReveals true-count fix. Shoes are rigged; timers are faked.
  */
 
 function resetStores(chips = 500): void {
@@ -22,7 +23,7 @@ function resetStores(chips = 500): void {
   useModeStatsStore.getState().hydrate(defaults.modeStats);
   useSettingsStore.getState().hydrate({
     ...defaults.settings,
-    deckCounts: { training: 1, regular: 1, quiz: 1 },
+    deckCounts: { regular: 1, quiz: 1 },
   });
 }
 
@@ -41,6 +42,14 @@ function dealRound(bet: number): void {
   jest.advanceTimersByTime(3500);
 }
 
+/** Deal → stand → settle a rigged winning hand (19 vs dealer 18). */
+function playWinningRound(): void {
+  rig('10', '10', '9', '8');
+  dealRound(100);
+  expect(session().act('stand')).toBe(true);
+  jest.runAllTimers();
+}
+
 beforeEach(() => {
   jest.useFakeTimers();
   resetStores();
@@ -50,35 +59,30 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-describe('Regular Mode sessions', () => {
-  it('uses the regular deck-count setting and the same betting/payout rules', () => {
+describe('table sessions', () => {
+  it('uses the table deck-count setting and the betting/payout rules', () => {
     useSettingsStore.getState().hydrate({
       ...createDefaultSave().settings,
-      deckCounts: { training: 1, regular: 8, quiz: 1 },
+      deckCounts: { regular: 8, quiz: 1 },
     });
-    expect(session().startSession(1, 'regular')).toBe(true);
-    expect(session().mode).toBe('regular');
+    expect(session().startSession(1)).toBe(true);
     expect(session().shoe?.deckCount).toBe(8);
   });
 
-  it('still tracks the running count internally (the UI hides it)', () => {
-    expect(session().startSession(1, 'regular')).toBe(true);
+  it('always tracks the running count internally (the coach decides visibility)', () => {
+    expect(session().startSession(1)).toBe(true);
     rig('5', 'K', '6', '4');
     dealRound(100);
     // The store must keep counting so shuffles reset correctly; only the
-    // presentation layer hides it in Regular Mode.
+    // presentation layer hides it when the coach is Off or Learn.
     expect(session().runningCount).toBe(3);
   });
 
-  it('records persisted Regular stats for wins, and nothing in Training', () => {
-    expect(session().startSession(1, 'regular')).toBe(true);
-    rig('10', '10', '9', '8'); // player 19 beats dealer 18
-    dealRound(100);
-    expect(session().act('stand')).toBe(true);
-    jest.runAllTimers();
+  it('records persisted table stats for wins', () => {
+    expect(session().startSession(1)).toBe(true);
+    playWinningRound();
 
-    let stats = useModeStatsStore.getState().regular;
-    expect(stats).toEqual({
+    expect(useModeStatsStore.getState().regular).toEqual({
       handsPlayed: 1,
       wins: 1,
       pushes: 0,
@@ -86,21 +90,10 @@ describe('Regular Mode sessions', () => {
       blackjacks: 0,
       netChips: 100,
     });
-
-    // A Training Mode round must NOT touch regular stats.
-    session().endSession();
-    resetStores();
-    expect(session().startSession(1, 'training')).toBe(true);
-    rig('10', '10', '9', '8');
-    dealRound(100);
-    expect(session().act('stand')).toBe(true);
-    jest.runAllTimers();
-    stats = useModeStatsStore.getState().regular;
-    expect(stats.handsPlayed).toBe(0);
   });
 
   it('records losses, pushes, and blackjacks with net chip flow', () => {
-    expect(session().startSession(1, 'regular')).toBe(true);
+    expect(session().startSession(1)).toBe(true);
 
     rig('10', '10', '7', '9'); // loss: 17 vs 19
     dealRound(100);
@@ -127,8 +120,8 @@ describe('Regular Mode sessions', () => {
     });
   });
 
-  it('refunds an interrupted Regular round exactly like Training', () => {
-    expect(session().startSession(1, 'regular')).toBe(true);
+  it('refunds an interrupted round', () => {
+    expect(session().startSession(1)).toBe(true);
     rig('10', '10', '9', '8');
     dealRound(100);
     expect(useEconomyStore.getState().chips).toBe(400);
@@ -139,7 +132,7 @@ describe('Regular Mode sessions', () => {
 
 describe('map-specific configuration', () => {
   it('loads each map with its own denominations and max bet', () => {
-    expect(session().startSession(3, 'regular')).toBe(true);
+    expect(session().startSession(3)).toBe(true);
     const map = session().map!;
     expect(map.name).toBe('Europa Ice Palace');
     expect(map.chipDenominations).toEqual([25, 50, 100, 500, 1000]);
@@ -150,7 +143,7 @@ describe('map-specific configuration', () => {
 
   it('enforces the active map max bet, not Luna Luxe defaults', () => {
     useEconomyStore.getState().hydrate({ ...createDefaultSave().economy, chips: 20_000 });
-    expect(session().startSession(3, 'regular')).toBe(true);
+    expect(session().startSession(3)).toBe(true);
     // 10 × 1000 = the Europa max bet; an 11th chip must be refused.
     for (let i = 0; i < 10; i++) {
       expect(session().addChipToBet(1000)).toBe(true);
@@ -160,32 +153,14 @@ describe('map-specific configuration', () => {
   });
 
   it('rejects unknown maps', () => {
-    expect(session().startSession(99, 'regular')).toBe(false);
+    expect(session().startSession(99)).toBe(false);
     expect(session().sessionActive).toBe(false);
-  });
-});
-
-describe('mode switching', () => {
-  it('starts a clean session when switching modes on the same map', () => {
-    expect(session().startSession(1, 'training')).toBe(true);
-    rig('5', 'K', '6', '4');
-    dealRound(100);
-    expect(session().runningCount).toBe(3);
-    session().endSession();
-
-    expect(session().startSession(1, 'regular')).toBe(true);
-    const state = session();
-    expect(state.mode).toBe('regular');
-    expect(state.phase).toBe('betting');
-    expect(state.runningCount).toBe(0);
-    expect(state.round).toBeNull();
-    expect(state.wager).toBe(0);
   });
 });
 
 describe('true count during dealer reveals (pendingReveals fix)', () => {
   it('keeps visible cards-remaining stable until each draw is actually shown', () => {
-    expect(session().startSession(1, 'training')).toBe(true);
+    expect(session().startSession(1)).toBe(true);
     // Player 20 stands; dealer 6 hole + 5 up = 11 → draws until 17+.
     // The rigged shoe holds 7 scripted + 30 filler = 37 cards.
     rig('10', '6', '10', '5', '2', '4', 'K');
@@ -212,9 +187,10 @@ describe('true count during dealer reveals (pendingReveals fix)', () => {
   });
 });
 
-describe('training autoplay drill', () => {
+describe('Full-coach autoplay drill', () => {
   it('plays a full hand with no chips, XP, or lifetime stats at stake', () => {
-    expect(session().startSession(1, 'training')).toBe(true);
+    useSettingsStore.getState().setCountCoachLevel('full');
+    expect(session().startSession(1)).toBe(true);
     rig('10', '10', '9', '8'); // bot stands on 19; dealer 18 → "win"
     expect(session().startAutoplay()).toBe(true);
 
@@ -232,8 +208,9 @@ describe('training autoplay drill', () => {
     expect(useModeStatsStore.getState().regular.handsPlayed).toBe(0);
   });
 
-  it('returns any staged wager before starting and refuses in Regular Mode', () => {
-    expect(session().startSession(1, 'training')).toBe(true);
+  it('returns any staged wager and refuses unless the coach is Full', () => {
+    useSettingsStore.getState().setCountCoachLevel('full');
+    expect(session().startSession(1)).toBe(true);
     expect(session().addChipToBet(100)).toBe(true);
     expect(useEconomyStore.getState().chips).toBe(400);
     expect(session().startAutoplay()).toBe(true);
@@ -242,13 +219,15 @@ describe('training autoplay drill', () => {
     session().stopAutoplay();
     jest.runAllTimers();
 
-    session().endSession();
-    expect(session().startSession(1, 'regular')).toBe(true);
-    expect(session().startAutoplay()).toBe(false);
+    for (const level of ['off', 'learn'] as const) {
+      useSettingsStore.getState().setCountCoachLevel(level);
+      expect(session().startAutoplay()).toBe(false);
+    }
   });
 
   it('blocks manual betting and dealing while the drill runs', () => {
-    expect(session().startSession(1, 'training')).toBe(true);
+    useSettingsStore.getState().setCountCoachLevel('full');
+    expect(session().startSession(1)).toBe(true);
     expect(session().startAutoplay()).toBe(true);
     expect(session().addChipToBet(25)).toBe(false);
     expect(session().deal()).toBe(false);
@@ -257,7 +236,8 @@ describe('training autoplay drill', () => {
   });
 
   it('ends the session without refunding drill hands', () => {
-    expect(session().startSession(1, 'training')).toBe(true);
+    useSettingsStore.getState().setCountCoachLevel('full');
+    expect(session().startSession(1)).toBe(true);
     rig('10', '10', '9', '8');
     expect(session().startAutoplay()).toBe(true);
     jest.advanceTimersByTime(700 + 3500); // mid-drill
@@ -265,5 +245,80 @@ describe('training autoplay drill', () => {
 
     session().endSession();
     expect(useEconomyStore.getState().chips).toBe(500); // no phantom refund
+  });
+});
+
+describe('Learn coach count checks', () => {
+  beforeEach(() => {
+    useSettingsStore.getState().setCountCoachLevel('learn');
+    expect(session().startSession(1)).toBe(true);
+  });
+
+  it('pops a count check after the first round with the true running count', () => {
+    playWinningRound();
+
+    const check = session().countCheck;
+    expect(check).not.toBeNull();
+    expect(check!.kind).toBe('running');
+    // 10, 10, 9, 8 → −1 −1 0 0 = −2.
+    expect(check!.correct).toBe(-2);
+    expect(check!.runningCount).toBe(-2);
+    expect(check!.choices).toHaveLength(4);
+    expect(check!.choices).toContain(-2);
+    expect(check!.selected).toBeNull();
+  });
+
+  it('correct answers pay 3 XP, build the streak, and stretch the cadence', () => {
+    playWinningRound();
+    const xpAfterRound = useProgressionStore.getState().xpIntoLevel; // hand XP
+    expect(session().answerCountCheck(session().countCheck!.correct)).toBe(true);
+    expect(session().countCheck!.wasCorrect).toBe(true);
+    expect(session().learnStreak).toBe(1);
+    expect(useProgressionStore.getState().xpIntoLevel).toBe(xpAfterRound + 3);
+    expect(useModeStatsStore.getState().learn).toEqual({
+      checksAsked: 1,
+      checksCorrect: 1,
+      bestStreak: 1,
+    });
+    session().dismissCountCheck();
+    expect(session().countCheck).toBeNull();
+
+    // Two more correct answers → streak 3 → the coach skips a round.
+    for (let i = 0; i < 2; i++) {
+      playWinningRound();
+      expect(session().countCheck).not.toBeNull();
+      session().answerCountCheck(session().countCheck!.correct);
+      session().dismissCountCheck();
+    }
+    expect(session().learnStreak).toBe(3);
+
+    playWinningRound();
+    expect(session().countCheck).toBeNull(); // skipped (interval is now 2)
+    playWinningRound();
+    expect(session().countCheck).not.toBeNull(); // due again
+  });
+
+  it('a wrong answer resets the streak and awards nothing', () => {
+    playWinningRound();
+    const xpAfterRound = useProgressionStore.getState().xpIntoLevel; // hand XP only
+    const check = session().countCheck!;
+    expect(session().answerCountCheck(check.correct + 1)).toBe(false);
+    expect(session().countCheck!.wasCorrect).toBe(false);
+    expect(session().learnStreak).toBe(0);
+    expect(useProgressionStore.getState().xpIntoLevel).toBe(xpAfterRound);
+    expect(useModeStatsStore.getState().learn.checksAsked).toBe(1);
+    expect(useModeStatsStore.getState().learn.checksCorrect).toBe(0);
+    // Double answers are ignored.
+    expect(session().answerCountCheck(check.correct)).toBe(false);
+  });
+
+  it('never checks when the coach is Off or Full, or during the drill', () => {
+    for (const level of ['off', 'full'] as const) {
+      resetStores();
+      useSettingsStore.getState().setCountCoachLevel(level);
+      expect(session().startSession(1)).toBe(true);
+      playWinningRound();
+      expect(session().countCheck).toBeNull();
+    }
   });
 });

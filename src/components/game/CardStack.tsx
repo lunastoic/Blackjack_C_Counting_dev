@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { CARD_BACK } from '../../assets/cards.generated';
-import { radii } from '../../theme';
+import { colors, fontWeights, radii } from '../../theme';
 import { CARD_ASPECT } from './PlayingCard';
 
 const X_JITTER = [0, 0.6, -0.6, 0.9, -0.9, 0.4, -0.4];
@@ -12,6 +12,8 @@ interface CardStackProps {
   readonly count: number;
   readonly totalCards: number;
   readonly cardWidth: number;
+  /** Yellow cut-card marker on the shoe when penetration is near / reached. */
+  readonly showCutCard?: boolean;
 }
 
 /** Visible stack depth for the discard pile — scales with cards discarded. */
@@ -38,7 +40,12 @@ function discardLayers(count: number): number {
  * Shoe (right) = one card back. Discard (left) = stacked backs that grow as
  * cards are collected after each round.
  */
-export function CardStack({ variant, count, cardWidth }: CardStackProps) {
+export function CardStack({
+  variant,
+  count,
+  cardWidth,
+  showCutCard = false,
+}: CardStackProps) {
   const layers = useMemo(() => {
     if (count <= 0) {
       return 0;
@@ -73,7 +80,9 @@ export function CardStack({ variant, count, cardWidth }: CardStackProps) {
         overflow: 'visible',
       }}
       accessibilityLabel={
-        variant === 'shoe' ? `Shoe, ${count} cards remaining` : `Discard pile, ${count} cards`
+        variant === 'shoe'
+          ? `Shoe, ${count} cards remaining${showCutCard ? ', cut card visible' : ''}`
+          : `Discard pile, ${count} cards`
       }
     >
       {Array.from({ length: layers }, (_, index) => (
@@ -93,6 +102,11 @@ export function CardStack({ variant, count, cardWidth }: CardStackProps) {
           resizeMode="cover"
         />
       ))}
+      {variant === 'shoe' && showCutCard ? (
+        <View style={[styles.cutCard, { width: cardWidth + 2, bottom: stackHeight * 0.35 }]}>
+          <Text style={styles.cutLabel}>CUT</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -103,5 +117,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(212, 175, 55, 0.35)',
     backgroundColor: 'rgba(0, 0, 0, 0.18)',
+  },
+  cutCard: {
+    position: 'absolute',
+    left: 3,
+    height: 10,
+    borderRadius: 2,
+    backgroundColor: colors.goldBright,
+    borderWidth: 1,
+    borderColor: colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+    transform: [{ rotate: '2deg' }],
+  },
+  cutLabel: {
+    color: colors.textOnGold,
+    fontSize: 7,
+    fontWeight: fontWeights.heavy,
+    letterSpacing: 0.5,
   },
 });

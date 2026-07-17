@@ -1,8 +1,13 @@
 import { create } from 'zustand';
 import { GameMode } from '../engine/blackjack/rules';
 import { DECK_COUNTS, DeckCount } from '../engine/shoe/shoe';
-import { DEFAULT_SETTINGS, TrainingAidSettings } from '../engine/types';
+import {
+  CountCoachLevel,
+  DEFAULT_SETTINGS,
+  TrainingAidSettings,
+} from '../engine/types';
 import { SaveData } from '../persistence/schema';
+import { isCountCoachLevel } from '../utils/countCoach';
 
 export const DEALER_SPEED_MIN = 0.5;
 export const DEALER_SPEED_MAX = 2.0;
@@ -14,6 +19,7 @@ interface SettingsState {
   readonly dealerSpeed: number;
   readonly deckCounts: Readonly<Record<GameMode, DeckCount>>;
   readonly trainingAids: TrainingAidSettings;
+  readonly countCoachLevel: CountCoachLevel;
   /** App-level reduced-motion override (combined with the OS preference). */
   readonly reducedMotion: boolean;
   setSoundEnabled(enabled: boolean): void;
@@ -23,6 +29,7 @@ interface SettingsState {
   /** Ignored unless the count is one of 1/2/4/6/8. */
   setDeckCount(mode: GameMode, count: number): void;
   setTrainingAid(aid: keyof TrainingAidSettings, enabled: boolean): void;
+  setCountCoachLevel(level: CountCoachLevel): void;
   setReducedMotion(enabled: boolean): void;
   hydrate(data: SaveData['settings']): void;
 }
@@ -44,6 +51,7 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
   dealerSpeed: DEFAULT_SETTINGS.dealerSpeed,
   deckCounts: { ...DEFAULT_SETTINGS.deckCounts },
   trainingAids: { ...DEFAULT_SETTINGS.trainingAids },
+  countCoachLevel: DEFAULT_SETTINGS.countCoachLevel,
   reducedMotion: DEFAULT_SETTINGS.reducedMotion,
 
   setSoundEnabled: (enabled) => set({ soundEnabled: enabled }),
@@ -55,6 +63,8 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
     ),
   setTrainingAid: (aid, enabled) =>
     set((state) => ({ trainingAids: { ...state.trainingAids, [aid]: enabled } })),
+  setCountCoachLevel: (level) =>
+    set((state) => (isCountCoachLevel(level) ? { countCoachLevel: level } : state)),
   setReducedMotion: (enabled) => set({ reducedMotion: enabled }),
 
   hydrate: (data) =>
@@ -64,6 +74,9 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
       dealerSpeed: clampDealerSpeed(data.dealerSpeed),
       deckCounts: { ...data.deckCounts },
       trainingAids: { ...data.trainingAids },
+      countCoachLevel: isCountCoachLevel(data.countCoachLevel)
+        ? data.countCoachLevel
+        : DEFAULT_SETTINGS.countCoachLevel,
       reducedMotion: data.reducedMotion,
     }),
 }));

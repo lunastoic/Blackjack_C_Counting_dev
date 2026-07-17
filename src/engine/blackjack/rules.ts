@@ -2,7 +2,7 @@ import { DealerHand, PlayerHand } from '../hand/hand';
 import { handValue, isValuePair } from '../hand/evaluate';
 import { DEALER_STAND_TOTAL } from './constants';
 
-export type GameMode = 'training' | 'regular' | 'quiz';
+export type GameMode = 'regular' | 'quiz';
 
 export type PlayerAction = 'hit' | 'stand' | 'double' | 'split';
 

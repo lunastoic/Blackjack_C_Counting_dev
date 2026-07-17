@@ -39,8 +39,8 @@ describe('settings store', () => {
   describe('deck counts', () => {
     it.each([1, 2, 4, 6, 8])('allows %i decks', (count) => {
       expect(isValidDeckCount(count)).toBe(true);
-      useSettingsStore.getState().setDeckCount('training', count);
-      expect(useSettingsStore.getState().deckCounts.training).toBe(count);
+      useSettingsStore.getState().setDeckCount('regular', count);
+      expect(useSettingsStore.getState().deckCounts.regular).toBe(count);
     });
 
     it.each([0, 3, 5, 7, 9, -1, 2.5])('rejects %d decks', (count) => {
@@ -49,12 +49,11 @@ describe('settings store', () => {
       expect(useSettingsStore.getState().deckCounts.regular).toBe(6);
     });
 
-    it('tracks training and regular counts independently', () => {
-      useSettingsStore.getState().setDeckCount('training', 1);
+    it('tracks table and quiz counts independently', () => {
       useSettingsStore.getState().setDeckCount('regular', 8);
-      expect(useSettingsStore.getState().deckCounts.training).toBe(1);
+      useSettingsStore.getState().setDeckCount('quiz', 1);
       expect(useSettingsStore.getState().deckCounts.regular).toBe(8);
-      expect(useSettingsStore.getState().deckCounts.quiz).toBe(6);
+      expect(useSettingsStore.getState().deckCounts.quiz).toBe(1);
     });
   });
 
@@ -83,5 +82,10 @@ describe('settings store', () => {
       dealerSpeed: 0.75,
     });
     expect(useSettingsStore.getState().dealerSpeed).toBe(0.75);
+  });
+
+  it('persists the Count Coach level', () => {
+    useSettingsStore.getState().setCountCoachLevel('learn');
+    expect(useSettingsStore.getState().countCoachLevel).toBe('learn');
   });
 });

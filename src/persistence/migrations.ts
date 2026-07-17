@@ -50,9 +50,59 @@ function migrateV2toV3(data: unknown): unknown {
   };
 }
 
+/** v3 → v4: Regular Mode Count Coach level (default Off). */
+function migrateV3toV4(data: unknown): unknown {
+  const save = (data ?? {}) as Record<string, unknown>;
+  const settings = (save.settings ?? {}) as Record<string, unknown>;
+  return {
+    ...save,
+    settings: {
+      ...settings,
+      countCoachLevel: 'off',
+    },
+  };
+}
+
+/**
+ * v4 → v5: Training Mode merged into Regular Mode.
+ * - deckCounts drops the training key (regular becomes the one table setting).
+ * - Count Coach collapses to off / learn / full: light and guided both map to
+ *   the new Learn level; off and full carry over.
+ * - Adds zeroed Learn count-check stats.
+ */
+function migrateV4toV5(data: unknown): unknown {
+  const save = (data ?? {}) as Record<string, unknown>;
+  const settings = (save.settings ?? {}) as Record<string, unknown>;
+  const deckCounts = (settings.deckCounts ?? {}) as Record<string, unknown>;
+  const coach = settings.countCoachLevel;
+  const modeStats = (save.modeStats ?? {}) as Record<string, unknown>;
+  return {
+    ...save,
+    settings: {
+      ...settings,
+      deckCounts: {
+        regular: deckCounts.regular ?? 6,
+        quiz: deckCounts.quiz ?? 6,
+      },
+      countCoachLevel:
+        coach === 'light' || coach === 'guided'
+          ? 'learn'
+          : coach === 'full'
+            ? 'full'
+            : 'off',
+    },
+    modeStats: {
+      ...modeStats,
+      learn: { checksAsked: 0, checksCorrect: 0, bestStreak: 0 },
+    },
+  };
+}
+
 export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
+  3: migrateV3toV4,
+  4: migrateV4toV5,
 };
 
 export class MigrationError extends Error {

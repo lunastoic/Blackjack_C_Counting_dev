@@ -1,12 +1,12 @@
 import { create } from 'zustand';
 import { HandResult } from '../engine/blackjack/resolve';
-import { QuizStats, RegularStats, SaveData } from '../persistence/schema';
+import { LearnStats, QuizStats, RegularStats, SaveData } from '../persistence/schema';
 
 /**
- * Persisted per-mode statistics (save schema v2). Regular Mode hands are
- * recorded by the game session store at settlement; Quiz Mode answers are
- * recorded by the quiz session store. Training Mode intentionally records
- * nothing here — it feeds the lifetime/achievement stats only.
+ * Persisted per-mode statistics (save schema v2, Learn checks in v5). Table
+ * hands are recorded by the game session store at settlement; Quiz answers by
+ * the quiz session store; Learn count-check answers by the game session store
+ * when the Count Coach is set to Learn.
  */
 
 const INITIAL_REGULAR: RegularStats = {
@@ -26,18 +26,27 @@ const INITIAL_QUIZ: QuizStats = {
   chipsEarned: 0,
 };
 
+const INITIAL_LEARN: LearnStats = {
+  checksAsked: 0,
+  checksCorrect: 0,
+  bestStreak: 0,
+};
+
 interface ModeStatsState {
   readonly regular: RegularStats;
   readonly quiz: QuizStats;
+  readonly learn: LearnStats;
   recordRegularHand(result: HandResult, profit: number): void;
   recordQuizAnswer(correct: boolean, streakAfter: number): void;
   recordQuizCycleReward(chips: number): void;
+  recordLearnCheck(correct: boolean, streakAfter: number): void;
   hydrate(data: SaveData['modeStats']): void;
 }
 
 export const useModeStatsStore = create<ModeStatsState>()((set) => ({
   regular: INITIAL_REGULAR,
   quiz: INITIAL_QUIZ,
+  learn: INITIAL_LEARN,
 
   recordRegularHand: (result, profit) =>
     set((state) => ({
@@ -71,5 +80,15 @@ export const useModeStatsStore = create<ModeStatsState>()((set) => ({
       },
     })),
 
-  hydrate: (data) => set({ regular: { ...data.regular }, quiz: { ...data.quiz } }),
+  recordLearnCheck: (correct, streakAfter) =>
+    set((state) => ({
+      learn: {
+        checksAsked: state.learn.checksAsked + 1,
+        checksCorrect: correct ? state.learn.checksCorrect + 1 : state.learn.checksCorrect,
+        bestStreak: Math.max(state.learn.bestStreak, streakAfter),
+      },
+    })),
+
+  hydrate: (data) =>
+    set({ regular: { ...data.regular }, quiz: { ...data.quiz }, learn: { ...data.learn } }),
 }));

@@ -27,7 +27,7 @@ describe('save schema and defaults', () => {
   it('default settings match the spec defaults', () => {
     const save = createDefaultSave();
     expect(save.settings.dealerSpeed).toBe(1.0);
-    expect(save.settings.deckCounts).toEqual({ training: 6, regular: 6, quiz: 6 });
+    expect(save.settings.deckCounts).toEqual({ regular: 6, quiz: 6 });
     expect(save.settings.trainingAids.cardUnderglow).toBe(true);
     expect(save.settings.trainingAids.countPulse).toBe(false);
   });

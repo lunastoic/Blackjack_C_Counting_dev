@@ -21,7 +21,12 @@ import {
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { Divider } from '../common/Divider';
 import { PressableScale } from '../common/PressableScale';
-import { DealerSpeedStepper, DeckCountRow, ToggleRow } from '../settings/SettingsRows';
+import {
+  CountCoachRow,
+  DealerSpeedStepper,
+  DeckCountRow,
+  ToggleRow,
+} from '../settings/SettingsRows';
 
 const TAB_SIZE = layout.touchTarget;
 const MENU_WIDTH = 320;
@@ -38,7 +43,6 @@ export function GameSettingsSheet({
   const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
   const settings = useSettingsStore();
-  const mode = useGameSessionStore((state) => state.mode);
   const applyDeckCountChange = useGameSessionStore((state) => state.applyDeckCountChange);
 
   function goTo(href: Href) {
@@ -46,9 +50,9 @@ export function GameSettingsSheet({
     router.push(href);
   }
 
-  function handleDeckCount(nextMode: typeof mode, count: number) {
-    settings.setDeckCount(nextMode, count);
-    applyDeckCountChange(nextMode);
+  function handleDeckCount(_mode: 'regular' | 'quiz', count: number) {
+    settings.setDeckCount('regular', count);
+    applyDeckCountChange();
   }
 
   return (
@@ -124,18 +128,24 @@ export function GameSettingsSheet({
               />
               <Divider />
               <DeckCountRow
-                label={mode === 'training' ? 'Training Mode decks' : 'Regular Mode decks'}
-                mode={mode}
-                selected={settings.deckCounts[mode]}
+                label="Table decks"
+                mode="regular"
+                selected={settings.deckCounts.regular}
                 onSelect={handleDeckCount}
               />
               <Text style={styles.note}>
                 Changing decks mid-shoe reshuffles immediately between hands and resets the
-                count. Mid-hand changes apply after this round.
+                count. Mid-hand changes apply after this round. All shoes use 88% penetration.
               </Text>
-              {mode === 'training' ? (
+              <Divider />
+              <CountCoachRow
+                selected={settings.countCoachLevel}
+                onSelect={settings.setCountCoachLevel}
+              />
+              {settings.countCoachLevel === 'full' ? (
                 <>
                   <Divider />
+                  <Text style={styles.sectionLabel}>Full coach tools</Text>
                   <ToggleRow
                     label="Card underglow"
                     value={settings.trainingAids.cardUnderglow}
@@ -273,6 +283,14 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: fontSizes.caption,
     marginBottom: spacing.sm,
+  },
+  sectionLabel: {
+    color: colors.goldBright,
+    fontSize: fontSizes.caption,
+    fontWeight: fontWeights.bold,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    paddingTop: spacing.xs,
   },
   links: {
     flexDirection: 'row',

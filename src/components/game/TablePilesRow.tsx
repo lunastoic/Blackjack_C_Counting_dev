@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { RoundState } from '../../engine/blackjack/round';
 import { RoundPhase } from '../../engine/state-machine/phases';
-import { Shoe } from '../../engine/shoe/shoe';
+import { isShufflePending, Shoe, shuffleThreshold } from '../../engine/shoe/shoe';
 import { colors, fontWeights, layout, spacing } from '../../theme';
 import { visibleDiscardCount, visibleShoeCount } from '../../utils/cardPiles';
 import { CARD_ASPECT } from './PlayingCard';
@@ -33,6 +33,8 @@ interface TablePilesRowProps {
   readonly pendingReveals: number;
   /** Leave room for the thin count meter bar on the left (training). */
   readonly insetForCountRail?: boolean;
+  /** Show cut-card marker on the shoe (Regular Mode / Coach shoe progress). */
+  readonly showCutCardMarker?: boolean;
 }
 
 function PileColumn({
@@ -69,11 +71,16 @@ export function TablePilesRow({
   initialDealStep,
   pendingReveals,
   insetForCountRail = false,
+  showCutCardMarker = false,
 }: TablePilesRowProps) {
   const totalCards = shoe?.cards.length ?? 0;
   const shoeCount = visibleShoeCount(shoe, phase, initialDealStep, pendingReveals);
   const discardCount = visibleDiscardCount(shoe, round, phase, pendingReveals);
   const ceremonyActive = phase === 'shuffling';
+  const nearCut =
+    showCutCardMarker &&
+    shoe != null &&
+    (isShufflePending(shoe) || shoeCount <= shuffleThreshold(shoe.deckCount) * 2);
 
   return (
     <View
@@ -116,6 +123,7 @@ export function TablePilesRow({
             count={ceremonyActive ? 0 : shoeCount}
             totalCards={totalCards}
             cardWidth={SHOE_CARD_WIDTH}
+            showCutCard={!ceremonyActive && nearCut}
           />
         </PileColumn>
       </View>

@@ -183,7 +183,7 @@ function CoverflowCard({
 /**
  * The globe overlay: a 3D coverflow of all six casinos floating over the live
  * table with a dimmed backdrop. Swipe or tap a side card to centre it;
- * the centre card offers Training / Regular / Quiz (or unlocking).
+ * the centre card offers Play / Quiz (or unlocking).
  */
 export function MapCoverflow({ visible, currentMapId, onClose, onSelect }: MapCoverflowProps) {
   const { width } = useWindowDimensions();
@@ -291,19 +291,11 @@ export function MapCoverflow({ visible, currentMapId, onClose, onSelect }: MapCo
               <View style={styles.modeRow}>
                 <PressableScale
                   style={styles.modeButton}
-                  accessibilityLabel={`Play ${activeMap.name} in Training Mode`}
-                  onPress={() => onSelect(activeMap.id, 'training')}
-                >
-                  <Text style={styles.modeButtonText}>Training</Text>
-                  <Text style={styles.modeButtonHint}>count meter + hints</Text>
-                </PressableScale>
-                <PressableScale
-                  style={styles.modeButton}
-                  accessibilityLabel={`Play ${activeMap.name} in Regular Mode`}
+                  accessibilityLabel={`Play blackjack at ${activeMap.name}`}
                   onPress={() => onSelect(activeMap.id, 'regular')}
                 >
-                  <Text style={styles.modeButtonText}>Regular</Text>
-                  <Text style={styles.modeButtonHint}>no aids</Text>
+                  <Text style={styles.modeButtonText}>Play</Text>
+                  <Text style={styles.modeButtonHint}>blackjack + count coach</Text>
                 </PressableScale>
                 <PressableScale
                   style={styles.modeButton}
@@ -311,7 +303,7 @@ export function MapCoverflow({ visible, currentMapId, onClose, onSelect }: MapCo
                   onPress={() => onSelect(activeMap.id, 'quiz')}
                 >
                   <Text style={styles.modeButtonText}>Quiz</Text>
-                  <Text style={styles.modeButtonHint}>count drills</Text>
+                  <Text style={styles.modeButtonHint}>speed count sprints</Text>
                 </PressableScale>
               </View>
             ) : (
@@ -470,7 +462,7 @@ const styles = StyleSheet.create({
   },
   modeButton: {
     flex: 1,
-    maxWidth: 120,
+    maxWidth: 160,
     alignItems: 'center',
     gap: 2,
     paddingVertical: spacing.sm,

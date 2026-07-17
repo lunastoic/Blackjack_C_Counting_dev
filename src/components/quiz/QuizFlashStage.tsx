@@ -19,6 +19,17 @@ interface QuizFlashStageProps {
   readonly totalSteps: number;
 }
 
+const FLASH_ENTERING = new Keyframe({
+  0: {
+    opacity: 0,
+    transform: [{ translateX: 90 }, { translateY: -60 }, { rotate: '10deg' }, { scale: 0.85 }],
+  },
+  100: {
+    opacity: 1,
+    transform: [{ translateX: 0 }, { translateY: 0 }, { rotate: '0deg' }, { scale: 1 }],
+  },
+}).duration(220);
+
 /**
  * Cinematic flash area. Cards slide in from the deck with a small rotation,
  * face-down decoys carry a "DECOY — IGNORE" banner, and pairs fan slightly.
@@ -48,6 +59,8 @@ export function QuizFlashStage({ step, stepIndex, totalSteps }: QuizFlashStagePr
     opacity: 0.12 + pulse.value * 0.08,
   }));
 
+  const entering = reducedMotion ? undefined : FLASH_ENTERING;
+
   if (!step) {
     return null;
   }
@@ -55,19 +68,6 @@ export function QuizFlashStage({ step, stepIndex, totalSteps }: QuizFlashStagePr
   const pair = step.length > 1;
   const flashCardWidth = pair ? Math.min(width * 0.3, 120) : Math.min(width * 0.38, 150);
   const decoy = step.some((item) => item.faceDown);
-
-  const entering = reducedMotion
-    ? undefined
-    : new Keyframe({
-        0: {
-          opacity: 0,
-          transform: [{ translateX: 90 }, { translateY: -60 }, { rotate: '10deg' }, { scale: 0.85 }],
-        },
-        100: {
-          opacity: 1,
-          transform: [{ translateX: 0 }, { translateY: 0 }, { rotate: '0deg' }, { scale: 1 }],
-        },
-      }).duration(220);
 
   return (
     <View style={styles.stage}>

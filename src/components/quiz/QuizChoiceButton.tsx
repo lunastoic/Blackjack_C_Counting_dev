@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text } from 'react-native';
-import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { PressableScale } from '../common/PressableScale';
 import { colors, fontSizes, fontWeights, radii, shadows, spacing } from '../../theme';
 
@@ -30,9 +30,14 @@ export function QuizChoiceButton({
   const isCorrect = state === 'correct';
   const isWrong = state === 'wrong';
 
+  const entering = useMemo(
+    () => FadeIn.duration(200).delay(Math.abs(value) * 30),
+    [value],
+  );
+
   return (
     <Animated.View
-      entering={FadeIn.duration(200).delay(Math.abs(value) * 30)}
+      entering={entering}
       style={[
         styles.wrapper,
         isCorrect && styles.correctWrapper,

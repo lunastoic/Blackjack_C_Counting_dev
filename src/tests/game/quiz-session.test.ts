@@ -1,4 +1,4 @@
-import { hiLoValue } from '../../engine/cards/card';
+import { Card, hiLoValue } from '../../engine/cards/card';
 import { createDefaultSave } from '../../persistence/defaults';
 import { useEconomyStore } from '../../stores/economyStore';
 import { useModeStatsStore } from '../../stores/modeStatsStore';
@@ -6,16 +6,18 @@ import { useProgressionStore } from '../../stores/progressionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import {
   buildChoices,
-  QUIZ_MAX_CARDS,
-  QUIZ_MIN_CARDS,
-  QUIZ_STREAK_REWARD_CHIPS,
+  buildFlashCards,
+  buildFlashSteps,
+  QUIZ_GRAND_PRIZE_CHIPS,
   QUIZ_STREAK_TARGET,
+  quizCorrectAnswer,
+  quizDifficultyForStreak,
   useQuizSessionStore,
 } from '../../stores/quizSessionStore';
 
 /**
- * Quiz Mode: flash-card flow, scoring, streak circles, XP, the 9-in-a-row
- * chip reward, and persisted quiz statistics.
+ * Quiz Mode (count sprint): fast flash flow, streak-driven difficulty,
+ * face-down decoys, scoring, the 9-circle grand prize, and persisted stats.
  */
 
 function quiz() {
@@ -30,7 +32,7 @@ function resetStores(): void {
   useModeStatsStore.getState().hydrate(defaults.modeStats);
   useSettingsStore.getState().hydrate({
     ...defaults.settings,
-    deckCounts: { training: 1, regular: 6, quiz: 1 },
+    deckCounts: { regular: 6, quiz: 1 },
   });
 }
 
@@ -38,7 +40,8 @@ function resetStores(): void {
 function flashThrough(): void {
   expect(quiz().startQuestion()).toBe(true);
   expect(quiz().phase).toBe('flashing');
-  jest.advanceTimersByTime(QUIZ_MAX_CARDS * 800 + 100);
+  // Worst case: 12 steps at the slowest 750ms pace.
+  jest.advanceTimersByTime(12 * 800 + 100);
   expect(quiz().phase).toBe('question');
 }
 
@@ -64,21 +67,23 @@ describe('session and question flow', () => {
     expect(quiz().startSession(99)).toBe(false);
   });
 
-  it('flashes 3–7 cards one at a time, then asks the question', () => {
+  it('flashes the streak-0 load (7 cards, no decoys), then asks the question', () => {
     expect(quiz().startSession(1)).toBe(true);
     expect(quiz().startQuestion()).toBe(true);
 
     const state = quiz();
     expect(state.phase).toBe('flashing');
-    expect(state.cards.length).toBeGreaterThanOrEqual(QUIZ_MIN_CARDS);
-    expect(state.cards.length).toBeLessThanOrEqual(QUIZ_MAX_CARDS);
-    expect(state.flashIndex).toBe(0);
+    expect(state.flashCards).toHaveLength(7);
+    expect(state.flashCards.every((item) => !item.faceDown)).toBe(true);
+    expect(state.steps.flat()).toHaveLength(7);
+    expect(state.stepIndex).toBe(0);
+    expect(state.flashMs).toBe(750);
 
-    // Each card holds for ~800ms at 1.0× speed.
-    jest.advanceTimersByTime(800);
-    expect(quiz().flashIndex === 1 || quiz().phase === 'question').toBe(true);
+    // Each step holds for ~750ms at 1.0× speed.
+    jest.advanceTimersByTime(750);
+    expect(quiz().stepIndex === 1 || quiz().phase === 'question').toBe(true);
 
-    jest.advanceTimersByTime(QUIZ_MAX_CARDS * 800);
+    jest.advanceTimersByTime(12 * 800);
     expect(quiz().phase).toBe('question');
     expect(quiz().choices).toHaveLength(4);
     expect(quiz().choices).toContain(quiz().correctAnswer);
@@ -87,7 +92,10 @@ describe('session and question flow', () => {
   it('computes the correct Hi-Lo answer for the flashed cards', () => {
     expect(quiz().startSession(1)).toBe(true);
     flashThrough();
-    const expected = quiz().cards.reduce((sum, card) => sum + hiLoValue(card.rank), 0);
+    const expected = quiz().flashCards.reduce(
+      (sum, item) => (item.faceDown ? sum : sum + hiLoValue(item.card.rank)),
+      0,
+    );
     expect(quiz().correctAnswer).toBe(expected);
   });
 
@@ -101,8 +109,66 @@ describe('session and question flow', () => {
   });
 });
 
+describe('difficulty ramp', () => {
+  it('scales cards, speed, and decoys with the streak', () => {
+    const easy = quizDifficultyForStreak(0);
+    expect(easy).toEqual({ cardCount: 7, decoyCount: 0, flashMs: 750, pairFlash: false });
+
+    const mid = quizDifficultyForStreak(4);
+    expect(mid.cardCount).toBe(8);
+    expect(mid.decoyCount).toBe(1);
+    expect(mid.flashMs).toBeLessThan(easy.flashMs);
+
+    const top = quizDifficultyForStreak(8);
+    expect(top).toEqual({ cardCount: 10, decoyCount: 2, flashMs: 390, pairFlash: true });
+
+    // Clamped outside the 9-circle range.
+    expect(quizDifficultyForStreak(-1)).toEqual(easy);
+    expect(quizDifficultyForStreak(99)).toEqual(top);
+  });
+
+  it('mixes in decoys once the streak reaches 3', () => {
+    expect(quiz().startSession(1)).toBe(true);
+    for (let i = 0; i < 3; i++) {
+      answerCorrectly();
+    }
+    expect(quiz().streak).toBe(3);
+    flashThrough();
+    expect(quiz().flashCards.filter((item) => item.faceDown)).toHaveLength(1);
+    expect(quiz().flashCards).toHaveLength(9); // 8 counting cards + 1 decoy
+  });
+
+  it('face-down decoys never move the correct answer', () => {
+    const cards = [
+      { rank: '5', suit: 'hearts', id: 'a', visibility: 'faceUp' },
+      { rank: 'K', suit: 'spades', id: 'b', visibility: 'faceUp' },
+      { rank: '9', suit: 'clubs', id: 'c', visibility: 'faceUp' },
+    ] as unknown as Card[];
+    // Force the decoy onto the king (index 1) via a rigged random sequence.
+    const flashCards = buildFlashCards(cards, 1, () => 1 / 3 + 0.01);
+    expect(flashCards[1].faceDown).toBe(true);
+    expect(quizCorrectAnswer(flashCards)).toBe(hiLoValue('5' as Card['rank'])); // +1, king ignored
+  });
+
+  it('pairs neighbors when pair flashing is on', () => {
+    const cards = Array.from({ length: 6 }, (_, i) => ({
+      rank: '5',
+      suit: 'hearts',
+      id: `c${i}`,
+      visibility: 'faceUp',
+    })) as unknown as Card[];
+    const flashCards = buildFlashCards(cards, 0);
+    const paired = buildFlashSteps(flashCards, true, () => 0); // always pair
+    expect(paired.every((step) => step.length === 2)).toBe(true);
+    expect(paired.flat()).toHaveLength(6);
+
+    const solo = buildFlashSteps(flashCards, false, () => 0);
+    expect(solo.every((step) => step.length === 1)).toBe(true);
+  });
+});
+
 describe('scoring, streaks, and XP', () => {
-  it('pays 3 XP and fills a streak circle on a correct answer', () => {
+  it('pays 3 XP and fills a golden circle on a correct answer', () => {
     expect(quiz().startSession(1)).toBe(true);
     answerCorrectly();
 
@@ -113,7 +179,7 @@ describe('scoring, streaks, and XP', () => {
     expect(useModeStatsStore.getState().quiz.questionsCorrect).toBe(1);
   });
 
-  it('resets the streak (but not stats) on a wrong answer', () => {
+  it('resets the circles (but not stats) on a wrong answer', () => {
     expect(quiz().startSession(1)).toBe(true);
     answerCorrectly();
     expect(quiz().streak).toBe(1);
@@ -131,7 +197,7 @@ describe('scoring, streaks, and XP', () => {
     expect(stats.bestStreak).toBe(1); // best streak survives the miss
   });
 
-  it('awards the 250-chip reward after 9 in a row, then restarts the circles', () => {
+  it('awards the grand prize after 9 in a row, then restarts the circles', () => {
     expect(quiz().startSession(1)).toBe(true);
     for (let i = 0; i < QUIZ_STREAK_TARGET; i++) {
       answerCorrectly();
@@ -140,26 +206,26 @@ describe('scoring, streaks, and XP', () => {
     expect(quiz().startQuestion()).toBe(false); // must claim first
 
     const before = useEconomyStore.getState().chips;
-    expect(quiz().claimStreakReward()).toBe(true);
-    expect(useEconomyStore.getState().chips).toBe(before + QUIZ_STREAK_REWARD_CHIPS);
+    expect(quiz().claimGrandPrize()).toBe(true);
+    expect(useEconomyStore.getState().chips).toBe(before + QUIZ_GRAND_PRIZE_CHIPS);
     expect(quiz().streak).toBe(0);
     expect(quiz().rewardReady).toBe(false);
-    expect(quiz().claimStreakReward()).toBe(false); // no double claims
+    expect(quiz().claimGrandPrize()).toBe(false); // no double claims
 
     const stats = useModeStatsStore.getState().quiz;
     expect(stats.cyclesCompleted).toBe(1);
-    expect(stats.chipsEarned).toBe(QUIZ_STREAK_REWARD_CHIPS);
+    expect(stats.chipsEarned).toBe(QUIZ_GRAND_PRIZE_CHIPS);
     expect(stats.bestStreak).toBe(QUIZ_STREAK_TARGET);
   });
 
   it('reshuffles the shoe silently instead of running out of cards', () => {
     expect(quiz().startSession(1)).toBe(true);
-    // 52-card shoe / up to 7 cards per question: 12 questions guarantee at
-    // least one internal reshuffle without ever failing to start.
+    // 52-card shoe / up to 12 cards per question: 12 questions guarantee
+    // several internal reshuffles without ever failing to start.
     for (let i = 0; i < 12; i++) {
       answerCorrectly();
       if (quiz().rewardReady) {
-        quiz().claimStreakReward();
+        quiz().claimGrandPrize();
       }
     }
     expect(useModeStatsStore.getState().quiz.questionsAnswered).toBe(12);
@@ -185,7 +251,8 @@ describe('session cleanup', () => {
 
     const state = quiz();
     expect(state.sessionActive).toBe(false);
-    expect(state.cards).toHaveLength(0);
+    expect(state.flashCards).toHaveLength(0);
+    expect(state.steps).toHaveLength(0);
     expect(state.phase).toBe('idle');
     // Persisted stats survive the session.
     expect(useModeStatsStore.getState().quiz.questionsAnswered).toBe(1);

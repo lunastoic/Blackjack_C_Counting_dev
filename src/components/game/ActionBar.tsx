@@ -28,15 +28,16 @@ const ACTIONS: readonly { action: PlayerAction; image: number; label: string }[]
 ];
 
 /**
- * Hit / Stand / Double / Split using the migrated button art. In Training Mode
- * with strategy hints on, the recommended action pulses with a yellow glow.
+ * Hit / Stand / Double / Split using the migrated button art. With the Count
+ * Coach on Full and strategy hints on, the recommended action pulses with a
+ * yellow glow.
  */
 export function ActionBar() {
   const round = useGameSessionStore((state) => state.round);
   const phase = useGameSessionStore((state) => state.phase);
   const canAct = useGameSessionStore((state) => state.canAct);
   const act = useGameSessionStore((state) => state.act);
-  const mode = useGameSessionStore((state) => state.mode);
+  const coachLevel = useSettingsStore((state) => state.countCoachLevel);
   const hintsEnabled = useSettingsStore((state) => state.trainingAids.strategyHints);
 
   const hand = round ? activeHand(round) : null;
@@ -44,7 +45,7 @@ export function ActionBar() {
 
   let recommended: PlayerAction | null = null;
   if (
-    mode === 'training' &&
+    coachLevel === 'full' &&
     hintsEnabled &&
     phase === 'playerTurn' &&
     hand &&

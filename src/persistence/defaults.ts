@@ -39,6 +39,7 @@ export function createDefaultSave(): SaveData {
       dealerSpeed: DEFAULT_SETTINGS.dealerSpeed,
       deckCounts: { ...DEFAULT_SETTINGS.deckCounts },
       trainingAids: { ...DEFAULT_SETTINGS.trainingAids },
+      countCoachLevel: DEFAULT_SETTINGS.countCoachLevel,
       reducedMotion: DEFAULT_SETTINGS.reducedMotion,
     },
     achievements: {
@@ -55,6 +56,7 @@ export function createDefaultSave(): SaveData {
         cyclesCompleted: 0,
         chipsEarned: 0,
       },
+      learn: { checksAsked: 0, checksCorrect: 0, bestStreak: 0 },
     },
   };
 }

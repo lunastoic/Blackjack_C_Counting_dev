@@ -21,6 +21,7 @@ const ZERO_MODE_STATS = {
     cyclesCompleted: 0,
     chipsEarned: 0,
   },
+  learn: { checksAsked: 0, checksCorrect: 0, bestStreak: 0 },
 };
 
 /** A realistic v1 payload: today's defaults minus the v2 field. */
@@ -54,10 +55,12 @@ describe('v2 → v3 migration', () => {
 });
 
 describe('v1 → v2 migration', () => {
-  it('is registered and the current version is 3', () => {
-    expect(SAVE_SCHEMA_VERSION).toBe(3);
+  it('is registered and the current version is 5', () => {
+    expect(SAVE_SCHEMA_VERSION).toBe(5);
     expect(MIGRATIONS[1]).toBeDefined();
     expect(MIGRATIONS[2]).toBeDefined();
+    expect(MIGRATIONS[3]).toBeDefined();
+    expect(MIGRATIONS[4]).toBeDefined();
   });
 
   it('adds zeroed mode stats while preserving every v1 field', () => {
@@ -68,8 +71,13 @@ describe('v1 → v2 migration', () => {
     expect(parsed.modeStats).toEqual(ZERO_MODE_STATS);
     expect(parsed.economy).toEqual(original.economy);
     expect(parsed.progression).toEqual(original.progression);
-    expect(parsed.settings).toEqual(original.settings);
-    expect(parsed.achievements).toEqual(original.achievements);
+    expect(parsed.settings.countCoachLevel).toBe('off');
+    expect(parsed.settings.soundEnabled).toEqual(
+      (original.settings as { soundEnabled: boolean }).soundEnabled,
+    );
+    expect(parsed.achievements.unlockedIds).toEqual(
+      (original.achievements as { unlockedIds: string[] }).unlockedIds,
+    );
   });
 
   it('loads a stored v1 envelope end-to-end without falling back to defaults', async () => {
@@ -94,6 +102,8 @@ describe('mode stats persistence round-trip', () => {
     store.recordRegularHand('loss', -50);
     store.recordQuizAnswer(true, 1);
     store.recordQuizCycleReward(250);
+    store.recordLearnCheck(true, 1);
+    store.recordLearnCheck(false, 0);
 
     const save = collectSaveFromStores();
     expect(save.modeStats.regular).toEqual({
@@ -110,6 +120,11 @@ describe('mode stats persistence round-trip', () => {
       bestStreak: 1,
       cyclesCompleted: 1,
       chipsEarned: 250,
+    });
+    expect(save.modeStats.learn).toEqual({
+      checksAsked: 2,
+      checksCorrect: 1,
+      bestStreak: 1,
     });
     // The whole payload must still validate against the schema.
     expect(() => saveDataSchema.parse(save)).not.toThrow();

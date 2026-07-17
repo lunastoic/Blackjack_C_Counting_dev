@@ -59,6 +59,7 @@ export function collectSaveFromStores(): SaveData {
       dealerSpeed: settings.dealerSpeed,
       deckCounts: { ...settings.deckCounts },
       trainingAids: { ...settings.trainingAids },
+      countCoachLevel: settings.countCoachLevel,
       reducedMotion: settings.reducedMotion,
     },
     achievements: {
@@ -74,6 +75,7 @@ export function collectSaveFromStores(): SaveData {
     modeStats: {
       regular: { ...useModeStatsStore.getState().regular },
       quiz: { ...useModeStatsStore.getState().quiz },
+      learn: { ...useModeStatsStore.getState().learn },
     },
   };
 }

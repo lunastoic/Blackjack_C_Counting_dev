@@ -38,25 +38,34 @@ export default function HowToPlayScreen() {
           </Text>
         </SectionCard>
 
-        <SectionCard title="Training Mode">
+        <SectionCard title="The Count Coach">
           <Text style={styles.body}>
-            Every card shows its Hi-Lo value with a color glow, the running count is displayed, and
-            basic-strategy hints show the mathematically best move. Use it to build the habit
-            before hiding the aids.
+            One table, one dial. Open the ≡ menu at the table and pick how much help you want:
+          </Text>
+          <Text style={styles.body}>
+            <Text style={styles.bodyStrong}>Full</Text> — every aid is live: card values glow,
+            the running and true counts are on screen, strategy hints show the best move, and an
+            autoplay drill deals hands so you can practice counting hands-free.
+          </Text>
+          <Text style={styles.body}>
+            <Text style={styles.bodyStrong}>Learn</Text> — play a clean casino game while the
+            coach counts silently alongside you. Every round or so it asks &quot;What&apos;s the
+            count?&quot; with four choices. Miss and it checks more often; stay hot and it backs
+            off, then starts asking for the true count. This is where counting becomes second
+            nature.
+          </Text>
+          <Text style={styles.body}>
+            <Text style={styles.bodyStrong}>Off</Text> — pure casino play. Keep the count in your
+            head, size your bets with it, and grow your bankroll to unlock new casinos.
           </Text>
         </SectionCard>
 
-        <SectionCard title="Regular Mode">
+        <SectionCard title="Quiz Mode — the count sprint">
           <Text style={styles.body}>
-            A clean casino game with no visible aids. Keep the count in your head, size your bets
-            with the count, and grow your bankroll to unlock new casinos.
-          </Text>
-        </SectionCard>
-
-        <SectionCard title="Quiz Mode">
-          <Text style={styles.body}>
-            Cards flash one at a time and the app quizzes you on the running count. It arrives in a
-            later update.
+            Cards flash fast and you pick the running count from four choices. Every correct
+            answer fills one of nine golden circles — and makes the next flash faster, adds cards,
+            sneaks in face-down decoys (backs count for nothing!), and eventually deals cards in
+            pairs. One miss clears the circles; fill all nine for a 1,000-chip grand prize.
           </Text>
         </SectionCard>
 
@@ -102,6 +111,10 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: fontSizes.small,
     lineHeight: 21,
+  },
+  bodyStrong: {
+    color: colors.textPrimary,
+    fontWeight: fontWeights.bold,
   },
   valueRow: {
     flexDirection: 'row',

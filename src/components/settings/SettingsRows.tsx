@@ -3,9 +3,11 @@ import { LayoutChangeEvent, StyleSheet, Switch, Text, View } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import { GameMode } from '../../engine/blackjack/rules';
+import { COUNT_COACH_LEVELS, CountCoachLevel } from '../../engine/types';
 import { DECK_COUNTS } from '../../engine/shoe/shoe';
 import { clampDealerSpeed } from '../../stores/settingsStore';
 import { colors, fontSizes, fontWeights, layout, radii, spacing } from '../../theme';
+import { COUNT_COACH_BLURBS, COUNT_COACH_LABELS } from '../../utils/countCoach';
 import { IconButton } from '../common/IconButton';
 import { PressableScale } from '../common/PressableScale';
 
@@ -182,6 +184,40 @@ export function DeckCountRow({
   );
 }
 
+/** Count Coach: Off / Learn / Full. */
+export function CountCoachRow({
+  selected,
+  onSelect,
+}: {
+  selected: CountCoachLevel;
+  onSelect: (level: CountCoachLevel) => void;
+}) {
+  return (
+    <View style={styles.deckRow}>
+      <Text style={styles.toggleLabel}>Count Coach</Text>
+      <View style={styles.deckOptions}>
+        {COUNT_COACH_LEVELS.map((level) => {
+          const active = selected === level;
+          return (
+            <PressableScale
+              key={level}
+              onPress={() => onSelect(level)}
+              accessibilityLabel={`Count Coach: ${COUNT_COACH_LABELS[level]}`}
+              accessibilityState={{ selected: active }}
+              style={[styles.deckOption, active && styles.deckOptionActive]}
+            >
+              <Text style={[styles.coachOptionText, active && styles.deckOptionTextActive]}>
+                {COUNT_COACH_LABELS[level]}
+              </Text>
+            </PressableScale>
+          );
+        })}
+      </View>
+      <Text style={styles.coachBlurb}>{COUNT_COACH_BLURBS[selected]}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   toggleRow: {
     minHeight: layout.touchTarget,
@@ -282,5 +318,15 @@ const styles = StyleSheet.create({
   },
   deckOptionTextActive: {
     color: colors.textPrimary,
+  },
+  coachOptionText: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.caption,
+    fontWeight: fontWeights.semibold,
+  },
+  coachBlurb: {
+    color: colors.textMuted,
+    fontSize: fontSizes.caption,
+    lineHeight: fontSizes.caption + 4,
   },
 });

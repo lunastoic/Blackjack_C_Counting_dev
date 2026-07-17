@@ -28,7 +28,7 @@ function resetStores(chips = 500): void {
     ...defaults.settings,
     // Rigged one-deck shoes must match the settings deck count, or the store
     // would legitimately re-shuffle after every round.
-    deckCounts: { training: 1, regular: 6, quiz: 6 },
+    deckCounts: { regular: 1, quiz: 6 },
   });
 }
 
@@ -43,7 +43,7 @@ function session() {
 }
 
 function startTraining(): void {
-  expect(session().startSession(1, 'training')).toBe(true);
+  expect(session().startSession(1)).toBe(true);
 }
 
 /** Advances past the paced opening deal (4 cards + settle). */

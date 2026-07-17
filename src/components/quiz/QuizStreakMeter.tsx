@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
+  SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -8,11 +9,32 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
-import { colors, fontSizes, fontWeights, radii, spacing } from '../../theme';
+import { colors, fontSizes, fontWeights, spacing } from '../../theme';
 
 interface QuizStreakMeterProps {
   readonly streak: number;
   readonly target: number;
+}
+
+interface MeterDotProps {
+  readonly filled: boolean;
+  readonly isNext: boolean;
+  readonly pulse: SharedValue<number>;
+}
+
+function MeterDot({ filled, isNext, pulse }: MeterDotProps) {
+  const animatedStyle = useAnimatedStyle(
+    () => ({
+      transform: [{ scale: isNext ? pulse.value : 1 }],
+    }),
+    [isNext, pulse],
+  );
+
+  return (
+    <View style={styles.dotWrap}>
+      <Animated.View style={[styles.dot, filled && styles.dotFilled, animatedStyle]} />
+    </View>
+  );
 }
 
 /**
@@ -44,17 +66,7 @@ export function QuizStreakMeter({ streak, target }: QuizStreakMeterProps) {
         {Array.from({ length: target }, (_, i) => {
           const filled = i < streak;
           const isNext = i === streak && streak < target;
-          return (
-            <View key={i} style={styles.dotWrap}>
-              <Animated.View
-                style={[
-                  styles.dot,
-                  filled && styles.dotFilled,
-                  isNext && { transform: [{ scale: pulse }] },
-                ]}
-              />
-            </View>
-          );
+          return <MeterDot key={i} filled={filled} isNext={isNext} pulse={pulse} />;
         })}
       </View>
       <Text style={styles.label}>

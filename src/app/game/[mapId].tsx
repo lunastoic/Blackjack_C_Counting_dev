@@ -7,6 +7,7 @@ import { SecondaryButton } from '../../components/common/SecondaryButton';
 import { ActionBar } from '../../components/game/ActionBar';
 import { BetSpot } from '../../components/game/BetSpot';
 import { BettingPanel } from '../../components/game/BettingPanel';
+import { CountCheckPrompt } from '../../components/game/CountCheckPrompt';
 import { CountPulse } from '../../components/game/CountPulse';
 import { CountRail } from '../../components/game/CountRail';
 import { CountStatsBar } from '../../components/game/CountBar';
@@ -26,7 +27,6 @@ import { TableCamera } from '../../components/game/TableCamera';
 import { TablePilesRow } from '../../components/game/TablePilesRow';
 import { SpeedSlider } from '../../components/settings/SettingsRows';
 import { HandResult } from '../../engine/blackjack/resolve';
-import { GameMode } from '../../engine/blackjack/rules';
 import { mapById } from '../../engine/betting/casino';
 import { playSound } from '../../services/audio';
 import { initialDealVisibleCounts } from '../../utils/dealSequence';
@@ -38,6 +38,7 @@ import {
   useSettingsStore,
 } from '../../stores/settingsStore';
 import { colors, fontSizes, fontWeights, layout, radii, spacing } from '../../theme';
+import { COUNT_COACH_LABELS, countCoachCapabilities } from '../../utils/countCoach';
 
 const RESULT_BADGE: Record<HandResult, { text: string; color: string }> = {
   blackjack: { text: 'BLACKJACK', color: colors.goldBright },
@@ -47,17 +48,18 @@ const RESULT_BADGE: Record<HandResult, { text: string; color: string }> = {
 };
 
 /**
- * Blackjack table for every casino: Training Mode (aids on, training card
- * skin) or Regular Mode (aids and counts hidden) chosen by the `mode` param.
+ * Blackjack table for every casino. There is one table mode; the Count Coach
+ * dial (Off / Learn / Full, in the ≡ dropdown) decides how much counting help
+ * is live — Full is the old Training Mode kit, Learn quizzes the player on
+ * the count between rounds.
  */
 export default function GameScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { mapId, mode: modeParam } = useLocalSearchParams<{ mapId: string; mode?: string }>();
+  const { mapId } = useLocalSearchParams<{ mapId: string }>();
   const parsed = Number(mapId);
   const map = Number.isInteger(parsed) ? mapById(parsed) : undefined;
-  const requestedMode: GameMode = modeParam === 'regular' ? 'regular' : 'training';
 
   const startSession = useGameSessionStore((state) => state.startSession);
   const endSession = useGameSessionStore((state) => state.endSession);
@@ -72,10 +74,12 @@ export default function GameScreen() {
   const wager = useGameSessionStore((state) => state.wager);
   const dealVisible =
     phase === 'dealing' ? initialDealVisibleCounts(initialDealStep) : null;
-  const mode = useGameSessionStore((state) => state.mode);
   const underglowEnabled = useSettingsStore((state) => state.trainingAids.cardUnderglow);
   const chartsEnabled = useSettingsStore((state) => state.trainingAids.distributionCharts);
+  const pulseEnabled = useSettingsStore((state) => state.trainingAids.countPulse);
   const dealerSpeed = useSettingsStore((state) => state.dealerSpeed);
+  const countCoachLevel = useSettingsStore((state) => state.countCoachLevel);
+  const coach = countCoachCapabilities(countCoachLevel);
 
   const autoplay = useGameSessionStore((state) => state.autoplay);
   const isAutoplayRound = useGameSessionStore((state) => state.isAutoplayRound);
@@ -98,20 +102,16 @@ export default function GameScreen() {
 
   useEffect(() => {
     if (map) {
-      startSession(map.id, requestedMode);
+      startSession(map.id);
     }
     return () => {
       endSession();
     };
-  }, [map, requestedMode, startSession, endSession]);
+  }, [map, startSession, endSession]);
 
   if (!map) {
     // Bad or stale link — land the player at the default table instead of a dead end.
-    return (
-      <Redirect
-        href={{ pathname: '/game/[mapId]', params: { mapId: '1', mode: 'training' } }}
-      />
-    );
+    return <Redirect href={{ pathname: '/game/[mapId]', params: { mapId: '1' } }} />;
   }
   if (!sessionActive) {
     return <View style={styles.root} />;
@@ -123,22 +123,21 @@ export default function GameScreen() {
       router.push({ pathname: '/quiz/[mapId]', params: { mapId: String(mapId) } });
       return;
     }
-    if (mapId === map!.id && selectedMode === mode) {
-      return; // already at this table in this mode
+    if (mapId === map!.id) {
+      return; // already at this table
     }
-    router.replace({
-      pathname: '/game/[mapId]',
-      params: { mapId: String(mapId), mode: selectedMode },
-    });
+    router.replace({ pathname: '/game/[mapId]', params: { mapId: String(mapId) } });
   }
 
-  const underglow = mode === 'training' && underglowEnabled;
+  const underglow = coach.showCardValueGlow && underglowEnabled;
+  const cardSkin = coach.useTrainingSkin ? 'training' : 'regular';
   const isSplit = (round?.playerHands.length ?? 0) > 1;
   /** Match dealer card size; only shrink further when a split needs two hands. */
   const dealerCardWidth = Math.min((width - 80) / 5.2, 76);
   const playerCardWidth = isSplit
     ? Math.min((width - 120) / 6, dealerCardWidth)
     : dealerCardWidth;
+  const modeLabel = `Count Coach · ${COUNT_COACH_LABELS[countCoachLevel]}`;
 
   const statusText =
     phase === 'dealing'
@@ -165,14 +164,14 @@ export default function GameScreen() {
 
       <GameTableHud
         mapName={map.name}
-        modeLabel={mode === 'training' ? 'Training' : 'Regular'}
+        modeLabel={modeLabel}
         onOpenMaps={() => setMapsOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
         menuOpen={settingsOpen}
       />
 
       <TableCamera seated={cameraSeated}>
-        {mode === 'training' ? (
+        {coach.showLiveCounts ? (
           <>
             <CountRail />
             <View style={styles.countSection}>
@@ -184,6 +183,7 @@ export default function GameScreen() {
                 initialDealStep={initialDealStep}
                 pendingReveals={pendingReveals}
                 insetForCountRail
+                showCutCardMarker={coach.showShoeProgress}
               />
               <ShuffleCeremony active={phase === 'shuffling'} />
             </View>
@@ -197,6 +197,7 @@ export default function GameScreen() {
               phase={phase}
               initialDealStep={initialDealStep}
               pendingReveals={pendingReveals}
+              showCutCardMarker={coach.showShoeProgress}
             />
             <ShuffleCeremony active={phase === 'shuffling'} />
           </View>
@@ -206,7 +207,7 @@ export default function GameScreen() {
           <DealerArea
             round={round}
             dealerCardWidth={dealerCardWidth}
-            skin={mode === 'training' ? 'training' : 'regular'}
+            skin={cardSkin}
             underglow={underglow}
             speed={dealerSpeed}
             maxVisibleCards={dealVisible?.dealer}
@@ -234,7 +235,7 @@ export default function GameScreen() {
                     ) : null}
                     <HandView
                       hand={hand}
-                      skin={mode === 'training' ? 'training' : 'regular'}
+                      skin={cardSkin}
                       cardWidth={playerCardWidth}
                       underglow={underglow}
                       speed={dealerSpeed}
@@ -298,7 +299,7 @@ export default function GameScreen() {
             {phase === 'betting' ? (
               <View style={styles.actionSection}>
                 <BettingPanel />
-                {mode === 'training' ? (
+                {coach.allowFullTools ? (
                   <Text style={styles.aidLink} onPress={startAutoplay}>
                     Start autoplay drill (no chips at stake)
                   </Text>
@@ -308,12 +309,12 @@ export default function GameScreen() {
               <View style={styles.actionSection}>
                 <ActionBar />
                 <View style={styles.aidButtons}>
-                  {mode === 'training' ? (
+                  {coach.allowFullTools ? (
                     <Text style={styles.aidLink} onPress={() => setStrategyOpen(true)}>
                       Strategy chart
                     </Text>
                   ) : null}
-                  {mode === 'training' && chartsEnabled ? (
+                  {coach.allowFullTools && chartsEnabled ? (
                     <Text style={styles.aidLink} onPress={() => setChartsOpen(true)}>
                       Card charts
                     </Text>
@@ -328,7 +329,8 @@ export default function GameScreen() {
       </View>
 
       <PayoutBanner />
-      {mode === 'training' ? <CountPulse /> : null}
+      {coach.allowFullTools && pulseEnabled ? <CountPulse /> : null}
+      {coach.showCountCheck ? <CountCheckPrompt /> : null}
       <GameToasts />
       <GameSettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <StrategyChartModal visible={strategyOpen} onClose={() => setStrategyOpen(false)} />

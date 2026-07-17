@@ -75,13 +75,13 @@ describe('app hydration', () => {
     await initializeApp();
     useEconomyStore.getState().creditChips(1500);
     useProfileStore.getState().setDisplayName('HiLo Hero');
-    useSettingsStore.getState().setDeckCount('training', 2);
+    useSettingsStore.getState().setDeckCount('regular', 2);
     await flushSaveNow();
 
     const stored = await loadSave();
     expect(stored.save.economy.chips).toBe(2000);
     expect(stored.save.profile.displayName).toBe('HiLo Hero');
-    expect(stored.save.settings.deckCounts.training).toBe(2);
+    expect(stored.save.settings.deckCounts.regular).toBe(2);
   });
 
   it('writes a valid versioned envelope on fresh install', async () => {
