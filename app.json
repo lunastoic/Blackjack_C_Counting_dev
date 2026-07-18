@@ -36,7 +36,9 @@
           "image": "./assets/branding/app-icon.png",
           "imageWidth": 120
         }
-      ]
+      ],
+      "expo-image",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true,
