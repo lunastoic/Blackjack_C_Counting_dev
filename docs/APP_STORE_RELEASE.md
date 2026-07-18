@@ -19,7 +19,7 @@ Status legend: [ ] = you do it, [x] = already done in the repo.
 
 ## Repo config (done)
 
-- [x] `ios.bundleIdentifier`: `com.lunastoic.blackjackcardcounter`
+- [x] `ios.bundleIdentifier`: `com.lunastoic.lunaluxeblackjack`
 - [x] `ios.buildNumber` / `android.versionCode` set
 - [x] `ITSAppUsesNonExemptEncryption: false` (skips the export-compliance
       question on every upload; correct because the app uses no custom crypto)
@@ -34,7 +34,7 @@ Status legend: [ ] = you do it, [x] = already done in the repo.
      banking + tax info. Without this you cannot charge $2.99. Can take a few
      days to clear — do this first.
    - Create the app record: platform iOS, bundle ID
-     `com.lunastoic.blackjackcardcounter` (register it under Identifiers if
+     `com.lunastoic.lunaluxeblackjack` (register it under Identifiers if
      prompted), pick the public name (e.g. "Blackjack Card Counter — Trainer";
      exact names may be taken, variants are fine).
    - Pricing: choose the $2.99 tier, select territories.

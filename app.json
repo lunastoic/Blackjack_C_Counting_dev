@@ -10,14 +10,14 @@
     "backgroundColor": "#120607",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.lunastoic.blackjackcardcounter",
+      "bundleIdentifier": "com.lunastoic.lunaluxeblackjack",
       "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "package": "com.lunastoic.blackjackcardcounter",
+      "package": "com.lunastoic.lunaluxeblackjack",
       "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#120607",
