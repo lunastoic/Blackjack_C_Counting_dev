@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { FEATURES } from '../../constants/features';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { playSound } from '../../services/audio';
 import { haptics } from '../../services/haptics';
@@ -23,6 +24,7 @@ export function CountCheckPrompt() {
   const phase = useGameSessionStore((state) => state.phase);
   const check = useGameSessionStore((state) => state.countCheck);
   const learnStreak = useGameSessionStore((state) => state.learnStreak);
+  const revealTier = useGameSessionStore((state) => state.revealTier);
   const answerCountCheck = useGameSessionStore((state) => state.answerCountCheck);
   const dismissCountCheck = useGameSessionStore((state) => state.dismissCountCheck);
 
@@ -96,6 +98,15 @@ export function CountCheckPrompt() {
             {!check.wasCorrect ? (
               <Text style={styles.reminder}>{HI_LO_REMINDER}</Text>
             ) : null}
+            <Text style={styles.revealNote}>
+              {check.shuffledAfter
+                ? 'Fresh shoe — the meter fogs until you prove the new count.'
+                : check.wasCorrect
+                  ? revealTier >= 2
+                    ? 'True count unlocked — both numbers are live on the table.'
+                    : 'Running count revealed on the meter — prove the true count next.'
+                  : 'The meter fogs a tier — win it back on the next check.'}
+            </Text>
             {check.shuffledAfter ? (
               <Text style={styles.shuffleNote}>Shoe shuffled — the next count starts at 0.</Text>
             ) : null}
@@ -104,9 +115,13 @@ export function CountCheckPrompt() {
         )}
 
         <Text style={styles.streakLine}>
-          {learnStreak > 0
-            ? `Check streak: ${learnStreak} — the coach backs off while you're hot`
-            : 'The coach checks every round until you find your rhythm'}
+          {FEATURES.autoCountChecks
+            ? learnStreak > 0
+              ? `Check streak: ${learnStreak} — the coach backs off while you're hot`
+              : 'The coach checks every round until you find your rhythm'
+            : learnStreak > 0
+              ? `Check streak: ${learnStreak}`
+              : 'Tap the meter between hands whenever you want to prove your count'}
         </Text>
       </Animated.View>
     </Animated.View>
@@ -198,6 +213,12 @@ const styles = StyleSheet.create({
   },
   shuffleNote: {
     color: colors.success,
+    fontSize: fontSizes.caption,
+    fontWeight: fontWeights.semibold,
+    textAlign: 'center',
+  },
+  revealNote: {
+    color: colors.goldBright,
     fontSize: fontSizes.caption,
     fontWeight: fontWeights.semibold,
     textAlign: 'center',

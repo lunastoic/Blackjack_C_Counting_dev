@@ -36,6 +36,13 @@ export interface GameSettings {
   readonly trainingAids: TrainingAidSettings;
   /** Counting assistance at the table (default full = every aid on). */
   readonly countCoachLevel: CountCoachLevel;
+  /**
+   * The table-side Training Mode switch (default on). On = live counts, the
+   * count rail, card underglow and strategy hints; off = casino-real play with
+   * the fogged "?" counts. The individual `trainingAids` toggles refine what
+   * "on" shows.
+   */
+  readonly trainingMode: boolean;
   /** Collapses gameplay animation for accessibility. */
   readonly reducedMotion: boolean;
 }
@@ -52,6 +59,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
     distributionCharts: false,
   },
   countCoachLevel: 'full',
+  trainingMode: true,
   reducedMotion: false,
 };
 

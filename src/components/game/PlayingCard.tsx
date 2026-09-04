@@ -26,6 +26,8 @@ interface PlayingCardProps {
   readonly enterDelay?: number;
   /** Multiplier from the dealer-speed setting (higher = faster). */
   readonly speed?: number;
+  /** False = colored border only, no radiating shadow (for overlapped cards). */
+  readonly glowHalo?: boolean;
 }
 
 function glowColor(card: Card): string {
@@ -51,6 +53,7 @@ export function PlayingCard({
   underglow,
   enterDelay = 0,
   speed = 1,
+  glowHalo = true,
 }: PlayingCardProps) {
   const reducedMotion = useReducedMotion();
   const faceUp = isFaceUp(card);
@@ -133,14 +136,15 @@ export function PlayingCard({
       style={[
         styles.container,
         { width, height },
-        showGlow && {
-          borderColor: glow,
-          shadowColor: glow,
-          shadowOpacity: 0.9,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: 0 },
-          elevation: 8,
-        },
+        showGlow && { borderColor: glow },
+        showGlow &&
+          glowHalo && {
+            shadowColor: glow,
+            shadowOpacity: 0.9,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 0 },
+            elevation: 8,
+          },
       ]}
     >
       <Animated.View style={[styles.face, backStyle]}>

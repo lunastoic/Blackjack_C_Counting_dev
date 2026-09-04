@@ -20,6 +20,9 @@ interface GameTableHudProps {
   readonly onOpenSettings: () => void;
   /** When true, the ≡ control reads as the open dropdown tab. */
   readonly menuOpen?: boolean;
+  /** Left control glyph — globe for casinos, map for the level ladder. */
+  readonly leftIcon?: React.ComponentProps<typeof Ionicons>['name'];
+  readonly leftAccessibilityLabel?: string;
 }
 
 /** In-table header: globe + chips (left), map title (center), menu tab + XP (right). */
@@ -29,6 +32,8 @@ export function GameTableHud({
   onOpenMaps,
   onOpenSettings,
   menuOpen = false,
+  leftIcon = 'globe-outline',
+  leftAccessibilityLabel = 'Switch casino or mode',
 }: GameTableHudProps) {
   const router = useRouter();
   const chips = useEconomyStore((state) => state.chips);
@@ -51,11 +56,11 @@ export function GameTableHud({
       <View style={styles.topRow}>
         <View style={[styles.sideSlot, styles.sideSlotLeft]}>
           <PressableScale
-            accessibilityLabel="Switch casino or mode"
+            accessibilityLabel={leftAccessibilityLabel}
             onPress={onOpenMaps}
             style={styles.globeButton}
           >
-            <Ionicons name="globe-outline" size={22} color={colors.goldBright} />
+            <Ionicons name={leftIcon} size={22} color={colors.goldBright} />
           </PressableScale>
         </View>
 

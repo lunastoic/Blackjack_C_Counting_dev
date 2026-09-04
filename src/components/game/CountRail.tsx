@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect } from 'react';
-import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -133,11 +133,53 @@ function VerticalCountMeter({
   );
 }
 
+interface CountRailProps {
+  /** Fog of war (Learn coach): the meter tracks the count but shows "?". */
+  readonly masked?: boolean;
+  /** Tapping the fogged meter challenges the player to reveal it. */
+  readonly onPressMasked?: () => void;
+}
+
 /** Vertical running-count meter, centered along the left edge of the table. */
-export function CountRail() {
+export function CountRail({ masked = false, onPressMasked }: CountRailProps) {
   const runningCount = useGameSessionStore((state) => state.runningCount);
   const { height: windowHeight } = useWindowDimensions();
   const railHeight = Math.min(MAX_RAIL_HEIGHT, Math.max(MIN_RAIL_HEIGHT, windowHeight * 0.36));
+
+  if (masked) {
+    return (
+      <View style={styles.rail}>
+        <Pressable
+          onPress={onPressMasked}
+          accessibilityLabel="Count meter hidden — tap to prove your count and reveal it"
+          accessibilityRole="button"
+          style={[styles.meterTrack, { height: railHeight }]}
+        >
+          <LinearGradient
+            colors={[colors.trainingPlus, '#E0B94D', colors.trainingMinus]}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={[styles.meterGradient, styles.meterGradientMasked]}
+          />
+          <View style={styles.centerTick} pointerEvents="none" />
+          <Text style={[styles.poleLabel, styles.poleTop]}>+{METER_RANGE}</Text>
+          <Text style={[styles.poleLabel, styles.poleBottom]}>−{METER_RANGE}</Text>
+
+          <View
+            style={[
+              styles.indicatorRow,
+              { top: railHeight / 2 - INDICATOR_HEIGHT / 2 },
+            ]}
+          >
+            <View style={[styles.tickBar, styles.tickBarMasked]} />
+            <View style={[styles.valueTag, styles.valueTagMasked]}>
+              <Text style={[styles.valueText, styles.valueTextMasked]}>?</Text>
+            </View>
+          </View>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.rail} pointerEvents="none">
@@ -168,6 +210,19 @@ const styles = StyleSheet.create({
     bottom: 0,
     borderRadius: radii.pill,
     opacity: 0.92,
+  },
+  meterGradientMasked: {
+    opacity: 0.25,
+  },
+  tickBarMasked: {
+    backgroundColor: colors.gold,
+    shadowColor: colors.gold,
+  },
+  valueTagMasked: {
+    borderColor: colors.borderGold,
+  },
+  valueTextMasked: {
+    color: colors.gold,
   },
   centerTick: {
     position: 'absolute',

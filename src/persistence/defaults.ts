@@ -32,6 +32,7 @@ export function createDefaultSave(): SaveData {
       level: INITIAL_PROGRESS.level,
       xpIntoLevel: INITIAL_PROGRESS.xpIntoLevel,
       unlockedMapIds: [1],
+      licenses: {},
     },
     settings: {
       soundEnabled: DEFAULT_SETTINGS.soundEnabled,
@@ -40,6 +41,7 @@ export function createDefaultSave(): SaveData {
       deckCounts: { ...DEFAULT_SETTINGS.deckCounts },
       trainingAids: { ...DEFAULT_SETTINGS.trainingAids },
       countCoachLevel: DEFAULT_SETTINGS.countCoachLevel,
+      trainingMode: DEFAULT_SETTINGS.trainingMode,
       reducedMotion: DEFAULT_SETTINGS.reducedMotion,
     },
     achievements: {
@@ -47,6 +49,21 @@ export function createDefaultSave(): SaveData {
       unlockedIds: [],
     },
     mapAchievements: createEmptyMapAchievements(),
+    campaign: {
+      lessonsDone: [],
+      nightsDone: [],
+    },
+    dojo: {
+      completedLessons: [],
+      totalDojoXp: 0,
+      drillBests: { values: undefined, running: undefined, speed: undefined },
+      dailyStreak: 0,
+      lastPracticeAt: null,
+      tableObjectivesCompleted: [],
+      onboardingDone: false,
+      flashLevels: {},
+      flashCountTipSeen: false,
+    },
     modeStats: {
       regular: { handsPlayed: 0, wins: 0, pushes: 0, losses: 0, blackjacks: 0, netChips: 0 },
       quiz: {

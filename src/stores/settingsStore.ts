@@ -20,6 +20,8 @@ interface SettingsState {
   readonly deckCounts: Readonly<Record<GameMode, DeckCount>>;
   readonly trainingAids: TrainingAidSettings;
   readonly countCoachLevel: CountCoachLevel;
+  /** Table-side Training Mode switch: live counts, rail, underglow, hints. */
+  readonly trainingMode: boolean;
   /** App-level reduced-motion override (combined with the OS preference). */
   readonly reducedMotion: boolean;
   setSoundEnabled(enabled: boolean): void;
@@ -30,6 +32,7 @@ interface SettingsState {
   setDeckCount(mode: GameMode, count: number): void;
   setTrainingAid(aid: keyof TrainingAidSettings, enabled: boolean): void;
   setCountCoachLevel(level: CountCoachLevel): void;
+  setTrainingMode(enabled: boolean): void;
   setReducedMotion(enabled: boolean): void;
   hydrate(data: SaveData['settings']): void;
 }
@@ -52,6 +55,7 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
   deckCounts: { ...DEFAULT_SETTINGS.deckCounts },
   trainingAids: { ...DEFAULT_SETTINGS.trainingAids },
   countCoachLevel: DEFAULT_SETTINGS.countCoachLevel,
+  trainingMode: DEFAULT_SETTINGS.trainingMode,
   reducedMotion: DEFAULT_SETTINGS.reducedMotion,
 
   setSoundEnabled: (enabled) => set({ soundEnabled: enabled }),
@@ -65,6 +69,7 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
     set((state) => ({ trainingAids: { ...state.trainingAids, [aid]: enabled } })),
   setCountCoachLevel: (level) =>
     set((state) => (isCountCoachLevel(level) ? { countCoachLevel: level } : state)),
+  setTrainingMode: (enabled) => set({ trainingMode: enabled }),
   setReducedMotion: (enabled) => set({ reducedMotion: enabled }),
 
   hydrate: (data) =>
@@ -77,6 +82,7 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
       countCoachLevel: isCountCoachLevel(data.countCoachLevel)
         ? data.countCoachLevel
         : DEFAULT_SETTINGS.countCoachLevel,
+      trainingMode: data.trainingMode,
       reducedMotion: data.reducedMotion,
     }),
 }));

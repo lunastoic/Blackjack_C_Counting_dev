@@ -13,6 +13,12 @@ interface DealerAreaProps {
   readonly speed: number;
   readonly maxVisibleCards?: number;
   readonly areaLabel: string;
+  /** Copy shown while no hand is on the felt. */
+  readonly emptyLabel?: string;
+  /** Print each face-up card's Hi-Lo value beneath it. */
+  readonly valueTags?: boolean;
+  /** Side-by-side with a small gap instead of the overlapping fan. */
+  readonly spacedCards?: boolean;
 }
 
 /** Centered dealer hand below the piles / stats row. */
@@ -24,6 +30,9 @@ export function DealerArea({
   speed,
   maxVisibleCards,
   areaLabel,
+  emptyLabel = 'Place your bet',
+  valueTags = false,
+  spacedCards = false,
 }: DealerAreaProps) {
   return (
     <View style={styles.area}>
@@ -37,10 +46,12 @@ export function DealerArea({
           hideDownCardsFromTotal
           speed={speed}
           maxVisibleCards={maxVisibleCards}
+          valueTags={valueTags}
+          spacedCards={spacedCards}
         />
       ) : (
         <View style={styles.emptyHand}>
-          <Text style={styles.emptyHandText}>Place your bet</Text>
+          <Text style={styles.emptyHandText}>{emptyLabel}</Text>
         </View>
       )}
     </View>

@@ -6,7 +6,7 @@ import { z } from 'zod';
  * (GameSettings, LifetimeStats, PlayerProgress) rather than duplicating logic.
  */
 
-export const SAVE_SCHEMA_VERSION = 5;
+export const SAVE_SCHEMA_VERSION = 12;
 
 export const MAX_DISPLAY_NAME_LENGTH = 20;
 export const DEFAULT_DISPLAY_NAME = 'Player';
@@ -33,10 +33,15 @@ export const economySchema = z.object({
   adRewardClaimedAt: z.number().int().nullable(),
 });
 
+/** Table licenses earned in the Count Sprint, added in schema v6. */
+export const tableLicenseSchema = z.union([z.literal('permit'), z.literal('licensed')]);
+
 export const progressionSchema = z.object({
   level: z.number().int().min(1).max(25),
   xpIntoLevel: z.number().int().min(0).max(29),
   unlockedMapIds: z.array(z.number().int().min(1).max(6)).min(1),
+  /** mapId (as string) → earned license; absent key = table still closed. */
+  licenses: z.record(z.string(), tableLicenseSchema),
 });
 
 const countCoachLevelSchema = z.union([
@@ -60,6 +65,7 @@ export const settingsSchema = z.object({
     distributionCharts: z.boolean(),
   }),
   countCoachLevel: countCoachLevelSchema,
+  trainingMode: z.boolean(),
   reducedMotion: z.boolean(),
 });
 
@@ -136,6 +142,55 @@ export const modeStatsSchema = z.object({
   learn: learnStatsSchema,
 });
 
+/**
+ * Campaign progress added in schema v7. Only lesson and table-night
+ * completion live here — drill and boss completion are the table licenses
+ * (permit / licensed) already stored in progression.
+ */
+export const campaignSchema = z.object({
+  lessonsDone: z.array(z.number().int().min(1).max(6)),
+  nightsDone: z.array(z.number().int().min(1).max(6)),
+});
+
+const lessonIdSchema = z.union([
+  z.literal('hi-lo-values'),
+  z.literal('running-count'),
+  z.literal('hole-card-rule'),
+  z.literal('true-count'),
+  z.literal('count-and-play'),
+  z.literal('betting-by-count'),
+]);
+
+const drillTypeSchema = z.union([
+  z.literal('values'),
+  z.literal('running'),
+  z.literal('speed'),
+]);
+
+export const dojoSchema = z.object({
+  completedLessons: z.array(lessonIdSchema),
+  totalDojoXp: z.number().int().min(0),
+  drillBests: z.record(
+    drillTypeSchema,
+    z
+      .object({
+        correct: z.number().int().min(0),
+        totalAnswered: z.number().int().min(0),
+        accuracy: z.number().min(0).max(1),
+        xp: z.number().int().min(0),
+      })
+      .optional(),
+  ),
+  dailyStreak: z.number().int().min(0),
+  lastPracticeAt: z.number().int().nullable(),
+  tableObjectivesCompleted: z.array(z.string()),
+  onboardingDone: z.boolean(),
+  /** Count Flash ladder (schema v9): "mapId:level" → stars (1–3) once cleared. */
+  flashLevels: z.record(z.string(), z.number().int().min(1).max(3)),
+  /** One-time "the count carries over" tip after the first correct answer (v10). */
+  flashCountTipSeen: z.boolean(),
+});
+
 export const saveDataSchema = z.object({
   profile: profileSchema,
   economy: economySchema,
@@ -144,6 +199,8 @@ export const saveDataSchema = z.object({
   achievements: achievementsSchema,
   mapAchievements: mapAchievementsSchema,
   modeStats: modeStatsSchema,
+  campaign: campaignSchema,
+  dojo: dojoSchema,
 });
 
 /** Loose envelope: version + payload. The payload is validated after migration. */
@@ -158,3 +215,4 @@ export type SaveEnvelope = z.infer<typeof saveEnvelopeSchema>;
 export type RegularStats = z.infer<typeof regularStatsSchema>;
 export type QuizStats = z.infer<typeof quizStatsSchema>;
 export type LearnStats = z.infer<typeof learnStatsSchema>;
+export type DojoSave = z.infer<typeof dojoSchema>;

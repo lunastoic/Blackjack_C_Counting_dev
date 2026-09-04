@@ -1,3 +1,4 @@
+import { FEATURES } from '../constants/features';
 import { CountCoachLevel } from '../engine/types';
 
 /**
@@ -20,6 +21,8 @@ export interface CountCoachCapabilities {
   readonly useTrainingSkin: boolean;
   /** Post-round multiple-choice count checks (Learn). */
   readonly showCountCheck: boolean;
+  /** Fogged count meter: "?" until a check is answered correctly (Learn). */
+  readonly showMaskedCounts: boolean;
   /** Strategy chart/hints, distribution charts, count pulse, autoplay drill (Full). */
   readonly allowFullTools: boolean;
   /** Cut-card marker + shoe progress on the piles (all levels). */
@@ -34,7 +37,7 @@ export const COUNT_COACH_LABELS: Record<CountCoachLevel, string> = {
 
 export const COUNT_COACH_BLURBS: Record<CountCoachLevel, string> = {
   off: 'Pure casino play — counts stay hidden. Just you and the shoe.',
-  learn: 'Play normal blackjack while the coach quizzes you on the count after rounds. Miss and it checks in more often; nail it and it backs off.',
+  learn: 'The count meter rides along fogged ("?"). Tap it or pass the post-round checks to reveal the numbers — a miss fogs them again, a shuffle resets everything.',
   full: 'Every tool live: running / true count, Hi-Lo card values, glows, strategy hints, and the autoplay counting drill.',
 };
 
@@ -46,6 +49,7 @@ export function countCoachCapabilities(level: CountCoachLevel): CountCoachCapabi
     showCardValueGlow: full,
     useTrainingSkin: full,
     showCountCheck: level === 'learn',
+    showMaskedCounts: level === 'learn',
     allowFullTools: full,
     showShoeProgress: true,
   };
@@ -53,6 +57,22 @@ export function countCoachCapabilities(level: CountCoachLevel): CountCoachCapabi
 
 export function isCountCoachLevel(value: unknown): value is CountCoachLevel {
   return value === 'off' || value === 'learn' || value === 'full';
+}
+
+/**
+ * The level the table actually runs. With the coach dial disabled
+ * (FEATURES.countCoachDial), the stored dial setting is ignored and the
+ * table-side Training Mode switch picks between Full (on: live counts, rail,
+ * glows, hints) and Learn (off: the fogged meter with tap-to-reveal).
+ */
+export function effectiveCountCoachLevel(
+  selected: CountCoachLevel,
+  trainingMode = true,
+): CountCoachLevel {
+  if (FEATURES.countCoachDial) {
+    return selected;
+  }
+  return trainingMode ? 'full' : 'learn';
 }
 
 // ---------------------------------------------------------------------------

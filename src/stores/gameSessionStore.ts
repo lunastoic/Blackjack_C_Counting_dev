@@ -1,10 +1,11 @@
 import { create } from 'zustand';
 import { GameplayEvent } from '../engine/achievements/events';
-import { CasinoMap, mapById } from '../engine/betting/casino';
+import { CasinoMap, mapById, maxBetForLicense } from '../engine/betting/casino';
 import { isValidBet } from '../engine/betting/bets';
 import { ACTION_COOLDOWN_MS } from '../engine/blackjack/constants';
 import { canDouble, canSplit, PlayerAction } from '../engine/blackjack/rules';
 import {
+  activeHand as engineActiveHand,
   applyPlayerAction,
   IllegalActionError,
   playDealerTurn,
@@ -12,17 +13,15 @@ import {
   RoundState,
   startRound,
 } from '../engine/blackjack/round';
-import { activeHand as engineActiveHand } from '../engine/blackjack/round';
 import { resolveRound, RoundResolution } from '../engine/blackjack/resolve';
 import { recommendForHand } from '../engine/strategy/recommend';
-import { hiLoValue } from '../engine/counting/hiLo';
+import { hiLoValue } from '../engine/cards/card';
 import { trueCount } from '../engine/counting/trueCount';
 import { XP_AWARDS, xpForHandResult } from '../engine/progression/progression';
 import { RoundPayout, settleRound } from '../engine/payouts/payouts';
 import {
   cardsRemaining,
   createShoe,
-  DeckCount,
   EmptyShoeError,
   isShufflePending,
   Shoe,
@@ -33,15 +32,20 @@ import {
   countEventForInitialDealStep,
   INITIAL_DEAL_CARD_COUNT,
 } from '../utils/dealSequence';
+import { chapterForMap } from '../constants/campaign';
+import { FEATURES } from '../constants/features';
+import { CountCoachLevel } from '../engine/types';
 import { durations } from '../theme';
 import {
   buildCountChoices,
   CountCheckKind,
   countCheckKind,
+  effectiveCountCoachLevel,
   isCountCheckDue,
 } from '../utils/countCoach';
 import { useEconomyStore } from './economyStore';
 import { useModeStatsStore } from './modeStatsStore';
+import { useProgressionStore } from './progressionStore';
 import { useSettingsStore, clampDealerSpeed } from './settingsStore';
 import { awardXpWithRewards, recordGameplayEvent, XpAwardOutcome } from './orchestration';
 
@@ -125,8 +129,21 @@ interface GameSessionState {
   readonly learnChecksAsked: number;
   /** Rounds finished since the last count check. */
   readonly roundsSinceCountCheck: number;
+  /**
+   * Learn coach fog-of-war: 0 = meter shows "?", 1 = running count revealed,
+   * 2 = true count too. Correct checks climb, misses fall, shuffles reset.
+   */
+  readonly revealTier: number;
+  /** Campaign Table Night: bounded session with an objective (null = free play). */
+  readonly night: NightState | null;
+  /** Guided Dojo table: always full coach, with on-table objectives. */
+  readonly guidedMode: boolean;
 
   startSession(mapId: number): boolean;
+  /** Campaign Table Night: a normal session plus bounded-hands tracking. */
+  startNight(mapId: number): boolean;
+  /** Start a guided Dojo session with objectives and full coach enabled. */
+  startGuidedSession(mapId: number): boolean;
   endSession(): void;
   startAutoplay(): boolean;
   /** Stops after the current hand finishes (mid-round autoplay keeps playing it out). */
@@ -151,11 +168,28 @@ interface GameSessionState {
   answerCountCheck(choice: number): boolean;
   dismissCountCheck(): void;
   /**
-   * When the player changes the table deck count: reshuffle immediately
-   * between hands (betting), or after the current round finishes. Always
-   * resets the running count when the shoe is rebuilt.
+   * Learn coach tap-to-reveal: the player taps the fogged meter between
+   * hands to earn the next reveal tier. Asks for the running count first,
+   * the true count once the running count is already showing.
    */
-  applyDeckCountChange(): void;
+  requestCountCheck(): boolean;
+}
+
+/** Campaign Table Night progress (see constants/campaign.ts for objectives). */
+export interface NightState {
+  readonly active: boolean;
+  readonly roundsPlayed: number;
+  readonly netChips: number;
+  readonly checksCorrect: number;
+}
+
+/** True once a night has dealt all its hands — the recap takes over. */
+export function isNightOver(night: NightState | null, mapId: number | undefined): boolean {
+  if (!night?.active || mapId === undefined) {
+    return false;
+  }
+  const chapter = chapterForMap(mapId);
+  return !!chapter && night.roundsPlayed >= chapter.night.hands;
 }
 
 /** Nominal bet used only so engine hands exist during the stake-free autoplay drill. */
@@ -189,9 +223,24 @@ function schedule(fn: () => void, delay: number): void {
   timers.add(timer);
 }
 
-function newShoe(): Shoe {
-  const deckCount: DeckCount = useSettingsStore.getState().deckCounts.regular;
-  return createShoe(deckCount);
+/** The table's shoe comes from the casino: 1 deck at Luna Luxe up to 8. */
+function newShoe(map: CasinoMap | null): Shoe {
+  return createShoe(map?.deckCount ?? 6);
+}
+
+/**
+ * The live bet ceiling: permit holders (Count Sprint, 3 in a row) play with
+ * a reduced cap until the full 9/9 license lifts it to the table max.
+ */
+function effectiveMaxBet(map: CasinoMap): number {
+  const license = useProgressionStore.getState().licenseForMap(map.id);
+  return maxBetForLicense(map, license);
+}
+
+/** Coach level the table is running right now (dial setting + Training switch). */
+function activeCoachLevel(): CountCoachLevel {
+  const { countCoachLevel, trainingMode } = useSettingsStore.getState();
+  return effectiveCountCoachLevel(countCoachLevel, trainingMode);
 }
 
 /** Sum of hi-lo values for the cards in a list of visibility events. */
@@ -288,6 +337,18 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
           recordMapEvent({ type: 'DEALER_BUST_WIN' });
         }
       }
+      const night = get().night;
+      if (night?.active) {
+        const profit = payout.hands.reduce((sum, hand) => sum + (hand?.profit ?? 0), 0);
+        set({
+          night: {
+            ...night,
+            roundsPlayed: night.roundsPlayed + 1,
+            netChips: night.netChips + profit,
+          },
+        });
+      }
+
       const outcome: XpAwardOutcome = awardXpWithRewards(totalXp);
       set({
         payout,
@@ -308,12 +369,14 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
   /**
    * Learn coach: one round just finished — decide whether to pop a count
    * check. Runs before any shuffle so the question snapshots the real count.
+   * Dormant while `FEATURES.autoCountChecks` is off: the player asks for
+   * checks by tapping the meter (`requestCountCheck`) instead.
    */
   function maybeQueueCountCheck(willShuffle: boolean): void {
-    if (get().isAutoplayRound) {
+    if (!FEATURES.autoCountChecks || get().isAutoplayRound) {
       return;
     }
-    if (useSettingsStore.getState().countCoachLevel !== 'learn') {
+    if (activeCoachLevel() !== 'learn') {
       return;
     }
     const rounds = get().roundsSinceCountCheck + 1;
@@ -344,10 +407,9 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
   function collectRound(): void {
     toPhase('collecting');
     schedule(() => {
-      const { shoe } = get();
-      const settingsDecks = useSettingsStore.getState().deckCounts.regular;
+      const { shoe, map } = get();
       const needsShuffle =
-        !shoe || isShufflePending(shoe) || shoe.deckCount !== settingsDecks;
+        !shoe || isShufflePending(shoe) || shoe.deckCount !== map?.deckCount;
       maybeQueueCountCheck(needsShuffle);
 
       if (needsShuffle) {
@@ -365,9 +427,10 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
         });
         schedule(() => {
           set({
-            shoe: newShoe(),
+            shoe: newShoe(get().map),
             runningCount: 0,
             shufflePending: false,
+            revealTier: 0, // new shoe, new count — the meter fogs again
           });
           toPhase('betting');
           resumeAutoplayIfActive();
@@ -430,7 +493,7 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
       step = startRound(AUTOPLAY_NOMINAL_BET, shoe);
     } catch (error) {
       if (error instanceof EmptyShoeError) {
-        set({ shoe: newShoe(), runningCount: 0, shufflePending: false });
+        set({ shoe: newShoe(get().map), runningCount: 0, shufflePending: false, revealTier: 0 });
         resumeAutoplayIfActive();
         return;
       }
@@ -601,6 +664,9 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
     learnStreak: 0,
     learnChecksAsked: 0,
     roundsSinceCountCheck: 0,
+    revealTier: 0,
+    night: null,
+    guidedMode: false,
 
     startSession: (mapId) => {
       const map = mapById(mapId);
@@ -612,7 +678,7 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
         sessionActive: true,
         map,
         phase: 'betting',
-        shoe: newShoe(),
+        shoe: newShoe(map),
         round: null,
         wager: 0,
         runningCount: 0,
@@ -632,7 +698,25 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
         learnStreak: 0,
         learnChecksAsked: 0,
         roundsSinceCountCheck: 0,
+        revealTier: 0,
+        night: null,
       });
+      return true;
+    },
+
+    startNight: (mapId) => {
+      if (!chapterForMap(mapId) || !get().startSession(mapId)) {
+        return false;
+      }
+      set({ night: { active: true, roundsPlayed: 0, netChips: 0, checksCorrect: 0 } });
+      return true;
+    },
+
+    startGuidedSession: (mapId) => {
+      if (!get().startSession(mapId)) {
+        return false;
+      }
+      set({ guidedMode: true });
       return true;
     },
 
@@ -640,7 +724,7 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
       const { sessionActive, phase, wager } = get();
       // Autoplay is a Full-coach counting drill and starts only from a clean
       // betting phase. Any staged wager is returned first — nothing at stake.
-      const coachFull = useSettingsStore.getState().countCoachLevel === 'full';
+      const coachFull = activeCoachLevel() === 'full';
       if (!sessionActive || !coachFull || phase !== 'betting') {
         return false;
       }
@@ -710,6 +794,9 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
         learnStreak: 0,
         learnChecksAsked: 0,
         roundsSinceCountCheck: 0,
+        revealTier: 0,
+        night: null,
+        guidedMode: false,
       });
     },
 
@@ -721,7 +808,7 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
       if (!Number.isInteger(chipValue) || chipValue <= 0) {
         return false;
       }
-      if (wager + chipValue > map.maxBet) {
+      if (wager + chipValue > effectiveMaxBet(map)) {
         return false;
       }
       if (!useEconomyStore.getState().debitChips(chipValue)) {
@@ -743,7 +830,7 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
     redoBet: () => {
       const { phase, wager, map } = get();
       const lastBet = useEconomyStore.getState().lastBet;
-      if (phase !== 'betting' || !map || lastBet <= 0 || lastBet > map.maxBet) {
+      if (phase !== 'betting' || !map || lastBet <= 0 || lastBet > effectiveMaxBet(map)) {
         return;
       }
       // Refund the current wager first, then place the previous bet whole.
@@ -762,7 +849,11 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
 
     deal: () => {
       const { phase, wager, shoe, map, autoplay } = get();
-      if (phase !== 'betting' || !shoe || !map || autoplay || !isValidBet(wager, map.maxBet)) {
+      if (phase !== 'betting' || !shoe || !map || autoplay || !isValidBet(wager, effectiveMaxBet(map))) {
+        return false;
+      }
+      // A finished Table Night waits on the recap — no more hands.
+      if (isNightOver(get().night, map.id)) {
         return false;
       }
 
@@ -778,7 +869,7 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
       } catch (error) {
         if (error instanceof EmptyShoeError) {
           // Extremely defensive: force a shuffle and stay in betting.
-          set({ shoe: newShoe(), runningCount: 0, shufflePending: false });
+          set({ shoe: newShoe(get().map), runningCount: 0, shufflePending: false, revealTier: 0 });
           return false;
         }
         throw error;
@@ -907,11 +998,24 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
         }
       }
 
+      const night = get().night;
       set({
+        night:
+          correct && night?.active
+            ? { ...night, checksCorrect: night.checksCorrect + 1 }
+            : night,
         countCheck: { ...check, selected: choice, wasCorrect: correct },
         learnStreak: newStreak,
         learnChecksAsked: get().learnChecksAsked + 1,
         roundsSinceCountCheck: 0,
+        // Fog of war: a correct answer reveals the next number on the
+        // meter; a miss fogs one tier back. Checks asked at a shuffle
+        // boundary never unlock tiers — the fresh shoe fogs everything.
+        revealTier: correct
+          ? check.shuffledAfter
+            ? get().revealTier
+            : Math.min(2, get().revealTier + 1)
+          : Math.max(0, get().revealTier - 1),
         levelUpNotice: levelUpNotice ?? get().levelUpNotice,
       });
       return correct;
@@ -919,28 +1023,31 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
 
     dismissCountCheck: () => set({ countCheck: null }),
 
-    applyDeckCountChange: () => {
-      const { sessionActive, phase, shoe } = get();
-      if (!sessionActive) {
-        return;
+    requestCountCheck: () => {
+      const { sessionActive, phase, countCheck, autoplay, revealTier } = get();
+      if (!sessionActive || phase !== 'betting' || countCheck || autoplay) {
+        return false;
       }
-      const settingsDecks = useSettingsStore.getState().deckCounts.regular;
-      if (!shoe || shoe.deckCount === settingsDecks) {
-        return;
+      if (activeCoachLevel() !== 'learn') {
+        return false;
       }
-      // Mid-round: collectRound already rebuilds when deckCount mismatches.
-      // Between hands, reshuffle and reset the count immediately.
-      if (phase !== 'betting' || get().round) {
-        return;
-      }
+      const runningCount = get().runningCount;
+      const trueCountValue = get().getTrueCount();
+      const kind: CountCheckKind = revealTier === 0 ? 'running' : 'true';
+      const correct = kind === 'running' ? runningCount : trueCountValue;
       set({
-        shoe: newShoe(),
-        runningCount: 0,
-        shufflePending: false,
-        justShuffled: true,
-        pendingReveals: 0,
+        countCheck: {
+          kind,
+          correct,
+          choices: buildCountChoices(correct, Math.random, kind === 'true' ? 0.5 : 1),
+          selected: null,
+          wasCorrect: null,
+          runningCount,
+          trueCount: trueCountValue,
+          shuffledAfter: false,
+        },
       });
-      schedule(() => set({ justShuffled: false }), scaledDelay(BASE_DELAYS.shuffleNotice));
+      return true;
     },
   };
 });

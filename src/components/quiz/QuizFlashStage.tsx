@@ -1,13 +1,7 @@
 import React from 'react';
 import { Image, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import Animated, {
-  Keyframe,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from 'react-native-reanimated';
-import { CARD_BACK } from '../../assets/cards.generated';
+import Animated, { Keyframe } from 'react-native-reanimated';
+import { CARD_BACK, CardSkin } from '../../assets/cards.generated';
 import { PlayingCard, CARD_ASPECT } from '../game/PlayingCard';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { QuizFlashStep } from '../../stores/quizSessionStore';
@@ -17,6 +11,9 @@ interface QuizFlashStageProps {
   readonly step: QuizFlashStep | null;
   readonly stepIndex: number;
   readonly totalSteps: number;
+  /** Tier-driven aids: training faces early, Hi-Lo glow until streak 6. */
+  readonly skin: CardSkin;
+  readonly underglow: boolean;
 }
 
 const FLASH_ENTERING = new Keyframe({
@@ -34,25 +31,15 @@ const FLASH_ENTERING = new Keyframe({
  * Cinematic flash area. Cards slide in from the deck with a small rotation,
  * face-down decoys carry a "DECOY — IGNORE" banner, and pairs fan slightly.
  */
-export function QuizFlashStage({ step, stepIndex, totalSteps }: QuizFlashStageProps) {
+export function QuizFlashStage({
+  step,
+  stepIndex,
+  totalSteps,
+  skin,
+  underglow,
+}: QuizFlashStageProps) {
   const { width } = useWindowDimensions();
   const reducedMotion = useReducedMotion();
-  const pulse = useSharedValue(1);
-
-  React.useEffect(() => {
-    if (reducedMotion) {
-      pulse.value = 1;
-      return;
-    }
-    // No completion callback here: withRepeat callbacks crash Fabric in this
-    // Expo Go / Reanimated pairing, and reverse:true already ends at 1.
-    pulse.value = withRepeat(withTiming(1.08, { duration: 300 }), 2, true);
-  }, [stepIndex, reducedMotion, pulse]);
-
-  const ringStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulse.value }],
-    opacity: 0.12 + pulse.value * 0.08,
-  }));
 
   const entering = reducedMotion ? undefined : FLASH_ENTERING;
 
@@ -66,40 +53,43 @@ export function QuizFlashStage({ step, stepIndex, totalSteps }: QuizFlashStagePr
 
   return (
     <View style={styles.stage}>
-      <Animated.View pointerEvents="none" style={[styles.focusRing, ringStyle]} />
       <View style={styles.cardRow}>
         {step.map((item, index) => {
           const offset = pair ? (index === 0 ? -8 : 8) : 0;
           const rotate = pair ? (index === 0 ? '-4deg' : '4deg') : '0deg';
+          // The entering keyframe animates transform, so the pair fan lives on
+          // an inner view — otherwise Reanimated warns it may overwrite it.
           return (
-            <Animated.View
-              key={item.card.id}
-              entering={entering}
-              style={[{ transform: [{ translateX: offset }, { rotate: rotate }] }]}
-            >
-              {item.faceDown ? (
-                <View>
-                  <Image
-                    source={CARD_BACK}
-                    style={{
-                      width: flashCardWidth,
-                      height: flashCardWidth / CARD_ASPECT,
-                      borderRadius: radii.sm,
-                    }}
-                    accessibilityLabel="Face-down card — does not count"
-                  />
-                  <View style={styles.decoyBanner}>
-                    <Text style={styles.decoyText}>DECOY</Text>
+            <Animated.View key={item.card.id} entering={entering}>
+              <View
+                style={{
+                  transform: [{ translateX: offset }, { rotate: rotate }],
+                }}
+              >
+                {item.faceDown ? (
+                  <View>
+                    <Image
+                      source={CARD_BACK}
+                      style={{
+                        width: flashCardWidth,
+                        height: flashCardWidth / CARD_ASPECT,
+                        borderRadius: radii.sm,
+                      }}
+                      accessibilityLabel="Face-down card — does not count"
+                    />
+                    <View style={styles.decoyBanner}>
+                      <Text style={styles.decoyText}>DECOY</Text>
+                    </View>
                   </View>
-                </View>
-              ) : (
-                <PlayingCard
-                  card={item.card}
-                  skin="regular"
-                  width={flashCardWidth}
-                  underglow={false}
-                />
-              )}
+                ) : (
+                  <PlayingCard
+                    card={item.card}
+                    skin={skin}
+                    width={flashCardWidth}
+                    underglow={underglow}
+                  />
+                )}
+              </View>
             </Animated.View>
           );
         })}
@@ -120,19 +110,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 220,
   },
-  focusRing: {
-    position: 'absolute',
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: colors.gold,
-  },
   cardRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    zIndex: 1,
   },
   decoyBanner: {
     position: 'absolute',
@@ -154,7 +136,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     alignItems: 'center',
     gap: 2,
-    zIndex: 1,
   },
   progressText: {
     color: colors.textSecondary,

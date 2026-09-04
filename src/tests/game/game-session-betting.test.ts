@@ -16,7 +16,11 @@ function resetStores(chips = 500, lastBet = 0): void {
   useGameSessionStore.getState().endSession();
   const defaults = createDefaultSave();
   useEconomyStore.getState().hydrate({ ...defaults.economy, chips, lastBet });
-  useProgressionStore.getState().hydrate(defaults.progression);
+  // Tables in these suites are fully licensed — the quiz gate has its own tests.
+  useProgressionStore.getState().hydrate({
+    ...defaults.progression,
+    licenses: { '1': 'licensed', '2': 'licensed', '3': 'licensed' },
+  });
   useAchievementStore.getState().hydrate(defaults.achievements, defaults.mapAchievements);
   useSettingsStore.getState().hydrate({
     ...defaults.settings,
@@ -109,6 +113,23 @@ describe('betting', () => {
     expect(session().phase).toBe('betting');
   });
 
+  it('caps permit holders at a tenth of the table max until fully licensed', () => {
+    resetStores(5_000);
+    useProgressionStore.getState().hydrate({
+      ...createDefaultSave().progression,
+      licenses: { '1': 'permit' },
+    });
+    session().startSession(1);
+
+    expect(session().addChipToBet(100)).toBe(true); // permit cap: 1,000 / 10
+    expect(session().addChipToBet(1)).toBe(false);
+    expect(session().wager).toBe(100);
+
+    useProgressionStore.getState().grantLicense(1, 'licensed');
+    expect(session().addChipToBet(100)).toBe(true); // cap lifted live
+    expect(session().wager).toBe(200);
+  });
+
   it('records an all-in bet for achievements', () => {
     resetStores(100);
     session().startSession(1);
@@ -158,41 +179,30 @@ describe('shuffle lifecycle', () => {
     expect(state.shoe && cardsRemaining(state.shoe)).toBe(52); // fresh shoe
   });
 
-  it('rebuilds the shoe when the deck-count setting changed mid-session', () => {
+  it('deals the shoe the casino defines, ignoring the deck-count setting', () => {
+    // Luna Luxe is a single-deck house.
+    expect(session().shoe?.deckCount).toBe(1);
+    expect(session().shoe && cardsRemaining(session().shoe!)).toBe(52);
+
+    // The (legacy) settings knob no longer drives the table shoe.
+    useSettingsStore.getState().setDeckCount('regular', 8);
     rig('10', '10', '9', '8');
     session().addChipToBet(100);
     session().deal();
     jest.advanceTimersByTime(3500);
-    useSettingsStore.getState().setDeckCount('regular', 2);
     session().act('stand');
     jest.runAllTimers();
 
-    const state = session();
-    expect(state.shoe?.deckCount).toBe(2);
-    expect(state.shoe && cardsRemaining(state.shoe)).toBe(104);
-    expect(state.runningCount).toBe(0);
+    expect(session().shoe?.deckCount).toBe(1);
   });
 
-  it('reshuffles and resets the count immediately when decks change between hands', () => {
-    rig('10', '10', '9', '8');
-    session().addChipToBet(100);
-    session().deal();
-    jest.advanceTimersByTime(3500);
-    session().act('stand');
-    jest.runAllTimers();
-
-    expect(session().phase).toBe('betting');
-    expect(session().runningCount).not.toBe(0);
-
-    useSettingsStore.getState().setDeckCount('regular', 2);
-    session().applyDeckCountChange();
-
-    const state = session();
-    expect(state.phase).toBe('betting');
-    expect(state.shoe?.deckCount).toBe(2);
-    expect(state.shoe && cardsRemaining(state.shoe)).toBe(104);
-    expect(state.runningCount).toBe(0);
-    expect(state.justShuffled).toBe(true);
+  it('deals bigger shoes at bigger casinos', () => {
+    session().endSession();
+    expect(session().startSession(3)).toBe(true); // Europa Ice Palace
+    expect(session().shoe?.deckCount).toBe(4);
+    session().endSession();
+    expect(session().startSession(6)).toBe(true); // Kepler Fortune
+    expect(session().shoe?.deckCount).toBe(8);
   });
 });
 

@@ -1,8 +1,8 @@
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Image, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TABLE_FELTS } from '../../assets/registry';
+import { PrimaryButton } from '../../components/common/PrimaryButton';
 import { SecondaryButton } from '../../components/common/SecondaryButton';
 import { ActionBar } from '../../components/game/ActionBar';
 import { BetSpot } from '../../components/game/BetSpot';
@@ -10,14 +10,15 @@ import { BettingPanel } from '../../components/game/BettingPanel';
 import { CountCheckPrompt } from '../../components/game/CountCheckPrompt';
 import { CountPulse } from '../../components/game/CountPulse';
 import { CountRail } from '../../components/game/CountRail';
-import { CountStatsBar } from '../../components/game/CountBar';
 import { DealerArea } from '../../components/game/DealerArea';
 import { DistributionChartModal } from '../../components/game/DistributionChartModal';
+import { FeltBackdrop } from '../../components/game/FeltBackdrop';
 import { GameSettingsSheet } from '../../components/game/GameSettingsSheet';
 import { GameTableHud } from '../../components/game/GameTableHud';
 import { GameToasts } from '../../components/game/GameToasts';
 import { HandChips } from '../../components/game/HandChips';
 import { HandView } from '../../components/game/HandView';
+import { LearnCountBar } from '../../components/game/LearnCountBar';
 import { MapCoverflow, QuizOrGameMode } from '../../components/game/MapCoverflow';
 import { PayoutBanner } from '../../components/game/PayoutBanner';
 import { RegularInfoBar } from '../../components/game/RegularInfoBar';
@@ -25,12 +26,18 @@ import { ShuffleCeremony } from '../../components/game/ShuffleCeremony';
 import { StrategyChartModal } from '../../components/game/StrategyChartModal';
 import { TableCamera } from '../../components/game/TableCamera';
 import { TablePilesRow } from '../../components/game/TablePilesRow';
+import { TrainingToggle } from '../../components/game/TrainingToggle';
+import { ObjectivePanel } from '../../components/dojo/ObjectivePanel';
+import { objectivesForMap } from '../../engine/dojo';
 import { SpeedSlider } from '../../components/settings/SettingsRows';
 import { HandResult } from '../../engine/blackjack/resolve';
 import { mapById } from '../../engine/betting/casino';
 import { playSound } from '../../services/audio';
 import { initialDealVisibleCounts } from '../../utils/dealSequence';
+import { useDojoStore } from '../../stores/dojoStore';
+import { FLASH_DEBUG_AVAILABLE, useFlashDebugStore } from '../../stores/flashDebugStore';
 import { useGameSessionStore } from '../../stores/gameSessionStore';
+import { useProgressionStore } from '../../stores/progressionStore';
 import {
   DEALER_SPEED_MAX,
   DEALER_SPEED_MIN,
@@ -38,7 +45,12 @@ import {
   useSettingsStore,
 } from '../../stores/settingsStore';
 import { colors, fontSizes, fontWeights, layout, radii, spacing } from '../../theme';
-import { COUNT_COACH_LABELS, countCoachCapabilities } from '../../utils/countCoach';
+import {
+  COUNT_COACH_LABELS,
+  countCoachCapabilities,
+  effectiveCountCoachLevel,
+} from '../../utils/countCoach';
+import { FEATURES } from '../../constants/features';
 
 const RESULT_BADGE: Record<HandResult, { text: string; color: string }> = {
   blackjack: { text: 'BLACKJACK', color: colors.goldBright },
@@ -48,10 +60,11 @@ const RESULT_BADGE: Record<HandResult, { text: string; color: string }> = {
 };
 
 /**
- * Blackjack table for every casino. There is one table mode; the Count Coach
- * dial (Off / Learn / Full, in the ≡ dropdown) decides how much counting help
- * is live — Full is the old Training Mode kit, Learn quizzes the player on
- * the count between rounds.
+ * Blackjack table for every casino. One experience, one switch: Training Mode
+ * (the tab on the right rail) turns the live counts, count rail, card
+ * underglow and strategy hints on; off is casino-real play with the fogged "?"
+ * meter — tap it (or pass post-round checks) to reveal the numbers. The old
+ * Count Coach dial (Off/Learn/Full) sits dormant behind FEATURES.countCoachDial.
  */
 export default function GameScreen() {
   const router = useRouter();
@@ -76,10 +89,18 @@ export default function GameScreen() {
     phase === 'dealing' ? initialDealVisibleCounts(initialDealStep) : null;
   const underglowEnabled = useSettingsStore((state) => state.trainingAids.cardUnderglow);
   const chartsEnabled = useSettingsStore((state) => state.trainingAids.distributionCharts);
+  const strategyHintsEnabled = useSettingsStore((state) => state.trainingAids.strategyHints);
   const pulseEnabled = useSettingsStore((state) => state.trainingAids.countPulse);
   const dealerSpeed = useSettingsStore((state) => state.dealerSpeed);
   const countCoachLevel = useSettingsStore((state) => state.countCoachLevel);
-  const coach = countCoachCapabilities(countCoachLevel);
+  const trainingMode = useSettingsStore((state) => state.trainingMode);
+  const setTrainingMode = useSettingsStore((state) => state.setTrainingMode);
+  const coach = countCoachCapabilities(effectiveCountCoachLevel(countCoachLevel, trainingMode));
+  const license = useProgressionStore((state) =>
+    map ? state.licenseForMap(map.id) : 'none',
+  );
+  const nextFlashLevel = useDojoStore((state) => (map ? state.nextFlashLevel(map.id) : 1));
+  const debugUnlockAll = useFlashDebugStore((state) => FLASH_DEBUG_AVAILABLE && state.unlockAll);
 
   const autoplay = useGameSessionStore((state) => state.autoplay);
   const isAutoplayRound = useGameSessionStore((state) => state.isAutoplayRound);
@@ -87,6 +108,7 @@ export default function GameScreen() {
   const startAutoplay = useGameSessionStore((state) => state.startAutoplay);
   const stopAutoplay = useGameSessionStore((state) => state.stopAutoplay);
   const setAutoplaySpeed = useGameSessionStore((state) => state.setAutoplaySpeed);
+  const guidedMode = useGameSessionStore((state) => state.guidedMode);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [strategyOpen, setStrategyOpen] = useState(false);
@@ -129,15 +151,19 @@ export default function GameScreen() {
     router.replace({ pathname: '/game/[mapId]', params: { mapId: String(mapId) } });
   }
 
+  // Training Mode gates every aid; the ≡ menu toggles refine what "on" shows.
   const underglow = coach.showCardValueGlow && underglowEnabled;
-  const cardSkin = coach.useTrainingSkin ? 'training' : 'regular';
+  // The training card skin belongs to the dormant dial, not the table switch.
+  const cardSkin = FEATURES.countCoachDial && coach.useTrainingSkin ? 'training' : 'regular';
   const isSplit = (round?.playerHands.length ?? 0) > 1;
   /** Match dealer card size; only shrink further when a split needs two hands. */
   const dealerCardWidth = Math.min((width - 80) / 5.2, 76);
   const playerCardWidth = isSplit
     ? Math.min((width - 120) / 6, dealerCardWidth)
     : dealerCardWidth;
-  const modeLabel = `Count Coach · ${COUNT_COACH_LABELS[countCoachLevel]}`;
+  const modeLabel = FEATURES.countCoachDial
+    ? `Count Coach · ${COUNT_COACH_LABELS[countCoachLevel]}`
+    : 'Hi-Lo Trainer';
 
   const statusText =
     phase === 'dealing'
@@ -155,28 +181,38 @@ export default function GameScreen() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
-      <Image
-        source={TABLE_FELTS[map.feltKey] ?? TABLE_FELTS['gray-suede']}
-        style={styles.felt}
-        resizeMode="cover"
-      />
-      <View style={styles.feltTint} pointerEvents="none" />
+      {/* Felt and house lettering: fixed to the screen, outside the table
+          camera, so the print never moves — the pieces sit down onto it. */}
+      <FeltBackdrop feltKey={map.feltKey} casinoName={map.name} />
 
       <GameTableHud
         mapName={map.name}
-        modeLabel={modeLabel}
+        modeLabel={guidedMode ? 'Guided Dojo Table' : modeLabel}
         onOpenMaps={() => setMapsOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
         menuOpen={settingsOpen}
       />
 
+      {guidedMode ? (
+        <View style={styles.objectivePanel}>
+          <ObjectivePanel
+            objectives={objectivesForMap(map)}
+            completed={new Set()}
+            progress={{}}
+          />
+        </View>
+      ) : null}
+
       <TableCamera seated={cameraSeated}>
-        {coach.showLiveCounts ? (
+        {coach.showLiveCounts || coach.showMaskedCounts ? (
           <>
-            <CountRail />
+            {/* The rail is a training aid: it leaves with Training Mode. The
+                strip stays put and only fogs its numbers, so the toggle never
+                shifts the layout. */}
+            {coach.showLiveCounts ? <CountRail /> : null}
             <View style={styles.countSection}>
               <TablePilesRow
-                center={<CountStatsBar />}
+                center={<LearnCountBar live={coach.showLiveCounts} />}
                 round={round}
                 shoe={shoe}
                 phase={phase}
@@ -215,19 +251,24 @@ export default function GameScreen() {
           />
         </View>
 
+        {/* The open felt between dealer and player, where the house lettering
+            shows through from the backdrop. The Training Mode tab sits on the
+            right rail of this gap. */}
+        <View style={styles.centerFelt}>
+          <View style={styles.trainingToggle}>
+            <TrainingToggle enabled={trainingMode} onToggle={setTrainingMode} />
+          </View>
+        </View>
+
         {/* Player hands sit in the lower felt; bet circle only while betting so
             in-round cards keep their previous placement and don't cover the dealer. */}
         <View style={styles.playerArea}>
           {round ? (
             <View style={[styles.hands, isSplit && styles.handsSplit]}>
               {round.playerHands.map((hand, index) => {
-                const isActive = phase === 'playerTurn' && round.activeHandIndex === index;
                 const result = resolution?.hands[index]?.result;
                 return (
-                  <View
-                    key={hand.id}
-                    style={[styles.handSlot, isActive && styles.handSlotActive]}
-                  >
+                  <View key={hand.id} style={styles.handSlot}>
                     {result ? (
                       <Text style={[styles.resultBadge, { color: RESULT_BADGE[result].color }]}>
                         {RESULT_BADGE[result].text}
@@ -299,7 +340,7 @@ export default function GameScreen() {
             {phase === 'betting' ? (
               <View style={styles.actionSection}>
                 <BettingPanel />
-                {coach.allowFullTools ? (
+                {FEATURES.countCoachDial && coach.allowFullTools ? (
                   <Text style={styles.aidLink} onPress={startAutoplay}>
                     Start autoplay drill (no chips at stake)
                   </Text>
@@ -309,7 +350,7 @@ export default function GameScreen() {
               <View style={styles.actionSection}>
                 <ActionBar />
                 <View style={styles.aidButtons}>
-                  {coach.allowFullTools ? (
+                  {coach.allowFullTools && strategyHintsEnabled ? (
                     <Text style={styles.aidLink} onPress={() => setStrategyOpen(true)}>
                       Strategy chart
                     </Text>
@@ -331,8 +372,41 @@ export default function GameScreen() {
       <PayoutBanner />
       {coach.allowFullTools && pulseEnabled ? <CountPulse /> : null}
       {coach.showCountCheck ? <CountCheckPrompt /> : null}
+
+      {license === 'none' && !debugUnlockAll ? (
+        <View style={styles.licenseGate}>
+          <View style={styles.licenseCard}>
+            <Text style={styles.licenseKicker}>TABLE CLOSED</Text>
+            <Text style={styles.licenseTitle}>Earn your seat at {map.name}</Text>
+            <Text style={styles.licenseBody}>
+              This floor opens to counters. Clear the six training levels at this casino and the
+              table is yours.
+            </Text>
+            <PrimaryButton
+              label={`Play level ${nextFlashLevel ?? 1}`}
+              onPress={() =>
+                router.replace({
+                  pathname: '/flash/[mapId]/[level]',
+                  params: { mapId: String(map.id), level: String(nextFlashLevel ?? 1) },
+                })
+              }
+            />
+            <SecondaryButton
+              label="Level map"
+              onPress={() =>
+                router.push({ pathname: '/levels/[mapId]', params: { mapId: String(map.id) } })
+              }
+            />
+          </View>
+        </View>
+      ) : null}
+
       <GameToasts />
-      <GameSettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <GameSettingsSheet
+        visible={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        mapId={map.id}
+      />
       <StrategyChartModal visible={strategyOpen} onClose={() => setStrategyOpen(false)} />
       <DistributionChartModal visible={chartsOpen} onClose={() => setChartsOpen(false)} />
       <MapCoverflow
@@ -350,22 +424,50 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  felt: {
+  licenseGate: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    width: '100%',
-    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.overlay,
+    zIndex: 50,
   },
-  feltTint: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: colors.overlayLight,
+  licenseCard: {
+    width: '88%',
+    maxWidth: 380,
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.borderGold,
+    padding: spacing.xl,
+  },
+  licenseKicker: {
+    color: colors.gold,
+    fontSize: fontSizes.caption,
+    fontWeight: fontWeights.bold,
+    letterSpacing: 1.5,
+  },
+  licenseTitle: {
+    color: colors.textPrimary,
+    fontSize: fontSizes.title,
+    fontWeight: fontWeights.heavy,
+    textAlign: 'center',
+  },
+  licenseBody: {
+    color: colors.textSecondary,
+    fontSize: fontSizes.body,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  objectivePanel: {
+    paddingHorizontal: layout.screenPaddingH,
+    paddingTop: spacing.xs,
+    zIndex: 10,
   },
   regularInfoSection: {
     paddingBottom: spacing.xs,
@@ -381,12 +483,25 @@ const styles = StyleSheet.create({
     minHeight: 130,
     flexShrink: 0,
   },
-  playerArea: {
+  /** Takes whatever the dealer and hand leave. */
+  centerFelt: {
     flex: 1,
     minHeight: 0,
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  trainingToggle: {
+    position: 'absolute',
+    right: layout.screenPaddingH,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+  },
+  playerArea: {
+    flexShrink: 0,
     justifyContent: 'flex-end',
     alignItems: 'center',
-    paddingTop: spacing.lg,
+    paddingTop: spacing.sm,
     paddingBottom: 0,
     gap: spacing.xs,
   },
@@ -400,17 +515,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     width: '100%',
   },
+  // No frame or tint on the hand — the cards sit straight on the felt.
   handSlot: {
     alignItems: 'center',
     gap: spacing.xs,
-    borderRadius: radii.lg,
-    borderWidth: 2,
-    borderColor: 'transparent',
     padding: spacing.sm,
-  },
-  handSlotActive: {
-    borderColor: colors.gold,
-    backgroundColor: colors.overlayLight,
   },
   resultBadge: {
     fontSize: fontSizes.small,

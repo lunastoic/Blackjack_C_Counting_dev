@@ -2,10 +2,11 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { evaluateCards } from '../../engine/hand/evaluate';
 import { Hand } from '../../engine/hand/hand';
-import { isFaceUp } from '../../engine/cards/card';
+import { hiLoValue, isFaceUp } from '../../engine/cards/card';
 import { CardSkin } from '../../assets/cards.generated';
 import { cardFanOverlap } from '../../utils/dealSequence';
 import { colors, fontSizes, fontWeights, radii, spacing } from '../../theme';
+import { formatCount } from '../../utils/countCoach';
 import { PlayingCard } from './PlayingCard';
 
 interface HandViewProps {
@@ -20,6 +21,12 @@ interface HandViewProps {
   readonly staggerMs?: number;
   /** During the opening deal, only this many cards are on the felt. */
   readonly maxVisibleCards?: number;
+  /** Print each face-up card's Hi-Lo value beneath it (Count Flash level 1). */
+  readonly valueTags?: boolean;
+  /** Side-by-side with a small gap instead of the overlapping fan. */
+  readonly spacedCards?: boolean;
+  /** Passed to each card: false = border glow only, no radiating halo. */
+  readonly glowHalo?: boolean;
 }
 
 /** Overlapping card fan with an automatic total badge. */
@@ -32,6 +39,9 @@ export function HandView({
   speed = 1,
   staggerMs = 90,
   maxVisibleCards,
+  valueTags = false,
+  spacedCards = false,
+  glowHalo = true,
 }: HandViewProps) {
   const displayedCards =
     maxVisibleCards !== undefined
@@ -42,23 +52,46 @@ export function HandView({
     ? displayedCards.filter((card) => isFaceUp(card))
     : displayedCards;
   const { total } = evaluateCards(visibleCards);
-  const overlap = cardFanOverlap(cardWidth, displayedCards.length);
+  // A spread hand collapses back to the fan once hits arrive, or it overflows.
+  const useSpread = spacedCards && displayedCards.length <= 3;
+  const overlap = useSpread ? -spacing.md : cardFanOverlap(cardWidth, displayedCards.length);
 
   return (
     <View style={styles.container}>
       <View style={styles.cards}>
-        {displayedCards.map((card, index) => (
-          <View key={card.id} style={index > 0 ? { marginLeft: -overlap } : null}>
-            <PlayingCard
-              card={card}
-              skin={skin}
-              width={cardWidth}
-              underglow={underglow}
-              speed={speed}
-              enterDelay={maxVisibleCards !== undefined ? 0 : index * staggerMs}
-            />
-          </View>
-        ))}
+        {displayedCards.map((card, index) => {
+          const value = hiLoValue(card.rank);
+          const tagColor =
+            value > 0 ? colors.trainingPlus : value < 0 ? colors.trainingMinus : colors.trainingNeutral;
+          return (
+            <View
+              key={card.id}
+              style={[styles.column, index > 0 ? { marginLeft: -overlap } : null]}
+            >
+              <PlayingCard
+                card={card}
+                skin={skin}
+                width={cardWidth}
+                underglow={underglow}
+                speed={speed}
+                enterDelay={maxVisibleCards !== undefined ? 0 : index * staggerMs}
+                glowHalo={glowHalo}
+              />
+              {valueTags ? (
+                <Text
+                  style={[
+                    styles.valueTag,
+                    { color: tagColor, borderColor: tagColor },
+                    !isFaceUp(card) && styles.valueTagHidden,
+                  ]}
+                  accessibilityElementsHidden={!isFaceUp(card)}
+                >
+                  {formatCount(value)}
+                </Text>
+              ) : null}
+            </View>
+          );
+        })}
       </View>
       {visibleCards.length > 0 ? (
         <View style={styles.totalBadge}>
@@ -76,7 +109,26 @@ const styles = StyleSheet.create({
   },
   cards: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  column: {
     alignItems: 'center',
+    gap: spacing.xxs,
+  },
+  valueTag: {
+    minWidth: 34,
+    textAlign: 'center',
+    fontSize: fontSizes.small,
+    fontWeight: fontWeights.heavy,
+    fontVariant: ['tabular-nums'],
+    borderWidth: 1,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.xs,
+    backgroundColor: colors.overlayLight,
+    overflow: 'hidden',
+  },
+  valueTagHidden: {
+    opacity: 0,
   },
   totalBadge: {
     backgroundColor: colors.overlayLight,

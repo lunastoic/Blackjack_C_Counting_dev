@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { maxBetForLicense } from '../../engine/betting/casino';
 import {
   cardsDealt,
   cutCardDealtCount,
@@ -7,6 +8,7 @@ import {
   totalCards,
 } from '../../engine/shoe/shoe';
 import { useGameSessionStore } from '../../stores/gameSessionStore';
+import { useProgressionStore } from '../../stores/progressionStore';
 import { colors, fontSizes, fontWeights, radii, spacing } from '../../theme';
 import { formatChips } from '../../utils/format';
 
@@ -20,6 +22,8 @@ export function RegularInfoBar() {
   const remaining = useGameSessionStore((state) => state.getCardsRemainingVisible());
   const shufflePending = useGameSessionStore((state) => state.shufflePending);
   const justShuffled = useGameSessionStore((state) => state.justShuffled);
+  const license = useProgressionStore((state) => (map ? state.licenseForMap(map.id) : 'none'));
+  const betCap = map ? maxBetForLicense(map, license) : 0;
 
   const dealt = shoe ? cardsDealt(shoe) : 0;
   const total = shoe ? totalCards(shoe.deckCount) : 0;
@@ -51,7 +55,10 @@ export function RegularInfoBar() {
           <Text style={styles.metaText}>
             Cut ~{cutAt}/{total} · ~{unusedAtCut} unused · ~{decksLeftApprox} decks left
           </Text>
-          <Text style={styles.metaText}>Max {map ? formatChips(map.maxBet) : '—'}</Text>
+          <Text style={styles.metaText}>
+            Max {map ? formatChips(betCap) : '—'}
+            {license === 'permit' ? ' · permit — 9/9 sprint lifts the cap' : ''}
+          </Text>
         </View>
       ) : null}
       {justShuffled ? (

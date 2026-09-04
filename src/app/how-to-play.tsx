@@ -13,9 +13,10 @@ export default function HowToPlayScreen() {
       <View style={styles.stack}>
         <SectionCard title="What this app is">
           <Text style={styles.body}>
-            Blackjack Card Counter is a training game. On the surface it plays like a casino
-            blackjack progression game. Underneath, it teaches Hi-Lo card counting — the most
-            widely used counting system — through real play.
+            Blackjack Card Counter is a training game built around the Counting Dojo — a
+            tutorial-first path that teaches Hi-Lo card counting through lessons, drills, and
+            guided live-table practice. Start in Learn, sharpen speed in Drills, then take your
+            count to the Live Table.
           </Text>
         </SectionCard>
 
@@ -38,34 +39,44 @@ export default function HowToPlayScreen() {
           </Text>
         </SectionCard>
 
-        <SectionCard title="The Count Coach">
+        <SectionCard title="The table — fog of war">
           <Text style={styles.body}>
-            One table, one dial. Open the ≡ menu at the table and pick how much help you want:
-          </Text>
-          <Text style={styles.body}>
-            <Text style={styles.bodyStrong}>Full</Text> — every aid is live: card values glow,
-            the running and true counts are on screen, strategy hints show the best move, and an
-            autoplay drill deals hands so you can practice counting hands-free.
-          </Text>
-          <Text style={styles.body}>
-            <Text style={styles.bodyStrong}>Learn</Text> — play a clean casino game while the
-            coach counts silently alongside you. Every round or so it asks &quot;What&apos;s the
-            count?&quot; with four choices. Miss and it checks more often; stay hot and it backs
-            off, then starts asking for the true count. This is where counting becomes second
-            nature.
-          </Text>
-          <Text style={styles.body}>
-            <Text style={styles.bodyStrong}>Off</Text> — pure casino play. Keep the count in your
-            head, size your bets with it, and grow your bankroll to unlock new casinos.
+            Every table plays real blackjack with the count meter riding along
+            <Text style={styles.bodyStrong}> fogged</Text>: it tracks everything but shows
+            &quot;?&quot;. Tap the meter between hands (or pass the coach&apos;s post-round
+            checks) to prove your count — one correct answer lights up the running count, a
+            second unlocks the true count, a miss fogs a tier back, and every shuffle resets
+            the fog. Chips, bets, and payouts are always real. This is where counting becomes
+            second nature.
           </Text>
         </SectionCard>
 
         <SectionCard title="Quiz Mode — the count sprint">
           <Text style={styles.body}>
-            Cards flash fast and you pick the running count from four choices. Every correct
-            answer fills one of nine golden circles — and makes the next flash faster, adds cards,
-            sneaks in face-down decoys (backs count for nothing!), and eventually deals cards in
-            pairs. One miss clears the circles; fill all nine for a 1,000-chip grand prize.
+            Cards flash fast and you call the running count — four choices early on, exact entry
+            once your streak hits six. Training wheels come off as you climb: the first three
+            circles flash training cards with the Hi-Lo glow, the next three keep only the glow,
+            and from seven up it&apos;s bare cards. Every correct answer fills one of nine golden
+            circles and pays more XP as flashes speed up, add cards, sneak in face-down decoys
+            (backs count for nothing!), and eventually deal in pairs. Fancier casinos deal
+            faster too — Luna Luxe drills at a learner&apos;s pace, Kepler Fortune at dealer
+            speed. A miss falls back to the last checkpoint
+            (six or three), not to zero. Fill all nine for the 1,000-chip grand prize — bank it,
+            or let it ride and play the next cycle for double the pot, up to 8,000 chips. One miss
+            while riding loses the pot.
+          </Text>
+        </SectionCard>
+
+        <SectionCard title="Earn your seat — table licenses">
+          <Text style={styles.body}>
+            The count sprint is the front door at every casino. Hit 3 in a row to earn a
+            <Text style={styles.bodyStrong}> table permit</Text> — the blackjack floor opens with
+            bets capped at a tenth of the table max. Run the full 9 for the
+            <Text style={styles.bodyStrong}> full license</Text> — the cap lifts for good and
+            the next casino on the strip opens.
+            Each casino issues its own license, and the shoes grow with the house: Luna Luxe
+            deals 1 deck, Io Inferno 2, Europa 4, Ganymede 6, Titan and Kepler 8 — so the true
+            count gets harder to read exactly as your counting gets stronger.
           </Text>
         </SectionCard>
 

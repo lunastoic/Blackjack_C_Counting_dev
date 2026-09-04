@@ -1,16 +1,14 @@
-import { RANKS, Rank } from '../../engine/cards/card';
+import { RANKS, Rank, hiLoValue } from '../../engine/cards/card';
 import {
   applyVisibleCard,
   applyVisibleCards,
   createCount,
-  hiLoValue,
   resetCount,
+  CountState,
 } from '../../engine/counting/hiLo';
 import { roundToNearestHalf, trueCount } from '../../engine/counting/trueCount';
 import { cardsOf, riggedShoeOf } from '../../engine/testing/fixtures';
-import { startRound, playDealerTurn } from '../../engine/blackjack/round';
-import { CountState } from '../../engine/counting/hiLo';
-import { RoundEvent } from '../../engine/blackjack/round';
+import { startRound, playDealerTurn, RoundEvent } from '../../engine/blackjack/round';
 
 function applyEvents(count: CountState, events: readonly RoundEvent[]): CountState {
   let current = count;

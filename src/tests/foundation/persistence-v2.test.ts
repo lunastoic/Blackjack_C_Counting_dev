@@ -55,12 +55,15 @@ describe('v2 → v3 migration', () => {
 });
 
 describe('v1 → v2 migration', () => {
-  it('is registered and the current version is 5', () => {
-    expect(SAVE_SCHEMA_VERSION).toBe(5);
+  it('is registered and the current version is 11', () => {
+    expect(SAVE_SCHEMA_VERSION).toBe(12);
     expect(MIGRATIONS[1]).toBeDefined();
     expect(MIGRATIONS[2]).toBeDefined();
     expect(MIGRATIONS[3]).toBeDefined();
     expect(MIGRATIONS[4]).toBeDefined();
+    expect(MIGRATIONS[5]).toBeDefined();
+    expect(MIGRATIONS[6]).toBeDefined();
+    expect(MIGRATIONS[7]).toBeDefined();
   });
 
   it('adds zeroed mode stats while preserving every v1 field', () => {
@@ -92,6 +95,37 @@ describe('v1 → v2 migration', () => {
     expect(result.recoveredFrom).toBeNull();
     expect(result.save.economy.chips).toBe(4321); // player progress preserved
     expect(result.save.modeStats).toEqual(ZERO_MODE_STATS);
+  });
+});
+
+describe('v5 → v6 migration (table licenses)', () => {
+  /** A realistic v5 payload: today's defaults minus the v6 licenses field. */
+  function v5Save(): Record<string, unknown> {
+    const save = createDefaultSave();
+    const { licenses: _dropped, ...progression } = save.progression;
+    return { ...save, progression };
+  }
+
+  it('starts fresh saves with no licenses (quiz-first for new players)', () => {
+    const migrated = runMigrations(v5Save(), 5);
+    const parsed = saveDataSchema.parse(migrated);
+    expect(parsed.progression.licenses).toEqual({});
+  });
+
+  it('grandfathers veterans: table hands played → full license on unlocked maps', () => {
+    const original = v5Save();
+    const progression = original.progression as Record<string, unknown>;
+    progression.unlockedMapIds = [1, 2, 3];
+    progression.level = 10;
+    (original.modeStats as { regular: { handsPlayed: number } }).regular.handsPlayed = 42;
+
+    const migrated = runMigrations(original, 5);
+    const parsed = saveDataSchema.parse(migrated);
+    expect(parsed.progression.licenses).toEqual({
+      '1': 'licensed',
+      '2': 'licensed',
+      '3': 'licensed',
+    });
   });
 });
 

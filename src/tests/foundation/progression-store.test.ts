@@ -34,6 +34,7 @@ describe('progression store', () => {
       level: MAX_LEVEL,
       xpIntoLevel: 0,
       unlockedMapIds: [1],
+      licenses: {},
     });
     const result = useProgressionStore.getState().awardXp(100);
     expect(result.levelsGained).toBe(0);
@@ -50,19 +51,68 @@ describe('progression store', () => {
       }
     });
 
-    it('refuses unlocks below the required level', () => {
+    it('refuses to unlock before the previous casino is fully licensed', () => {
+      expect(useProgressionStore.getState().canUnlockMap(2)).toBe(false);
+      expect(useProgressionStore.getState().unlockMap(2)).toBe(false);
+
+      // A permit is not enough — the ladder needs the full 9/9 license.
+      useProgressionStore.getState().grantLicense(1, 'permit');
       expect(useProgressionStore.getState().unlockMap(2)).toBe(false);
     });
 
-    it('unlocks a map at the required level, once', () => {
-      useProgressionStore.getState().hydrate({ level: 5, xpIntoLevel: 0, unlockedMapIds: [1] });
+    it('unlocks the next casino once the previous license lands, regardless of level', () => {
+      useProgressionStore.getState().hydrate({
+        level: 1, // levels no longer gate casinos — they only pay chip rewards
+        xpIntoLevel: 0,
+        unlockedMapIds: [1],
+        licenses: { '1': 'licensed' },
+      });
+      expect(useProgressionStore.getState().canUnlockMap(2)).toBe(true);
       expect(useProgressionStore.getState().unlockMap(2)).toBe(true);
       expect(useProgressionStore.getState().isMapUnlocked(2)).toBe(true);
-      expect(useProgressionStore.getState().unlockMap(2)).toBe(false);
+      expect(useProgressionStore.getState().unlockMap(2)).toBe(false); // once
+
+      // Map 3 still needs Io Inferno's license.
+      expect(useProgressionStore.getState().unlockMap(3)).toBe(false);
     });
 
     it('rejects unknown map ids', () => {
       expect(useProgressionStore.getState().unlockMap(99)).toBe(false);
+    });
+  });
+
+  describe('table licenses', () => {
+    it('starts with every table closed and upgrades none → permit → licensed', () => {
+      const store = () => useProgressionStore.getState();
+      expect(store().licenseForMap(1)).toBe('none');
+
+      expect(store().grantLicense(1, 'permit')).toBe(true);
+      expect(store().licenseForMap(1)).toBe('permit');
+
+      expect(store().grantLicense(1, 'licensed')).toBe(true);
+      expect(store().licenseForMap(1)).toBe('licensed');
+    });
+
+    it('never downgrades, re-grants, or licenses unknown maps', () => {
+      const store = () => useProgressionStore.getState();
+      store().grantLicense(1, 'licensed');
+
+      expect(store().grantLicense(1, 'licensed')).toBe(false); // no re-grant
+      expect(store().grantLicense(1, 'permit')).toBe(false); // no downgrade
+      expect(store().licenseForMap(1)).toBe('licensed');
+      expect(store().grantLicense(99, 'permit')).toBe(false); // unknown map
+    });
+
+    it('round-trips through hydrate', () => {
+      useProgressionStore.getState().hydrate({
+        level: 5,
+        xpIntoLevel: 0,
+        unlockedMapIds: [1, 2],
+        licenses: { '1': 'licensed', '2': 'permit' },
+      });
+      expect(useProgressionStore.getState().licenseForMap(1)).toBe('licensed');
+      expect(useProgressionStore.getState().licenseForMap(2)).toBe('permit');
+      expect(useProgressionStore.getState().licenseForMap(3)).toBe('none');
     });
   });
 });

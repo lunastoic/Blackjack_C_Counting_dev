@@ -22,7 +22,8 @@ export * from './blackjack/round';
 export * from './blackjack/resolve';
 
 // Hi-Lo counting
-export * from './counting/hiLo';
+export type { CountState } from './counting/hiLo';
+export { createCount, applyVisibleCard, applyVisibleCards, resetCount } from './counting/hiLo';
 export * from './counting/trueCount';
 
 // Basic strategy
@@ -48,6 +49,9 @@ export * from './achievements/engine';
 // Round phase state machine
 export * from './state-machine/phases';
 export * from './state-machine/machine';
+
+// Counting Dojo teaching layer
+export * from './dojo';
 
 // Cross-cutting domain types
 export * from './types';

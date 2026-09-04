@@ -1,7 +1,5 @@
 import { Card, hiLoValue, Rank } from '../cards/card';
 
-export { hiLoValue };
-
 /**
  * Hi-Lo running count. Updated ONLY through explicit visibility events (a card
  * became visible on the table) — never by animation timing. The dealer hole

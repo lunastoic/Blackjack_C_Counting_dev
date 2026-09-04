@@ -73,7 +73,7 @@ export function StrategyChartModal({
   visible: boolean;
   onClose: () => void;
 }) {
-  const chart = useMemo(buildChart, []);
+  const chart = useMemo(() => buildChart(), []);
 
   return (
     <ModalSheet visible={visible} title="Basic Strategy" onClose={onClose}>

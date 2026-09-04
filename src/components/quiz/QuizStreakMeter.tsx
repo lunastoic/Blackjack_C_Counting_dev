@@ -14,6 +14,8 @@ import { colors, fontSizes, fontWeights, spacing } from '../../theme';
 interface QuizStreakMeterProps {
   readonly streak: number;
   readonly target: number;
+  /** Streak values a miss falls back to — drawn as dividers in the meter. */
+  readonly checkpoints?: readonly number[];
 }
 
 interface MeterDotProps {
@@ -39,9 +41,10 @@ function MeterDot({ filled, isNext, pulse }: MeterDotProps) {
 
 /**
  * Nine-segment streak meter. Filled circles glow gold, the next empty circle
- * pulses to draw the eye, and a new fill animates with a small pop.
+ * pulses to draw the eye, and thin dividers mark the checkpoint floors a
+ * miss falls back to.
  */
-export function QuizStreakMeter({ streak, target }: QuizStreakMeterProps) {
+export function QuizStreakMeter({ streak, target, checkpoints = [] }: QuizStreakMeterProps) {
   const reducedMotion = useReducedMotion();
   const pulse = useSharedValue(1);
 
@@ -66,7 +69,12 @@ export function QuizStreakMeter({ streak, target }: QuizStreakMeterProps) {
         {Array.from({ length: target }, (_, i) => {
           const filled = i < streak;
           const isNext = i === streak && streak < target;
-          return <MeterDot key={i} filled={filled} isNext={isNext} pulse={pulse} />;
+          return (
+            <React.Fragment key={i}>
+              {checkpoints.includes(i) ? <View style={styles.checkpointDivider} /> : null}
+              <MeterDot filled={filled} isNext={isNext} pulse={pulse} />
+            </React.Fragment>
+          );
         })}
       </View>
       <Text style={styles.label}>
@@ -90,6 +98,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.sm,
     paddingVertical: spacing.xs,
+  },
+  checkpointDivider: {
+    width: 2,
+    height: 12,
+    borderRadius: 1,
+    backgroundColor: colors.goldDim,
+    alignSelf: 'center',
   },
   dotWrap: {
     width: 18,

@@ -1,4 +1,6 @@
 import { useAchievementStore } from '../stores/achievementStore';
+import { useCampaignStore } from '../stores/campaignStore';
+import { useDojoStore } from '../stores/dojoStore';
 import { useEconomyStore } from '../stores/economyStore';
 import { useHydrationStore } from '../stores/hydrationStore';
 import { useModeStatsStore } from '../stores/modeStatsStore';
@@ -29,6 +31,8 @@ export function applySaveToStores(save: SaveData): void {
   useSettingsStore.getState().hydrate(save.settings);
   useAchievementStore.getState().hydrate(save.achievements, save.mapAchievements);
   useModeStatsStore.getState().hydrate(save.modeStats);
+  useCampaignStore.getState().hydrate(save.campaign);
+  useDojoStore.getState().hydrate(save.dojo);
 }
 
 export function collectSaveFromStores(): SaveData {
@@ -36,6 +40,7 @@ export function collectSaveFromStores(): SaveData {
   const economy = useEconomyStore.getState();
   const progression = useProgressionStore.getState();
   const settings = useSettingsStore.getState();
+  const dojo = useDojoStore.getState();
 
   return {
     profile: {
@@ -52,6 +57,11 @@ export function collectSaveFromStores(): SaveData {
       level: progression.level,
       xpIntoLevel: progression.xpIntoLevel,
       unlockedMapIds: [...progression.unlockedMapIds],
+      licenses: Object.fromEntries(
+        Object.entries(progression.licenses).flatMap(([mapId, license]) =>
+          license === 'permit' || license === 'licensed' ? [[String(mapId), license]] : [],
+        ),
+      ),
     },
     settings: {
       soundEnabled: settings.soundEnabled,
@@ -60,6 +70,7 @@ export function collectSaveFromStores(): SaveData {
       deckCounts: { ...settings.deckCounts },
       trainingAids: { ...settings.trainingAids },
       countCoachLevel: settings.countCoachLevel,
+      trainingMode: settings.trainingMode,
       reducedMotion: settings.reducedMotion,
     },
     achievements: {
@@ -76,6 +87,21 @@ export function collectSaveFromStores(): SaveData {
       regular: { ...useModeStatsStore.getState().regular },
       quiz: { ...useModeStatsStore.getState().quiz },
       learn: { ...useModeStatsStore.getState().learn },
+    },
+    campaign: {
+      lessonsDone: [...useCampaignStore.getState().lessonsDone],
+      nightsDone: [...useCampaignStore.getState().nightsDone],
+    },
+    dojo: {
+      completedLessons: [...dojo.completedLessons],
+      totalDojoXp: dojo.totalDojoXp,
+      drillBests: { ...dojo.drillBests },
+      dailyStreak: dojo.dailyStreak,
+      lastPracticeAt: dojo.lastPracticeAt,
+      tableObjectivesCompleted: [...dojo.tableObjectivesCompleted],
+      onboardingDone: dojo.onboardingDone,
+      flashLevels: { ...dojo.flashLevels },
+      flashCountTipSeen: dojo.flashCountTipSeen,
     },
   };
 }
@@ -108,6 +134,8 @@ function subscribeForPersistence(): void {
     useSettingsStore,
     useAchievementStore,
     useModeStatsStore,
+    useCampaignStore,
+    useDojoStore,
   ] as const;
   for (const store of stores) {
     unsubscribers.push(store.subscribe(scheduleSave));

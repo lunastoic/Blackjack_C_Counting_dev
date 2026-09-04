@@ -18,6 +18,7 @@ import { haptics } from '../../services/haptics';
 import { useGameSessionStore } from '../../stores/gameSessionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { colors, radii, spacing } from '../../theme';
+import { countCoachCapabilities, effectiveCountCoachLevel } from '../../utils/countCoach';
 import { PressableScale } from '../common/PressableScale';
 
 const ACTIONS: readonly { action: PlayerAction; image: number; label: string }[] = [
@@ -28,24 +29,27 @@ const ACTIONS: readonly { action: PlayerAction; image: number; label: string }[]
 ];
 
 /**
- * Hit / Stand / Double / Split using the migrated button art. With the Count
- * Coach on Full and strategy hints on, the recommended action pulses with a
- * yellow glow.
+ * Hit / Stand / Double / Split using the migrated button art. With Training
+ * Mode on (Full coach) and strategy hints on, the recommended action pulses
+ * with a yellow glow.
  */
 export function ActionBar() {
   const round = useGameSessionStore((state) => state.round);
   const phase = useGameSessionStore((state) => state.phase);
   const canAct = useGameSessionStore((state) => state.canAct);
   const act = useGameSessionStore((state) => state.act);
-  const coachLevel = useSettingsStore((state) => state.countCoachLevel);
-  const hintsEnabled = useSettingsStore((state) => state.trainingAids.strategyHints);
+  const hintsEnabled = useSettingsStore(
+    (state) =>
+      state.trainingAids.strategyHints &&
+      countCoachCapabilities(effectiveCountCoachLevel(state.countCoachLevel, state.trainingMode))
+        .allowFullTools,
+  );
 
   const hand = round ? activeHand(round) : null;
   const dealerUp = round?.dealerHand.cards[1];
 
   let recommended: PlayerAction | null = null;
   if (
-    coachLevel === 'full' &&
     hintsEnabled &&
     phase === 'playerTurn' &&
     hand &&
@@ -110,7 +114,6 @@ function ActionButton({
 
   const glowStyle = useAnimatedStyle(() => ({
     shadowOpacity: glow.value,
-    borderColor: glow.value > 0.05 ? colors.strategyHint : 'transparent',
   }));
 
   return (
@@ -136,10 +139,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
+  // Soft halo only for the recommended action — no outline.
   buttonGlow: {
     borderRadius: radii.md,
-    borderWidth: 2,
-    borderColor: 'transparent',
     shadowColor: colors.strategyHint,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 0 },

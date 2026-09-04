@@ -22,7 +22,10 @@ function resetStores(chips = 500): void {
   useGameSessionStore.getState().endSession();
   const defaults = createDefaultSave();
   useEconomyStore.getState().hydrate({ ...defaults.economy, chips });
-  useProgressionStore.getState().hydrate(defaults.progression);
+  useProgressionStore.getState().hydrate({
+    ...defaults.progression,
+    licenses: { '1': 'licensed', '2': 'licensed', '3': 'licensed' },
+  });
   useAchievementStore.getState().hydrate(defaults.achievements, defaults.mapAchievements);
   useSettingsStore.getState().hydrate({
     ...defaults.settings,
@@ -293,7 +296,7 @@ describe('XP and level rewards', () => {
 
   it('level-up pays the chip reward and raises the level-up notice', () => {
     startTraining();
-    useProgressionStore.getState().hydrate({ level: 1, xpIntoLevel: 28, unlockedMapIds: [1] });
+    useProgressionStore.getState().hydrate({ level: 1, xpIntoLevel: 28, unlockedMapIds: [1], licenses: {} });
     rig('10', '10', '9', '8'); // win → +3 XP → level 2
     dealRound(100);
     session().act('stand');

@@ -7,6 +7,7 @@ import {
   checkIntervalForStreak,
   countCheckKind,
   countCoachCapabilities,
+  effectiveCountCoachLevel,
   formatCount,
   isCountCheckDue,
   isCountCoachLevel,
@@ -59,6 +60,17 @@ describe('Count Coach levels', () => {
     expect(isCountCoachLevel('guided')).toBe(false);
     expect(isCountCoachLevel('light')).toBe(false);
     expect(isCountCoachLevel('quiz')).toBe(false);
+  });
+
+  it('Training Mode defaults on and the table switch picks the effective level', () => {
+    expect(useSettingsStore.getState().trainingMode).toBe(true);
+    // Dial disabled: the switch alone decides — on is Full, off is Learn.
+    for (const level of ['off', 'learn', 'full'] as const) {
+      expect(effectiveCountCoachLevel(level, true)).toBe('full');
+      expect(effectiveCountCoachLevel(level, false)).toBe('learn');
+    }
+    useSettingsStore.getState().setTrainingMode(false);
+    expect(useSettingsStore.getState().trainingMode).toBe(false);
   });
 });
 
@@ -148,6 +160,6 @@ describe('save migration', () => {
       });
       expect(settingsSchema.parse(migrated.settings).countCoachLevel).toBe(to);
     }
-    expect(SAVE_SCHEMA_VERSION).toBe(5);
+    expect(SAVE_SCHEMA_VERSION).toBe(12);
   });
 });
