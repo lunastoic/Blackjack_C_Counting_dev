@@ -2,7 +2,7 @@
   "expo": {
     "name": "Blackjack Card Counter",
     "slug": "Blackjack_C_Counting",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/branding/app-icon.png",
     "scheme": "blackjackccounting",
