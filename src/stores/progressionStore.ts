@@ -25,6 +25,11 @@ interface ProgressionState {
   readonly unlockedMapIds: readonly number[];
   /** mapId → earned table license (missing key = table still closed). */
   readonly licenses: Readonly<Record<number, TableLicense>>;
+  /**
+   * Casino unlocked this session whose reveal the Select Map screen has yet
+   * to play. Session-only: never saved, so a relaunch shows it simply open.
+   */
+  readonly pendingRevealMapId: number | null;
   /** Applies engine progression; returns the structured result for orchestration. */
   awardXp(amount: number): ProgressionResult;
   isMapUnlocked(mapId: number): boolean;
@@ -36,6 +41,8 @@ interface ProgressionState {
    * level requirement sits behind FEATURES.levelMapGating.)
    */
   unlockMap(mapId: number): boolean;
+  /** The Select Map screen has taken the pending reveal (played or skipped). */
+  clearMapReveal(): void;
   licenseForMap(mapId: number): TableLicense;
   /** Upgrade-only license grant. Returns true when the tier actually rose. */
   grantLicense(mapId: number, license: TableLicense): boolean;
@@ -47,6 +54,7 @@ export const useProgressionStore = create<ProgressionState>()((set, get) => ({
   xpIntoLevel: INITIAL_PROGRESS.xpIntoLevel,
   unlockedMapIds: [1],
   licenses: {},
+  pendingRevealMapId: null,
 
   awardXp: (amount) => {
     const result = engineAwardXp(
@@ -76,9 +84,14 @@ export const useProgressionStore = create<ProgressionState>()((set, get) => ({
     if (!get().canUnlockMap(mapId)) {
       return false;
     }
-    set((state) => ({ unlockedMapIds: [...state.unlockedMapIds, mapId] }));
+    set((state) => ({
+      unlockedMapIds: [...state.unlockedMapIds, mapId],
+      pendingRevealMapId: mapId,
+    }));
     return true;
   },
+
+  clearMapReveal: () => set({ pendingRevealMapId: null }),
 
   licenseForMap: (mapId) => get().licenses[mapId] ?? 'none',
 
@@ -99,6 +112,7 @@ export const useProgressionStore = create<ProgressionState>()((set, get) => ({
       level: data.level,
       xpIntoLevel: data.xpIntoLevel,
       unlockedMapIds: [...data.unlockedMapIds],
+      pendingRevealMapId: null,
       licenses: Object.fromEntries(
         Object.entries(data.licenses ?? {}).map(([mapId, license]) => [Number(mapId), license]),
       ),

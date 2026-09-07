@@ -9,3 +9,4 @@ export * from './progression';
 export * from './objectives';
 export * from './countFlash';
 export * from './training';
+export * from './levelTutorials';

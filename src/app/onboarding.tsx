@@ -34,7 +34,13 @@ export default function OnboardingScreen() {
       return;
     }
     finishOnboarding();
-    router.replace('/');
+    // Opened from Settings over the table: unwind to it rather than stacking
+    // a second table on top of the first.
+    if (router.canDismiss()) {
+      router.dismissAll();
+    } else {
+      router.replace('/');
+    }
   }
 
   const slide = SLIDES[index];

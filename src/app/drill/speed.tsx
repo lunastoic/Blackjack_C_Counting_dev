@@ -79,7 +79,7 @@ export default function SpeedDrillScreen() {
           <Text style={styles.doneTitle}>Speed Drill Complete</Text>
           <Text style={styles.doneBody}>Best streak: {bestStreak}</Text>
           <DojoButton label="Again" onPress={reset} />
-          <DojoButton label="Back to Drills" variant="secondary" onPress={() => router.replace('/drill')} />
+          <DojoButton label="Back to Drills" variant="secondary" onPress={() => router.dismissTo('/drill')} />
         </View>
       </AppScreen>
     );

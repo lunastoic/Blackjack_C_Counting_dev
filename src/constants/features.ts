@@ -32,4 +32,19 @@ export const FEATURES = {
    * The cadence engine, streak XP and their tests stay intact behind this.
    */
   autoCountChecks: false,
+
+  /**
+   * The globe's 3D "Casinos" fan floating over the live table.
+   * Disabled: the globe opens the Select Map screen instead — every casino's
+   * level ladder with the table button along the bottom of its card.
+   */
+  casinoFan: false,
+
+  /**
+   * The "Quiz" pill under a cleared casino's name on the Select Map card.
+   * Disabled: the banner stays one line so the ladder and the Play Table
+   * button get the room. Note: with the fan off too, Quiz mode has no entry
+   * point until one of these flags returns.
+   */
+  mapCardQuiz: false,
 } as const;

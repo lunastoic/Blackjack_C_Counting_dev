@@ -11,7 +11,9 @@ import {
   DOJO_XP,
   isCheckpointLevel,
   isFlashLevel,
+  isFlashLevelDone,
   isStreakLevel,
+  levelTutorial,
   QuestionKind,
   speedProfile,
   TableFrame,
@@ -31,7 +33,13 @@ import { PrimaryButton } from '../common/PrimaryButton';
 import { FlashCountReview } from '../flash/FlashCountReview';
 import { FlashLevelCompleteOverlay } from '../flash/FlashLevelCompleteOverlay';
 import { FlashPanel, FlashPanelChip } from '../flash/FlashPanel';
-import { FlashTutorialDeck, FlashTutorialPanel, TUTORIAL_STEPS } from '../flash/FlashTutorial';
+import {
+  FlashTutorialDeck,
+  FlashTutorialPanel,
+  SPREAD_STAGE_HEIGHT,
+  TUTORIAL_STEPS,
+  tutorialStageHeight,
+} from '../flash/FlashTutorial';
 import { FeltMarkings } from '../game/FeltMarkings';
 import { GameSettingsSheet } from '../game/GameSettingsSheet';
 import { GameTableHud } from '../game/GameTableHud';
@@ -42,6 +50,7 @@ import { CardsStage } from './CardsStage';
 import { CountEntry } from './CountEntry';
 import { CountStreamStage } from './CountStreamStage';
 import { DeckEstimateStage } from './DeckEstimateStage';
+import { LevelTutorialPanel } from './LevelTutorialPanel';
 import { TableStage } from './TableStage';
 import { TrueCountStage } from './TrueCountStage';
 import { StatusCell, TrainingStatusStrip } from './TrainingStatusStrip';
@@ -53,6 +62,13 @@ interface TrainingLevelScreenProps {
 }
 
 const EMPTY_TABLE: TableFrame = { seats: [], dealer: null };
+
+/**
+ * Where the house name is printed while the table idles, in points from the
+ * rail: under the ribbon spread, and in the strip of felt between the pile and
+ * the fan once the tutorial deals — the same spot through the shuffle.
+ */
+const IDLE_LETTERING_Y = 122;
 
 /** Exact-entry bounds, matching the four-choice ranges in the store. */
 const ENTRY_BOUNDS: Record<QuestionKind, { min: number; max: number }> = {
@@ -113,10 +129,12 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   const outcome = useTrainingStore((state) => state.outcome);
   const countTipPending = useTrainingStore((state) => state.countTipPending);
   const tableOpen = useDojoStore((state) => state.isMapFlashComplete(mapId));
+  const cleared = useDojoStore((state) => isFlashLevelDone(state.flashLevels, mapId, level));
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const tutorialEveryLevel = useFlashDebugStore((state) => state.tutorialEveryLevel);
-  const [idleStage, setIdleStage] = useState<'spread' | 'tutorial'>('spread');
+  // Idle felt: the ribbon spread, the Hi-Lo primer beats, or the level's own slides.
+  const [idleStage, setIdleStage] = useState<'spread' | 'primer' | 'slides'>('spread');
   const [tutorialStep, setTutorialStep] = useState(0);
   const [hasBegun, setHasBegun] = useState(false);
 
@@ -159,6 +177,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
     }
   }, [settled]);
 
+
   if (!map || !isFlashLevel(level)) {
     return <Redirect href="/" />;
   }
@@ -173,17 +192,39 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   const nextSpec = trainingLevelsForMap(mapId).find((entry) => entry.level === level + 1) ?? null;
   const asksDecks = checkpointSpec?.questions.includes('decksRemaining') ?? false;
   const totalCards = checkpointSpec ? checkpointSpec.deckCount * CARDS_PER_DECK : 0;
-  // The Hi-Lo primer runs before the very first card-value drill (or every level in dev).
-  const showTutorial =
-    (spec.mode === 'cardValue' && level === 1) || (FLASH_DEBUG_AVAILABLE && tutorialEveryLevel);
-  const inTutorial = status === 'idle' && idleStage === 'tutorial';
+  // The tutorial is the Hi-Lo values primer — only before the very first level
+  // of the game (or every level in dev) — followed by the level's own slides.
+  // It plays itself on the first start of a level not yet cleared; the brief
+  // keeps a replay link after that.
+  const forceEveryLevel = FLASH_DEBUG_AVAILABLE && tutorialEveryLevel;
+  const showPrimer = (mapId === 1 && level === 1) || forceEveryLevel;
+  const slides = levelTutorial(mapId, level);
+  const autoTutorial = !cleared || forceEveryLevel;
+  const inPrimer = status === 'idle' && idleStage === 'primer';
+  const inSlides = status === 'idle' && idleStage === 'slides';
+  // After the primer the deck stays gathered under the slides; without it the ribbon stays out.
+  const gathered = inSlides && showPrimer;
   const seated = status !== 'idle';
+  // While the table idles the brief and the tutorial are cards on the felt,
+  // not a keyboard: the stage keeps only the felt the deck asks for and the
+  // card floats centred in the rest instead of hugging the bottom edge.
+  const idleStageHeight = inPrimer || gathered ? tutorialStageHeight(width) : SPREAD_STAGE_HEIGHT;
+
+  function startTutorial() {
+    setTutorialStep(0);
+    if (showPrimer) {
+      playSound('shuffle');
+      setIdleStage('primer');
+    } else if (slides.length > 0) {
+      setIdleStage('slides');
+    } else {
+      finishTutorial();
+    }
+  }
 
   function handleBegin() {
-    if (showTutorial && !hasBegun) {
-      playSound('shuffle');
-      setTutorialStep(0);
-      setIdleStage('tutorial');
+    if (autoTutorial && !hasBegun) {
+      startTutorial();
       return;
     }
     setHasBegun(true);
@@ -193,6 +234,16 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   function finishTutorial() {
     setHasBegun(true);
     begin();
+  }
+
+  /** The primer hands over to the level's slides, or deals when there are none. */
+  function finishPrimer() {
+    if (slides.length === 0) {
+      finishTutorial();
+      return;
+    }
+    setTutorialStep(0);
+    setIdleStage('slides');
   }
 
   function handleAnswer(value: number) {
@@ -213,8 +264,16 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
     });
   }
 
+  // The level map is normally the screen under this one: pop back to it
+  // instead of stacking another copy (each keeps six posters decoded). From a
+  // deep link there is none, and dismissTo swaps this screen for it.
   function openLevelMap() {
-    router.push({ pathname: '/levels/[mapId]', params: { mapId: String(mapId) } });
+    router.dismissTo({ pathname: '/levels/[mapId]', params: { mapId: String(mapId) } });
+  }
+
+  // Likewise the table is the root screen: unwind to it and switch its map.
+  function sitAtTable() {
+    router.dismissTo({ pathname: '/game/[mapId]', params: { mapId: String(mapId) } });
   }
 
   // ---------------------------------------------------------------------------
@@ -272,7 +331,9 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
 
   function renderStage() {
     if (status === 'idle') {
-      return <FlashTutorialDeck beat={inTutorial ? tutorialStep : null} width={width} />;
+      return (
+        <FlashTutorialDeck beat={inPrimer ? tutorialStep : null} gathered={gathered} width={width} />
+      );
     }
     switch (spec.mode) {
       case 'cardValue':
@@ -453,12 +514,27 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   }
 
   function renderPanel() {
-    if (inTutorial) {
+    if (inPrimer) {
       return (
         <FlashTutorialPanel
           step={tutorialStep}
+          lastLabel={slides.length > 0 ? 'Next' : undefined}
           onNext={() =>
-            tutorialStep + 1 >= TUTORIAL_STEPS ? finishTutorial() : setTutorialStep((step) => step + 1)
+            tutorialStep + 1 >= TUTORIAL_STEPS ? finishPrimer() : setTutorialStep((step) => step + 1)
+          }
+          onSkip={finishTutorial}
+        />
+      );
+    }
+
+    if (inSlides) {
+      return (
+        <LevelTutorialPanel
+          level={level}
+          slides={slides}
+          step={tutorialStep}
+          onNext={() =>
+            tutorialStep + 1 >= slides.length ? finishTutorial() : setTutorialStep((step) => step + 1)
           }
           onSkip={finishTutorial}
         />
@@ -478,17 +554,10 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
           </View>
           <View style={styles.introActions}>
             <PrimaryButton label={hasBegun ? 'Start again' : 'Start training'} onPress={handleBegin} />
-            {showTutorial ? (
-              <Text
-                style={styles.replayLink}
-                onPress={() => {
-                  playSound('shuffle');
-                  setTutorialStep(0);
-                  setIdleStage('tutorial');
-                }}
-                accessibilityRole="button"
-              >
-                Replay Hi-Lo values
+            {/* Start plays the tutorial itself on a first attempt; otherwise it is a tap away. */}
+            {(showPrimer || slides.length > 0) && (hasBegun || !autoTutorial) ? (
+              <Text style={styles.replayLink} onPress={startTutorial} accessibilityRole="button">
+                How this level works
               </Text>
             ) : null}
           </View>
@@ -594,12 +663,24 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
 
       <TrainingStatusStrip cells={cells} />
 
-      <TableCamera seated={seated}>
-        <FeltMarkings casinoName={map.name} anchor={status === 'idle' ? 0.54 : 0.52} />
+      <TableCamera
+        seated={seated}
+        style={status === 'idle' ? { flexGrow: 0, flexBasis: idleStageHeight } : undefined}
+      >
+        <FeltMarkings
+          casinoName={map.name}
+          anchor={status === 'idle' ? IDLE_LETTERING_Y / idleStageHeight : 0.52}
+        />
         {renderStage()}
       </TableCamera>
 
-      <View style={[styles.bottomPanel, { paddingBottom: insets.bottom + spacing.md }]}>
+      <View
+        style={[
+          styles.bottomPanel,
+          status === 'idle' && styles.bottomPanelIdle,
+          { paddingBottom: insets.bottom + spacing.md },
+        ]}
+      >
         {renderPanel()}
       </View>
 
@@ -628,9 +709,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
           tableUnlocked={outcome?.tableUnlocked ?? false}
           tableOpen={tableOpen}
           onNextLevel={() => goToLevel(level + 1)}
-          onSitAtTable={() =>
-            router.replace({ pathname: '/game/[mapId]', params: { mapId: String(mapId) } })
-          }
+          onSitAtTable={sitAtTable}
           onQuiz={() =>
             router.replace({ pathname: '/quiz/[mapId]', params: { mapId: String(mapId) } })
           }
@@ -673,6 +752,11 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xs,
     minHeight: 200,
     justifyContent: 'flex-end',
+  },
+  /** Idle: the brief / primer card floats centred in the felt the deck leaves. */
+  bottomPanelIdle: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   introTitle: {
     color: colors.goldBright,

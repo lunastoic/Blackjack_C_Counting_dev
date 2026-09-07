@@ -70,7 +70,7 @@ export default function RunningDrillScreen() {
           <Text style={styles.doneBody}>
             {correctChecks} / {checks} checks correct
           </Text>
-          <DojoButton label="Back to Drills" onPress={() => router.replace('/drill')} />
+          <DojoButton label="Back to Drills" onPress={() => router.dismissTo('/drill')} />
         </View>
       </AppScreen>
     );

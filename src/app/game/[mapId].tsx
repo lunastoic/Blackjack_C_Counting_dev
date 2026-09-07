@@ -188,7 +188,11 @@ export default function GameScreen() {
       <GameTableHud
         mapName={map.name}
         modeLabel={guidedMode ? 'Guided Dojo Table' : modeLabel}
-        onOpenMaps={() => setMapsOpen(true)}
+        onOpenMaps={() =>
+          FEATURES.casinoFan
+            ? setMapsOpen(true)
+            : router.push({ pathname: '/levels/[mapId]', params: { mapId: String(map.id) } })
+        }
         onOpenSettings={() => setSettingsOpen(true)}
         menuOpen={settingsOpen}
       />
@@ -409,12 +413,14 @@ export default function GameScreen() {
       />
       <StrategyChartModal visible={strategyOpen} onClose={() => setStrategyOpen(false)} />
       <DistributionChartModal visible={chartsOpen} onClose={() => setChartsOpen(false)} />
-      <MapCoverflow
-        visible={mapsOpen}
-        currentMapId={map.id}
-        onClose={() => setMapsOpen(false)}
-        onSelect={handleMapSelect}
-      />
+      {FEATURES.casinoFan ? (
+        <MapCoverflow
+          visible={mapsOpen}
+          currentMapId={map.id}
+          onClose={() => setMapsOpen(false)}
+          onSelect={handleMapSelect}
+        />
+      ) : null}
     </View>
   );
 }

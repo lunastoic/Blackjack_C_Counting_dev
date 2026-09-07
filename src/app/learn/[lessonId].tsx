@@ -59,7 +59,7 @@ export default function LessonScreen() {
   function handleNext() {
     if (isLastStep) {
       completeLesson(currentLesson.id);
-      router.replace('/learn');
+      router.dismissTo('/learn');
       return;
     }
     setStepIndex(stepIndex + 1);

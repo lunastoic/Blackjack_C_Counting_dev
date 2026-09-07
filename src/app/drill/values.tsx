@@ -87,7 +87,7 @@ export default function ValuesDrillScreen() {
               {correct} / {cards.length} correct ({Math.round((correct / cards.length) * 100)}%)
             </Text>
             <DojoButton label="Drill Again" onPress={reset} />
-            <DojoButton label="Back to Drills" variant="secondary" onPress={() => router.replace('/drill')} />
+            <DojoButton label="Back to Drills" variant="secondary" onPress={() => router.dismissTo('/drill')} />
           </View>
         ) : (
           <>

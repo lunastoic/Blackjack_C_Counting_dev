@@ -35,6 +35,29 @@ const PULL_MS = 420;
 /** Beat cards wait for the pile to gather before they slide out. */
 const PULL_START_DELAY_MS = 350;
 
+/**
+ * Deck geometry, top-down in points so the deck is the same size on any felt:
+ * the pile sits just under the dealer's rail, the fan an open strip of felt
+ * below it, and the count flag hangs under the fan on the betting beats.
+ */
+const PILE_TOP = spacing.md;
+const FAN_GAP = 28;
+/** Flag height plus its margins. */
+const FLAG_ROOM = spacing.md + 32 + spacing.sm;
+/** Felt the ribbon spread wants under the rail: the ribbon and the house lettering below it. */
+export const SPREAD_STAGE_HEIGHT = 210;
+
+/** Pile and pulled cards read at one size: five across with room to spare. */
+function beatCardWidth(width: number): number {
+  return Math.min((width - 72) / 5 - 4, 66);
+}
+
+/** Felt the pile-and-fan deck wants: pile, gap, fan, flag. */
+export function tutorialStageHeight(width: number): number {
+  const cardHeight = beatCardWidth(width) / CARD_ASPECT;
+  return Math.round(PILE_TOP + cardHeight + FAN_GAP + cardHeight + FLAG_ROOM);
+}
+
 interface TutorialBeat {
   readonly ranks: readonly Rank[];
   readonly title: string;
@@ -95,31 +118,31 @@ interface Point {
 interface FlashTutorialDeckProps {
   /** null = the 52-card ribbon spread; 0–4 = that beat's cards out of the pile. */
   readonly beat: number | null;
+  /** With no beat out, keep the deck gathered in its pile instead of spreading it. */
+  readonly gathered?: boolean;
   readonly width: number;
 }
 
 /** The felt during idle and the tutorial: ribbon spread, pile, pulled beats. */
-export function FlashTutorialDeck({ beat, width }: FlashTutorialDeckProps) {
+export function FlashTutorialDeck({ beat, gathered = false, width }: FlashTutorialDeckProps) {
   const [height, setHeight] = useState(0);
 
   function onLayout(event: LayoutChangeEvent) {
     setHeight(Math.floor(event.nativeEvent.layout.height));
   }
 
-  const pile: Point = { x: width / 2, y: Math.max(80, height * 0.2) };
   // The gathered deck reads at the same size as the cards pulled from it.
-  const pileCardWidth = Math.min((width - 72) / 5 - 4, 66);
+  const pileCardWidth = beatCardWidth(width);
+  const pile: Point = { x: width / 2, y: PILE_TOP + pileCardWidth / CARD_ASPECT / 2 };
+  const spread = beat === null && !gathered;
 
   return (
     <View style={styles.area} onLayout={onLayout}>
       {height > 0 ? (
         <>
-          {beat !== null ? <DeckPile pile={pile} cardWidth={pileCardWidth} /> : null}
-          {beat === null ? (
-            <RibbonSpread width={width} height={height} pile={pile} />
-          ) : (
-            <BeatCards key={beat} beat={beat} width={width} height={height} pile={pile} />
-          )}
+          {spread ? null : <DeckPile pile={pile} cardWidth={pileCardWidth} />}
+          {spread ? <RibbonSpread width={width} height={height} pile={pile} /> : null}
+          {beat !== null ? <BeatCards key={beat} beat={beat} width={width} pile={pile} /> : null}
         </>
       ) : null}
     </View>
@@ -222,22 +245,13 @@ function DeckPile({ pile, cardWidth }: { pile: Point; cardWidth: number }) {
 }
 
 /** One beat's cards pulled from the pile, glow breathing, returned on unmount. */
-function BeatCards({
-  beat,
-  width,
-  height,
-  pile,
-}: {
-  beat: number;
-  width: number;
-  height: number;
-  pile: Point;
-}) {
+function BeatCards({ beat, width, pile }: { beat: number; width: number; pile: Point }) {
   const reducedMotion = useReducedMotion();
   const spec = tutorialBeat(beat);
-  const cardWidth = Math.min((width - 72) / 5 - 4, 66);
+  const cardWidth = beatCardWidth(width);
   const cardHeight = cardWidth / CARD_ASPECT;
-  const fanY = height * 0.6;
+  // A strip of open felt under the pile, whatever the stage height.
+  const fanY = pile.y + cardHeight + FAN_GAP;
   const stepX = cardWidth - 6;
 
   // One shared pulse so the whole fan breathes together.
@@ -337,22 +351,26 @@ function glowColor(rank: Rank): string {
 
 interface FlashTutorialPanelProps {
   readonly step: number;
+  /** Button on the last beat — "Next" when the level's own slides follow. */
+  readonly lastLabel?: string;
   readonly onNext: () => void;
   readonly onSkip: () => void;
 }
 
 /** Beat copy + Next / Skip under the felt. */
-export function FlashTutorialPanel({ step, onNext, onSkip }: FlashTutorialPanelProps) {
+export function FlashTutorialPanel({
+  step,
+  lastLabel = 'Deal me in',
+  onNext,
+  onSkip,
+}: FlashTutorialPanelProps) {
   const beat = tutorialBeat(step);
   return (
     <FlashPanel kicker={`HI-LO  ·  ${step + 1} OF ${TUTORIAL_STEPS}`}>
       <Text style={[styles.title, { color: beat.color }]}>{beat.title}</Text>
       <Text style={styles.body}>{beat.body}</Text>
       <View style={styles.actions}>
-        <PrimaryButton
-          label={step + 1 === TUTORIAL_STEPS ? 'Deal me in' : 'Next'}
-          onPress={onNext}
-        />
+        <PrimaryButton label={step + 1 === TUTORIAL_STEPS ? lastLabel : 'Next'} onPress={onNext} />
         <Text style={styles.skip} onPress={onSkip} accessibilityRole="button">
           Skip
         </Text>

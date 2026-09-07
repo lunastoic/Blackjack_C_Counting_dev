@@ -34,9 +34,19 @@ export default function PlayPreviewScreen() {
   }
   const currentMap = map;
 
+  // The table is the root screen: unwind to it (switching its map) instead of
+  // stacking tables, which keeps every felt below in memory.
   function start() {
     startGuidedSession(currentMap.id);
-    router.push({ pathname: '/game/[mapId]', params: { mapId: String(currentMap.id) } });
+    router.dismissTo({ pathname: '/game/[mapId]', params: { mapId: String(currentMap.id) } });
+  }
+
+  function chooseAnotherTable() {
+    if (router.canDismiss()) {
+      router.dismissAll();
+    } else {
+      router.replace('/');
+    }
   }
 
   const objectives = objectivesForMap(currentMap);
@@ -64,7 +74,7 @@ export default function PlayPreviewScreen() {
 
         <View style={styles.footer}>
           <DojoButton label="Sit Down & Play" onPress={start} />
-          <DojoButton label="Choose Another Table" variant="secondary" onPress={() => router.push('/')} />
+          <DojoButton label="Choose Another Table" variant="secondary" onPress={chooseAnotherTable} />
         </View>
       </View>
     </AppScreen>

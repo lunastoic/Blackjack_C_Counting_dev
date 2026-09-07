@@ -219,7 +219,7 @@ export default function SettingsScreen() {
             />
             <Divider />
             <ToggleRow
-              label="Tutorial on every level"
+              label="Hi-Lo primer on every level"
               value={debugTutorialEveryLevel}
               onChange={setDebugTutorialEveryLevel}
             />

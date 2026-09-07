@@ -19,7 +19,7 @@ interface BetSpotProps {
 }
 
 /**
- * Fixed circular betting spot on the felt. Hosts the wager pile while betting
+ * Fixed betting spot on the felt (an invisible circle). Hosts the wager pile while betting
  * and in-round hand chips after deal so the stack never remounts elsewhere.
  */
 export function BetSpot({
@@ -57,9 +57,6 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    borderWidth: 2,
-    borderColor: colors.borderGold,
-    backgroundColor: colors.overlayLight,
     gap: 2,
     paddingBottom: spacing.xs,
   },

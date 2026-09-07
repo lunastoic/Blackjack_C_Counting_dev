@@ -13,7 +13,10 @@ export const FLASH_DEBUG_AVAILABLE = __DEV__;
 interface FlashDebugState {
   /** Treat every level and every casino as unlocked (nothing is marked done). */
   readonly unlockAll: boolean;
-  /** Show the Hi-Lo primer on every level start, not just level 1. */
+  /**
+   * Play the Hi-Lo primer (then the level's own slides) on every level start,
+   * not just map 1 level 1 — cleared levels included.
+   */
   readonly tutorialEveryLevel: boolean;
   readonly setUnlockAll: (value: boolean) => void;
   readonly setTutorialEveryLevel: (value: boolean) => void;
@@ -21,8 +24,9 @@ interface FlashDebugState {
 
 export const useFlashDebugStore = create<FlashDebugState>()((set) => ({
   unlockAll: false,
-  // Testing default: the tutorial runs on every start-up while in dev.
-  tutorialEveryLevel: FLASH_DEBUG_AVAILABLE,
+  // Off by default so dev sees the shipped flow; flip it in Settings to
+  // eyeball the primer on any level.
+  tutorialEveryLevel: false,
   setUnlockAll: (value) => set({ unlockAll: FLASH_DEBUG_AVAILABLE && value }),
   setTutorialEveryLevel: (value) => set({ tutorialEveryLevel: FLASH_DEBUG_AVAILABLE && value }),
 }));

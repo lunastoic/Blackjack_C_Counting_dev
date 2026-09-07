@@ -76,6 +76,19 @@ describe('progression store', () => {
       expect(useProgressionStore.getState().unlockMap(3)).toBe(false);
     });
 
+    it('queues a one-time reveal for the Select Map screen when a casino unlocks', () => {
+      expect(useProgressionStore.getState().pendingRevealMapId).toBeNull();
+      useProgressionStore.getState().grantLicense(1, 'licensed');
+      useProgressionStore.getState().unlockMap(2);
+      expect(useProgressionStore.getState().pendingRevealMapId).toBe(2);
+
+      useProgressionStore.getState().clearMapReveal();
+      expect(useProgressionStore.getState().pendingRevealMapId).toBeNull();
+      // The reveal is not part of the save.
+      expect(useProgressionStore.getState().unlockMap(2)).toBe(false);
+      expect(useProgressionStore.getState().pendingRevealMapId).toBeNull();
+    });
+
     it('rejects unknown map ids', () => {
       expect(useProgressionStore.getState().unlockMap(99)).toBe(false);
     });

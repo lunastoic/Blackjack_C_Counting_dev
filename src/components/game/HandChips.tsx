@@ -16,6 +16,8 @@ import { BET_SPOT_CHIP_SIZE } from './BetSpot';
 import { ChipStack } from './ChipStack';
 
 const SWEEP_MS = 450;
+/** Fixed line under each pile for the DOUBLED / WIN tag, so chips share a base. */
+const TAG_LINE_HEIGHT = 12;
 
 interface HandChipsProps {
   /** The stake sitting in this hand's betting spot (already doubled if doubled). */
@@ -37,7 +39,7 @@ interface HandChipsProps {
  * Real-table chip behavior for one hand's betting spot:
  * - the stake sits in the spot as a physical pile for the whole round;
  * - on a LOSS the dealer sweeps the pile away toward the top of the table;
- * - on a WIN the dealer cuts out a matching winnings pile next to the stake;
+ * - on a WIN the dealer cuts out a matching winnings pile to the left of the stake;
  * - when the table clears, kept piles slide down into the player's bankroll.
  */
 export function HandChips({
@@ -93,6 +95,23 @@ export function HandChips({
   return (
     <Animated.View style={[styles.row, compact && styles.rowCompact, pileStyle]} pointerEvents="none">
       <View style={styles.pile}>
+        {showWinnings ? (
+          // Set down to the left of the stake, which stays put in its spot.
+          <Animated.View
+            style={[styles.pile, styles.winnings]}
+            entering={reducedMotion ? undefined : FadeInUp.duration(320)}
+          >
+            <ChipStack
+              amount={profit}
+              chipSetKey={chipSetKey}
+              chipSize={BET_SPOT_CHIP_SIZE}
+              showLabel={!compact}
+            />
+            <View style={styles.tagSlot}>
+              <Text style={[styles.tag, styles.winTag]}>WIN</Text>
+            </View>
+          </Animated.View>
+        ) : null}
         <ChipStack
           amount={bet}
           chipSetKey={chipSetKey}
@@ -100,22 +119,11 @@ export function HandChips({
           showLabel={!compact}
           animateIn={animateStakeIn}
         />
-        {doubled ? <Text style={styles.tag}>DOUBLED</Text> : null}
+        {/* Both piles keep a tag line so their chips sit on the same base line. */}
+        <View style={styles.tagSlot}>
+          {doubled ? <Text style={styles.tag}>DOUBLED</Text> : null}
+        </View>
       </View>
-      {showWinnings ? (
-        <Animated.View
-          style={styles.pile}
-          entering={reducedMotion ? undefined : FadeInUp.duration(320)}
-        >
-          <ChipStack
-            amount={profit}
-            chipSetKey={chipSetKey}
-            chipSize={BET_SPOT_CHIP_SIZE}
-            showLabel={!compact}
-          />
-          <Text style={styles.winTag}>WIN</Text>
-        </Animated.View>
-      ) : null}
     </Animated.View>
   );
 }
@@ -135,16 +143,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 2,
   },
+  winnings: {
+    position: 'absolute',
+    right: '100%',
+    bottom: 0,
+    marginRight: 12,
+  },
+  tagSlot: {
+    height: TAG_LINE_HEIGHT,
+    justifyContent: 'center',
+  },
   tag: {
     color: colors.textMuted,
     fontSize: 9,
+    lineHeight: TAG_LINE_HEIGHT,
     fontWeight: fontWeights.bold,
     letterSpacing: 1,
   },
   winTag: {
     color: colors.success,
-    fontSize: 9,
-    fontWeight: fontWeights.bold,
-    letterSpacing: 1,
   },
 });
