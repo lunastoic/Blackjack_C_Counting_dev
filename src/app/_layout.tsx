@@ -10,7 +10,9 @@ import { preloadSounds } from '../services/audio';
 import { useHydrationStore } from '../stores/hydrationStore';
 import { colors } from '../theme';
 
-// Keep the native splash visible until the save has hydrated.
+// Keep the native splash visible until the save has hydrated, then cross-fade
+// into the first screen instead of cutting (fade is iOS-only; Android cuts).
+SplashScreen.setOptions({ fade: true, duration: 400 });
 void SplashScreen.preventAutoHideAsync().catch(() => {
   // Splash already hidden (e.g. fast refresh) — safe to ignore.
 });

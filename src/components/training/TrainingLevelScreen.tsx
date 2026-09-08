@@ -1,6 +1,7 @@
 import { Redirect, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Image, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TABLE_FELTS } from '../../assets/registry';
 import { mapById } from '../../engine/betting/casino';
@@ -36,11 +37,12 @@ import { FlashPanel, FlashPanelChip } from '../flash/FlashPanel';
 import {
   FlashTutorialDeck,
   FlashTutorialPanel,
-  SPREAD_STAGE_HEIGHT,
+  pileBottom,
+  SPREAD_DECK_BOTTOM,
   TUTORIAL_STEPS,
   tutorialStageHeight,
 } from '../flash/FlashTutorial';
-import { FeltMarkings } from '../game/FeltMarkings';
+import { FeltMarkings, feltLetteringHeight } from '../game/FeltMarkings';
 import { GameSettingsSheet } from '../game/GameSettingsSheet';
 import { GameTableHud } from '../game/GameTableHud';
 import { TableCamera } from '../game/TableCamera';
@@ -62,13 +64,6 @@ interface TrainingLevelScreenProps {
 }
 
 const EMPTY_TABLE: TableFrame = { seats: [], dealer: null };
-
-/**
- * Where the house name is printed while the table idles, in points from the
- * rail: under the ribbon spread, and in the strip of felt between the pile and
- * the fan once the tutorial deals — the same spot through the shuffle.
- */
-const IDLE_LETTERING_Y = 122;
 
 /** Exact-entry bounds, matching the four-choice ranges in the store. */
 const ENTRY_BOUNDS: Record<QuestionKind, { min: number; max: number }> = {
@@ -207,8 +202,14 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   const seated = status !== 'idle';
   // While the table idles the brief and the tutorial are cards on the felt,
   // not a keyboard: the stage keeps only the felt the deck asks for and the
-  // card floats centred in the rest instead of hugging the bottom edge.
-  const idleStageHeight = inPrimer || gathered ? tutorialStageHeight(width) : SPREAD_STAGE_HEIGHT;
+  // card floats centred in the rest instead of hugging the bottom edge. The
+  // house lettering is printed under the deck — below the ribbon, or below
+  // the gathered pile — and stays off the felt while the primer's beats need
+  // the whole strip.
+  const letteringHeight = feltLetteringHeight(map.name, width);
+  const idleStageHeight =
+    inPrimer || gathered ? tutorialStageHeight(width) : SPREAD_DECK_BOTTOM + letteringHeight;
+  const idleDeckBottom = gathered ? pileBottom(width) : SPREAD_DECK_BOTTOM;
 
   function startTutorial() {
     setTutorialStep(0);
@@ -665,12 +666,23 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
 
       <TableCamera
         seated={seated}
-        style={status === 'idle' ? { flexGrow: 0, flexBasis: idleStageHeight } : undefined}
+        // A fixed height, not a flex basis: Yoga kept the first basis it laid
+        // out, so the felt never grew when the primer dealt.
+        style={status === 'idle' ? { flex: 0, height: idleStageHeight } : undefined}
       >
-        <FeltMarkings
-          casinoName={map.name}
-          anchor={status === 'idle' ? IDLE_LETTERING_Y / idleStageHeight : 0.52}
-        />
+        {status !== 'idle' ? (
+          <FeltMarkings casinoName={map.name} anchor={0.52} />
+        ) : inPrimer ? null : (
+          <Animated.View
+            key={gathered ? 'pile' : 'ribbon'}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+            entering={FadeIn.duration(300)}
+            exiting={FadeOut.duration(200)}
+          >
+            <FeltMarkings casinoName={map.name} align="top" topInset={idleDeckBottom} />
+          </Animated.View>
+        )}
         {renderStage()}
       </TableCamera>
 

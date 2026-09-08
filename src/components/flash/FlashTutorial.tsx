@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Image, LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo } from 'react';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
   FadeIn,
@@ -44,12 +44,33 @@ const PILE_TOP = spacing.md;
 const FAN_GAP = 28;
 /** Flag height plus its margins. */
 const FLAG_ROOM = spacing.md + 32 + spacing.sm;
-/** Felt the ribbon spread wants under the rail: the ribbon and the house lettering below it. */
-export const SPREAD_STAGE_HEIGHT = 210;
+/** The ribbon's end cards lean this far. */
+const RIBBON_TILT_DEG = 26;
+/** The ribbon's ends rise this far above its middle card. */
+const RIBBON_RISE = 34;
+
+/** Half the height of a `width`×`height` card leaning `degrees`. */
+function leaningHalfHeight(width: number, height: number, degrees: number): number {
+  const angle = (degrees * Math.PI) / 180;
+  return (height / 2) * Math.cos(angle) + (width / 2) * Math.sin(angle);
+}
+
+/** Centre line of the ribbon's middle card: the leaning ends just clear the rail. */
+const RIBBON_MID_Y =
+  PILE_TOP +
+  leaningHalfHeight(SPREAD_CARD_WIDTH, SPREAD_CARD_WIDTH / CARD_ASPECT, RIBBON_TILT_DEG) +
+  RIBBON_RISE;
+/** Foot of the ribbon spread — the middle card's bottom edge; lettering prints below it. */
+export const SPREAD_DECK_BOTTOM = Math.ceil(RIBBON_MID_Y + SPREAD_CARD_WIDTH / CARD_ASPECT / 2);
 
 /** Pile and pulled cards read at one size: five across with room to spare. */
 function beatCardWidth(width: number): number {
   return Math.min((width - 72) / 5 - 4, 66);
+}
+
+/** Foot of the gathered pile; lettering prints below it while the deck rests. */
+export function pileBottom(width: number): number {
+  return Math.ceil(PILE_TOP + beatCardWidth(width) / CARD_ASPECT);
 }
 
 /** Felt the pile-and-fan deck wants: pile, gap, fan, flag. */
@@ -125,51 +146,40 @@ interface FlashTutorialDeckProps {
 
 /** The felt during idle and the tutorial: ribbon spread, pile, pulled beats. */
 export function FlashTutorialDeck({ beat, gathered = false, width }: FlashTutorialDeckProps) {
-  const [height, setHeight] = useState(0);
-
-  function onLayout(event: LayoutChangeEvent) {
-    setHeight(Math.floor(event.nativeEvent.layout.height));
-  }
-
   // The gathered deck reads at the same size as the cards pulled from it.
   const pileCardWidth = beatCardWidth(width);
   const pile: Point = { x: width / 2, y: PILE_TOP + pileCardWidth / CARD_ASPECT / 2 };
   const spread = beat === null && !gathered;
 
   return (
-    <View style={styles.area} onLayout={onLayout}>
-      {height > 0 ? (
-        <>
-          {spread ? null : <DeckPile pile={pile} cardWidth={pileCardWidth} />}
-          {spread ? <RibbonSpread width={width} height={height} pile={pile} /> : null}
-          {beat !== null ? <BeatCards key={beat} beat={beat} width={width} pile={pile} /> : null}
-        </>
-      ) : null}
+    <View style={styles.area}>
+      {spread ? null : <DeckPile pile={pile} cardWidth={pileCardWidth} />}
+      {spread ? <RibbonSpread width={width} pile={pile} /> : null}
+      {beat !== null ? <BeatCards key={beat} beat={beat} width={width} pile={pile} /> : null}
     </View>
   );
 }
 
 /** All 52 cards face up in a gentle ribbon, fanned out of / collected into the pile. */
-function RibbonSpread({ width, height, pile }: { width: number; height: number; pile: Point }) {
+function RibbonSpread({ width, pile }: { width: number; pile: Point }) {
   const reducedMotion = useReducedMotion();
   const cards = useMemo(
     () => SUITS.flatMap((suit) => RANKS.map((rank) => ({ suit, rank }))),
     [],
   );
   const cardHeight = SPREAD_CARD_WIDTH / CARD_ASPECT;
-  // Dealer-side ribbon: concave toward the dealer, matching the felt lettering.
-  const midY = height * 0.4;
 
   return (
     <>
       {cards.map(({ suit, rank }, index) => {
         const t = (index / (cards.length - 1)) * 2 - 1; // −1 … 1 across the ribbon
         const x = width / 2 + t * width * 0.42;
-        const y = midY - t * t * height * 0.16;
-        const rotate = `${-t * 26}deg`;
+        // Dealer-side ribbon: concave toward the dealer, matching the felt lettering.
+        const y = RIBBON_MID_Y - t * t * RIBBON_RISE;
+        const rotate = `${-t * RIBBON_TILT_DEG}deg`;
         // The fly-in un-tilts the card so it sits square on the pile; the
         // resting tilt lives on the inner view so the keyframe never fights it.
-        const counterRotate = `${t * 26}deg`;
+        const counterRotate = `${t * RIBBON_TILT_DEG}deg`;
         const dx = pile.x - x;
         const dy = pile.y - y;
 

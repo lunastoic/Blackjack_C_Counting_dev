@@ -34,6 +34,12 @@ interface FeltMarkingsProps {
   /** Keep the arcs this far clear of each side (things parked on the rails). */
   readonly sideInset?: number;
   /**
+   * Keep the block below this much of the box (the deck lying above it). The
+   * fitted block sizes itself to the felt that is left. Ignored when `anchor`
+   * is set.
+   */
+  readonly topInset?: number;
+  /**
    * Where the fitted block sits in its box: centred, or hugging the top so the
    * lettering reads as printed just below the dealer's ribbon. Ignored when
    * `anchor` is set.
@@ -56,6 +62,8 @@ const FINE_SIZE = 12;
 const MIN_SCALE = 0.55;
 /** Breathing room above and below the block. */
 const BLOCK_MARGIN = 6;
+/** Title arc radius as a fraction of the box width. */
+const RADIUS_RATIO = 0.72;
 
 const RULE_TEXT = 'Blackjack pays 3 to 2';
 const FINE_TEXT = 'Dealer must stand on soft 17';
@@ -85,6 +93,14 @@ function blockHeight(nameChars: number, radius: number, scale: number): number {
     2 * LINE_GAP * scale +
     fine * (GLYPH_BOX - GLYPH_RISE)
   );
+}
+
+/**
+ * Felt the full-size block asks for under a deck, margins included — what a
+ * stage of `width` should add below the cards to print the lettering at full size.
+ */
+export function feltLetteringHeight(casinoName: string, width: number): number {
+  return Math.ceil(blockHeight(casinoName.length, width * RADIUS_RATIO, 1) + BLOCK_MARGIN * 2);
 }
 
 /** Widest of the three arcs at this scale. */
@@ -128,6 +144,7 @@ export function FeltMarkings({
   casinoName,
   anchor,
   sideInset = 0,
+  topInset = 0,
   align = 'center',
 }: FeltMarkingsProps) {
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -137,8 +154,10 @@ export function FeltMarkings({
     setSize({ width: Math.floor(width), height: Math.floor(height) });
   }
 
-  const baseRadius = size.width * 0.72;
+  const baseRadius = size.width * RADIUS_RATIO;
   const nameChars = casinoName.length;
+  // The felt left for the fitted block, under whatever lies above it.
+  const room = size.height - topInset;
   const scale =
     size.width <= 0
       ? 0
@@ -146,7 +165,7 @@ export function FeltMarkings({
           nameChars,
           baseRadius,
           size.width - 2 * sideInset,
-          anchor !== undefined ? Number.POSITIVE_INFINITY : size.height,
+          anchor !== undefined ? Number.POSITIVE_INFINITY : room,
         );
 
   const lines: ArcLine[] = [
@@ -160,9 +179,8 @@ export function FeltMarkings({
   // hugging the top margin) plus the arc's raised ends and the glyph box
   // hanging above the arc.
   const blockTop =
-    align === 'top'
-      ? BLOCK_MARGIN
-      : (size.height - blockHeight(nameChars, baseRadius, scale)) / 2;
+    topInset +
+    (align === 'top' ? BLOCK_MARGIN : (room - blockHeight(nameChars, baseRadius, scale)) / 2);
   const titleY =
     anchor !== undefined
       ? size.height * anchor
