@@ -188,6 +188,10 @@ export default function GameScreen() {
       <GameTableHud
         mapName={map.name}
         modeLabel={guidedMode ? 'Guided Dojo Table' : modeLabel}
+        // The control opens the casino fan (globe) or the level map (map), so
+        // it wears the same glyph the training screens use for the map.
+        leftIcon={FEATURES.casinoFan ? 'globe-outline' : 'map-outline'}
+        leftAccessibilityLabel={FEATURES.casinoFan ? 'Switch casino or mode' : 'Level map'}
         onOpenMaps={() =>
           FEATURES.casinoFan
             ? setMapsOpen(true)
