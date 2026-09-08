@@ -8,7 +8,6 @@ import {
   TableCountLevel,
   totalCheckpoints,
   TRAINING_MAPS,
-  trainingLevelSpec,
 } from '../../engine/dojo';
 import { seededRng } from '../../engine/shoe/rng';
 import { createDefaultSave } from '../../persistence/defaults';
@@ -286,7 +285,7 @@ describe('training store — answer meter', () => {
     expect(meterFill()).toBe(1);
     expect(store().meter.draining).toBe(true);
     const drainMs = store().meterDrainMs;
-    expect(drainMs).toBe(8_000);
+    expect(drainMs).toBe(11_400);
     jest.advanceTimersByTime(drainMs / 2);
     answerCorrectly();
     expect(store().status).toBe('feedback');
@@ -299,18 +298,20 @@ describe('training store — answer meter', () => {
     expect(store().timedOut).toBe(true);
   });
 
-  it('gets faster up the ladder: each casino drains quicker than the one before', () => {
-    const cardValues = [meterDrainMs(1, trainingLevelSpec(1, 1)), meterDrainMs(2, trainingLevelSpec(2, 1))];
-    expect(cardValues[1]).toBeLessThan(cardValues[0]);
-    const streams = [1, 3, 4, 6].map((mapId) => meterDrainMs(mapId, trainingLevelSpec(mapId, 4)));
-    for (let i = 1; i < streams.length; i++) {
-      expect(streams[i]).toBeLessThan(streams[i - 1]);
-    }
-    const exams = [5, 6].map((mapId) => meterDrainMs(mapId, trainingLevelSpec(mapId, 6)));
-    expect(exams[1]).toBeLessThan(exams[0]);
+  it('only ever gets faster up the ladder: every level drains no slower than the last, and every casino faster than the one before', () => {
+    expect(meterDrainMs(1, 1)).toBe(12_000);
+    let previous = Number.POSITIVE_INFINITY;
     for (const map of TRAINING_MAPS) {
       for (const spec of map.levels) {
-        expect(meterDrainMs(map.mapId, spec)).toBeGreaterThanOrEqual(3_000);
+        const drainMs = meterDrainMs(map.mapId, spec.level);
+        expect(drainMs).toBeLessThanOrEqual(previous);
+        expect(drainMs).toBeGreaterThanOrEqual(4_000);
+        previous = drainMs;
+      }
+    }
+    for (let level = 1; level <= FLASH_LEVELS_PER_MAP; level++) {
+      for (let mapId = 2; mapId <= TRAINING_MAPS.length; mapId++) {
+        expect(meterDrainMs(mapId, level)).toBeLessThan(meterDrainMs(mapId - 1, level));
       }
     }
   });

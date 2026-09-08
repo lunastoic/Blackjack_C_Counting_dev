@@ -269,7 +269,7 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
       stars: 0,
       countTipPending: false,
       meter: { fill: 1, at: Date.now(), draining: false },
-      meterDrainMs: meterDrainMs(mapId, spec),
+      meterDrainMs: meterDrainMs(mapId, level),
       timedOut: false,
     };
   }

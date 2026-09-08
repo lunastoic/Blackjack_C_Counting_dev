@@ -53,8 +53,6 @@ export interface SpeedProfile {
   readonly feedbackMs: number;
   /** A miss on a streak drill shows its correction this long (ms). */
   readonly missMs: number;
-  /** Scales the answer meter's full-to-empty time (1 = the drill's base time). */
-  readonly meter: number;
   /** Card animation speed multiplier (1 = the live table at normal speed). */
   readonly animation: number;
   /** Live-table beats (ms): one dealt card, a hit, the hole flip, clearing the felt. */
@@ -73,7 +71,6 @@ export const SPEED_PROFILES: Readonly<Record<SpeedPreset, SpeedProfile>> = {
     cardMs: 1500,
     feedbackMs: 900,
     missMs: 1800,
-    meter: 1.5,
     animation: 1,
     table: { card: 700, hit: 800, holeFlip: 850, collect: 800 },
   },
@@ -82,7 +79,6 @@ export const SPEED_PROFILES: Readonly<Record<SpeedPreset, SpeedProfile>> = {
     cardMs: 1200,
     feedbackMs: 750,
     missMs: 1700,
-    meter: 1.25,
     animation: 1.1,
     table: { card: 600, hit: 700, holeFlip: 750, collect: 700 },
   },
@@ -91,7 +87,6 @@ export const SPEED_PROFILES: Readonly<Record<SpeedPreset, SpeedProfile>> = {
     cardMs: 950,
     feedbackMs: 650,
     missMs: 1600,
-    meter: 1,
     animation: 1.2,
     table: { card: 550, hit: 620, holeFlip: 700, collect: 600 },
   },
@@ -100,7 +95,6 @@ export const SPEED_PROFILES: Readonly<Record<SpeedPreset, SpeedProfile>> = {
     cardMs: 750,
     feedbackMs: 550,
     missMs: 1500,
-    meter: 0.8,
     animation: 1.4,
     table: { card: 450, hit: 520, holeFlip: 580, collect: 500 },
   },
@@ -109,7 +103,6 @@ export const SPEED_PROFILES: Readonly<Record<SpeedPreset, SpeedProfile>> = {
     cardMs: 600,
     feedbackMs: 450,
     missMs: 1400,
-    meter: 0.7,
     animation: 1.6,
     table: { card: 380, hit: 440, holeFlip: 500, collect: 420 },
   },
@@ -118,7 +111,6 @@ export const SPEED_PROFILES: Readonly<Record<SpeedPreset, SpeedProfile>> = {
     cardMs: 500,
     feedbackMs: 400,
     missMs: 1300,
-    meter: 0.6,
     animation: 1.8,
     table: { card: 320, hit: 380, holeFlip: 430, collect: 360 },
   },
@@ -140,23 +132,24 @@ export function speedProfile(preset: SpeedPreset): SpeedProfile {
  */
 export const METER_TOP_UP = 0.25;
 
-/** Full-to-empty time at `normal` pace on the first casino, per drill (ms). */
-const METER_BASE_MS: Readonly<Record<TrainingMode, number>> = {
-  cardValue: 8000,
-  cardGroup: 10000,
-  deckEstimate: 10000,
-  trueCount: 14000,
-  countStream: 8000,
-  tableCount: 10000,
-};
+/**
+ * Full-to-empty time on each casino's opening level (ms). The clock is the
+ * casino's, not the drill's: every casino up the ladder drains faster than
+ * the one before, whatever it is teaching.
+ */
+const METER_MAP_MS: readonly number[] = [12000, 10000, 8500, 7500, 6500, 5500];
 
-/** Each casino up the ladder drains a little faster than the last. */
-const METER_MAP_FACTOR: readonly number[] = [1, 0.92, 0.85, 0.8, 0.75, 0.7];
+/**
+ * Later levels of a casino tighten a touch — never past the next casino's
+ * opener, so the ladder only ever gets quicker.
+ */
+const METER_LEVEL_FACTOR: readonly number[] = [1, 1, 0.95, 0.95, 0.9, 0.9];
 
 /** How long the meter takes to drain from full to empty on this level (ms). */
-export function meterDrainMs(mapId: number, spec: TrainingLevelSpec): number {
-  const mapFactor = METER_MAP_FACTOR[Math.min(mapId, METER_MAP_FACTOR.length) - 1] ?? 1;
-  return Math.round(METER_BASE_MS[spec.mode] * speedProfile(spec.speed).meter * mapFactor);
+export function meterDrainMs(mapId: number, level: number): number {
+  const mapMs = METER_MAP_MS[Math.min(mapId, METER_MAP_MS.length) - 1] ?? METER_MAP_MS[0];
+  const levelFactor = METER_LEVEL_FACTOR[Math.min(level, METER_LEVEL_FACTOR.length) - 1] ?? 1;
+  return Math.round(mapMs * levelFactor);
 }
 
 // ---------------------------------------------------------------------------

@@ -10,7 +10,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { meterFillAt, MeterState } from '../../stores/trainingStore';
-import { colors, layout, radii, spacing } from '../../theme';
+import { colors, layout, spacing } from '../../theme';
 
 interface TrainingMeterProps {
   readonly meter: MeterState;
@@ -22,6 +22,8 @@ interface TrainingMeterProps {
 const TOP_UP_MS = 150;
 /** The fill turns from gold to red as it empties. */
 const WARN_FILL = 0.35;
+/** Quiet ticks at the quarters — one top-up each. */
+const TICKS = [0.25, 0.5, 0.75];
 
 /**
  * The answer meter under the status strip: a gold bar that drains right to
@@ -71,24 +73,46 @@ export function TrainingMeter({ meter, drainMs }: TrainingMeterProps) {
       // The store's last sample: where the drain (or the top-up) started from.
       accessibilityValue={{ min: 0, max: 100, now: Math.round(meter.fill * 100) }}
     >
-      <Animated.View style={[styles.fill, fillStyle]} />
+      <Animated.View style={[styles.fill, fillStyle]}>
+        <View style={styles.sheen} pointerEvents="none" />
+      </Animated.View>
+      {TICKS.map((tick) => (
+        <View key={tick} style={[styles.tick, { left: `${tick * 100}%` }]} pointerEvents="none" />
+      ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   track: {
-    height: 8,
+    height: 14,
     marginHorizontal: layout.screenPaddingH,
-    marginTop: spacing.xs,
-    borderRadius: radii.md,
+    marginTop: spacing.sm,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: colors.borderGold,
-    backgroundColor: colors.overlayLight,
+    backgroundColor: colors.overlay,
     overflow: 'hidden',
   },
   fill: {
     height: '100%',
-    borderRadius: radii.md,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  /** A lighter upper half so the bar reads as a solid, lit rail. */
+  sheen: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '45%',
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+  },
+  tick: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
 });
