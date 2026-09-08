@@ -54,6 +54,7 @@ import { CountStreamStage } from './CountStreamStage';
 import { DeckEstimateStage } from './DeckEstimateStage';
 import { LevelTutorialPanel } from './LevelTutorialPanel';
 import { TableStage } from './TableStage';
+import { TrainingMeter } from './TrainingMeter';
 import { TrueCountStage } from './TrueCountStage';
 import { StatusCell, TrainingStatusStrip } from './TrainingStatusStrip';
 import { deckLabel, formatAnswer, formatDecks, questionPrompt, kindLabel, missesAllowed, requirementChips } from './copy';
@@ -95,7 +96,8 @@ function streakKind(item: StreakItem | null): QuestionKind {
 /**
  * One training level at one casino. The felt, HUD, dealer and hands are the
  * live table's own components; the bottom panel is the level brief, the
- * question, and the feedback. Nothing on this screen is timed.
+ * question, and the feedback. The only clock is the answer meter under the
+ * status strip.
  */
 export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) {
   const router = useRouter();
@@ -123,6 +125,9 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   const question = useTrainingStore((state) => state.question);
   const outcome = useTrainingStore((state) => state.outcome);
   const countTipPending = useTrainingStore((state) => state.countTipPending);
+  const meter = useTrainingStore((state) => state.meter);
+  const meterDrainMs = useTrainingStore((state) => state.meterDrainMs);
+  const timedOut = useTrainingStore((state) => state.timedOut);
   const tableOpen = useDojoStore((state) => state.isMapFlashComplete(mapId));
   const cleared = useDojoStore((state) => isFlashLevelDone(state.flashLevels, mapId, level));
 
@@ -551,7 +556,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
             {requirementChips(spec).map((chip) => (
               <FlashPanelChip key={chip} label={chip} />
             ))}
-            <FlashPanelChip label={mapId === 1 ? 'No clock' : `${speed.label} pace`} />
+            <FlashPanelChip label={`${speed.label} pace`} />
           </View>
           <View style={styles.introActions}>
             <PrimaryButton label={hasBegun ? 'Start again' : 'Start training'} onPress={handleBegin} />
@@ -592,6 +597,24 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
           ) : null}
           <Text style={styles.question}>{prompt}</Text>
           {renderInput(question)}
+        </View>
+      );
+    }
+
+    // The meter ran dry mid-question: no answer to correct, just the restart.
+    if (status === 'failed' && timedOut) {
+      return (
+        <View style={styles.questionSection}>
+          <Text style={[styles.feedback, { color: colors.error }]}>Out of time — the meter ran dry.</Text>
+          <Text style={styles.statusText}>
+            It drains while a question is open; every right answer tops it up.
+          </Text>
+          <View style={styles.actionRow}>
+            <PrimaryButton label="Try again" onPress={begin} />
+            <Text style={styles.replayLink} onPress={reset} accessibilityRole="button">
+              Back to the brief
+            </Text>
+          </View>
         </View>
       );
     }
@@ -663,6 +686,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
       />
 
       <TrainingStatusStrip cells={cells} />
+      {seated ? <TrainingMeter meter={meter} drainMs={meterDrainMs} /> : null}
 
       <TableCamera
         seated={seated}

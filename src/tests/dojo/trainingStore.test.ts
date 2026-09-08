@@ -3,10 +3,12 @@ import {
   CountStreamLevel,
   flashLevelKey,
   FLASH_LEVELS_PER_MAP,
+  meterDrainMs,
   SPEED_PROFILES,
   TableCountLevel,
   totalCheckpoints,
   TRAINING_MAPS,
+  trainingLevelSpec,
 } from '../../engine/dojo';
 import { seededRng } from '../../engine/shoe/rng';
 import { createDefaultSave } from '../../persistence/defaults';
@@ -16,11 +18,18 @@ import { useProgressionStore } from '../../stores/progressionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import {
   __setTrainingRandomForTests,
+  meterFillAt,
   TrainingStatus,
   useTrainingStore,
 } from '../../stores/trainingStore';
 
 const store = () => useTrainingStore.getState();
+
+/** Where the meter stands right now, 0–1. */
+function meterFill(): number {
+  const { meter, meterDrainMs: drainMs } = store();
+  return meterFillAt(meter, drainMs, Date.now());
+}
 
 function resetStores(): void {
   __resetPersistenceForTests();
@@ -77,11 +86,15 @@ describe('training store — streak drills', () => {
     jest.useRealTimers();
   });
 
-  it('starts idle on the level brief with no clock anywhere', () => {
+  it('starts idle on the level brief with the meter full and still', () => {
     expect(store().status).toBe('idle');
     expect(store().spec.title).toBe('Card Values');
     expect(store().speed).toBe(SPEED_PROFILES.beginner);
-    expect(Object.keys(store()).some((key) => /timer|countdown|flashMs/i.test(key))).toBe(false);
+    expect(store().meter).toMatchObject({ fill: 1, draining: false });
+    expect(store().meterDrainMs).toBe(12_000);
+    jest.advanceTimersByTime(60_000);
+    expect(meterFill()).toBe(1);
+    expect(store().status).toBe('idle');
   });
 
   it('shows one card at a time and clears at 21 straight (3 stars, level 2 opens)', () => {
@@ -135,7 +148,7 @@ describe('training store — streak drills', () => {
     expect(store().stars).toBe(2);
   });
 
-  it('a run of right answers needs no timers at all', () => {
+  it('a run of right answers leaves no timers behind', () => {
     store().begin();
     for (let n = 1; n <= 21; n++) {
       answerCorrectly();
@@ -186,6 +199,120 @@ describe('training store — streak drills', () => {
     store().begin();
     answerWrongly();
     expect(store().answer(0)).toBe(false);
+  });
+});
+
+describe('training store — answer meter', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    resetStores();
+    __setTrainingRandomForTests(seededRng(42), seededRng(42));
+    store().load(1, 1);
+  });
+
+  afterEach(() => {
+    store().reset();
+    __setTrainingRandomForTests();
+    jest.useRealTimers();
+  });
+
+  it('starts full on Start and drains while the card waits for an answer', () => {
+    store().begin();
+    expect(store().meter).toMatchObject({ fill: 1, draining: true });
+    jest.advanceTimersByTime(3_000);
+    expect(meterFill()).toBeCloseTo(0.75);
+    jest.advanceTimersByTime(3_000);
+    expect(meterFill()).toBeCloseTo(0.5);
+    expect(store().status).toBe('asking');
+  });
+
+  it('running dry fails the run; Try again starts over full', () => {
+    store().begin();
+    answerCorrectly();
+    jest.advanceTimersByTime(12_000 - 1);
+    expect(store().status).toBe('asking');
+    jest.advanceTimersByTime(1);
+    expect(store().status).toBe('failed');
+    expect(store().timedOut).toBe(true);
+    expect(meterFill()).toBe(0);
+    expect(store().answer(0)).toBe(false);
+    expect(jest.getTimerCount()).toBe(0);
+
+    store().begin();
+    expect(store().status).toBe('asking');
+    expect(store().timedOut).toBe(false);
+    expect(store().streak).toBe(0);
+    expect(store().meter).toMatchObject({ fill: 1, draining: true });
+  });
+
+  it('every right answer tops it up by a quarter, never past full', () => {
+    store().begin();
+    jest.advanceTimersByTime(6_000);
+    expect(meterFill()).toBeCloseTo(0.5);
+    answerCorrectly();
+    expect(meterFill()).toBeCloseTo(0.75);
+    answerCorrectly();
+    expect(meterFill()).toBeCloseTo(1);
+    answerCorrectly();
+    expect(meterFill()).toBeCloseTo(1);
+    // The top-up bought time: empty is a full drain away again.
+    jest.advanceTimersByTime(12_000 - 1);
+    expect(store().status).toBe('asking');
+    jest.advanceTimersByTime(1);
+    expect(store().status).toBe('failed');
+  });
+
+  it('a miss neither tops it up nor drains it while the correction shows', () => {
+    store().begin();
+    jest.advanceTimersByTime(3_000);
+    answerWrongly();
+    expect(store().status).toBe('feedback');
+    expect(store().meter).toMatchObject({ draining: false });
+    expect(meterFill()).toBeCloseTo(0.75);
+    jest.advanceTimersByTime(SPEED_PROFILES.beginner.missMs);
+    expect(store().status).toBe('asking');
+    expect(meterFill()).toBeCloseTo(0.75);
+    jest.advanceTimersByTime(9_000 - 1);
+    expect(store().status).toBe('asking');
+    jest.advanceTimersByTime(1);
+    expect(store().status).toBe('failed');
+  });
+
+  it('on a count stream it waits while the cards deal and only runs at the checks', () => {
+    store().load(1, 4);
+    store().begin();
+    expect(store().meter).toMatchObject({ fill: 1, draining: false });
+    advanceUntil('asking');
+    expect(meterFill()).toBe(1);
+    expect(store().meter.draining).toBe(true);
+    const drainMs = store().meterDrainMs;
+    expect(drainMs).toBe(8_000);
+    jest.advanceTimersByTime(drainMs / 2);
+    answerCorrectly();
+    expect(store().status).toBe('feedback');
+    expect(store().meter.draining).toBe(false);
+    expect(meterFill()).toBeCloseTo(0.75);
+    advanceUntil('asking');
+    expect(meterFill()).toBeCloseTo(0.75);
+    jest.advanceTimersByTime(drainMs);
+    expect(store().status).toBe('failed');
+    expect(store().timedOut).toBe(true);
+  });
+
+  it('gets faster up the ladder: each casino drains quicker than the one before', () => {
+    const cardValues = [meterDrainMs(1, trainingLevelSpec(1, 1)), meterDrainMs(2, trainingLevelSpec(2, 1))];
+    expect(cardValues[1]).toBeLessThan(cardValues[0]);
+    const streams = [1, 3, 4, 6].map((mapId) => meterDrainMs(mapId, trainingLevelSpec(mapId, 4)));
+    for (let i = 1; i < streams.length; i++) {
+      expect(streams[i]).toBeLessThan(streams[i - 1]);
+    }
+    const exams = [5, 6].map((mapId) => meterDrainMs(mapId, trainingLevelSpec(mapId, 6)));
+    expect(exams[1]).toBeLessThan(exams[0]);
+    for (const map of TRAINING_MAPS) {
+      for (const spec of map.levels) {
+        expect(meterDrainMs(map.mapId, spec)).toBeGreaterThanOrEqual(3_000);
+      }
+    }
   });
 });
 

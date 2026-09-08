@@ -53,6 +53,8 @@ export interface SpeedProfile {
   readonly feedbackMs: number;
   /** A miss on a streak drill shows its correction this long (ms). */
   readonly missMs: number;
+  /** Scales the answer meter's full-to-empty time (1 = the drill's base time). */
+  readonly meter: number;
   /** Card animation speed multiplier (1 = the live table at normal speed). */
   readonly animation: number;
   /** Live-table beats (ms): one dealt card, a hit, the hole flip, clearing the felt. */
@@ -71,6 +73,7 @@ export const SPEED_PROFILES: Readonly<Record<SpeedPreset, SpeedProfile>> = {
     cardMs: 1500,
     feedbackMs: 900,
     missMs: 1800,
+    meter: 1.5,
     animation: 1,
     table: { card: 700, hit: 800, holeFlip: 850, collect: 800 },
   },
@@ -79,6 +82,7 @@ export const SPEED_PROFILES: Readonly<Record<SpeedPreset, SpeedProfile>> = {
     cardMs: 1200,
     feedbackMs: 750,
     missMs: 1700,
+    meter: 1.25,
     animation: 1.1,
     table: { card: 600, hit: 700, holeFlip: 750, collect: 700 },
   },
@@ -87,6 +91,7 @@ export const SPEED_PROFILES: Readonly<Record<SpeedPreset, SpeedProfile>> = {
     cardMs: 950,
     feedbackMs: 650,
     missMs: 1600,
+    meter: 1,
     animation: 1.2,
     table: { card: 550, hit: 620, holeFlip: 700, collect: 600 },
   },
@@ -95,6 +100,7 @@ export const SPEED_PROFILES: Readonly<Record<SpeedPreset, SpeedProfile>> = {
     cardMs: 750,
     feedbackMs: 550,
     missMs: 1500,
+    meter: 0.8,
     animation: 1.4,
     table: { card: 450, hit: 520, holeFlip: 580, collect: 500 },
   },
@@ -103,6 +109,7 @@ export const SPEED_PROFILES: Readonly<Record<SpeedPreset, SpeedProfile>> = {
     cardMs: 600,
     feedbackMs: 450,
     missMs: 1400,
+    meter: 0.7,
     animation: 1.6,
     table: { card: 380, hit: 440, holeFlip: 500, collect: 420 },
   },
@@ -111,6 +118,7 @@ export const SPEED_PROFILES: Readonly<Record<SpeedPreset, SpeedProfile>> = {
     cardMs: 500,
     feedbackMs: 400,
     missMs: 1300,
+    meter: 0.6,
     animation: 1.8,
     table: { card: 320, hit: 380, holeFlip: 430, collect: 360 },
   },
@@ -118,6 +126,37 @@ export const SPEED_PROFILES: Readonly<Record<SpeedPreset, SpeedProfile>> = {
 
 export function speedProfile(preset: SpeedPreset): SpeedProfile {
   return SPEED_PROFILES[preset];
+}
+
+// ---------------------------------------------------------------------------
+// Answer meter
+// ---------------------------------------------------------------------------
+
+/**
+ * The answer meter starts full when a level begins and drains while a question
+ * is open; empty ends the run. Every right answer tops it up by this much, so
+ * the pace it demands settles at a quarter of the full-to-empty time per
+ * answer (Card Values on the first casino: three seconds a card).
+ */
+export const METER_TOP_UP = 0.25;
+
+/** Full-to-empty time at `normal` pace on the first casino, per drill (ms). */
+const METER_BASE_MS: Readonly<Record<TrainingMode, number>> = {
+  cardValue: 8000,
+  cardGroup: 10000,
+  deckEstimate: 10000,
+  trueCount: 14000,
+  countStream: 8000,
+  tableCount: 10000,
+};
+
+/** Each casino up the ladder drains a little faster than the last. */
+const METER_MAP_FACTOR: readonly number[] = [1, 0.92, 0.85, 0.8, 0.75, 0.7];
+
+/** How long the meter takes to drain from full to empty on this level (ms). */
+export function meterDrainMs(mapId: number, spec: TrainingLevelSpec): number {
+  const mapFactor = METER_MAP_FACTOR[Math.min(mapId, METER_MAP_FACTOR.length) - 1] ?? 1;
+  return Math.round(METER_BASE_MS[spec.mode] * speedProfile(spec.speed).meter * mapFactor);
 }
 
 // ---------------------------------------------------------------------------
@@ -292,7 +331,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         level: 1,
         title: 'Card Values',
         brief:
-          'One card at a time. 2–6 count +1, 7–9 count 0, 10 through Ace count −1. Tap the value — 21 in a row clears it, and there is no clock.',
+          'One card at a time. 2–6 count +1, 7–9 count 0, 10 through Ace count −1. Tap the value — 21 in a row clears it. The meter drains while you think; every right answer tops it up.',
         speed: 'beginner',
         streakTarget: 21,
       },

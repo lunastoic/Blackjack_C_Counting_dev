@@ -22,7 +22,7 @@ const LEVEL_TUTORIALS: Readonly<Record<string, readonly TutorialSlide[]>> = {
   // -------------------------------------------------------------------------
   // Map 1 — Running Count Basics
   // -------------------------------------------------------------------------
-  '1:1': slides(['One card at a time', 'Tap its value: −1, 0 or +1. Twenty-one in a row clears it. No clock.']),
+  '1:1': slides(['One card at a time', 'Tap its value: −1, 0 or +1. Twenty-one in a row clears it. Answer before the meter runs dry — right answers top it up.']),
   '1:2': slides(
     ['Two cards, one number', 'Add both values and tap the total.'],
     ['Pairs that cancel', 'A +1 next to a −1 is 0. Two lows are +2, two highs are −2.'],

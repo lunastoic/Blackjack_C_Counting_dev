@@ -15,6 +15,8 @@ import {
   isStreakLevel,
   makeDeckEstimateItem,
   makeTrueCountItem,
+  METER_TOP_UP,
+  meterDrainMs,
   practiceShoe,
   QuestionKind,
   QuestionPart,
@@ -54,7 +56,9 @@ import { useDojoStore, TrainingLevelOutcome } from './dojoStore';
  *                                                   │
  *                              levelComplete ◀──────┴──────▶ failed
  *
- * There is no clock: nothing here ever times an answer out.
+ * The only clock is the answer meter: full at Start, it drains while a
+ * question is open (never while cards deal or a correction shows), every
+ * right answer tops it up, and running dry fails the run.
  */
 export type TrainingStatus = 'idle' | 'running' | 'asking' | 'feedback' | 'levelComplete' | 'failed';
 
@@ -78,6 +82,16 @@ export interface TrainingQuestion {
   readonly partCount: number;
   /** Parts already answered at this checkpoint, shown as givens. */
   readonly givens: readonly QuestionPart[];
+}
+
+/** The answer meter, sampled: the UI extrapolates the drain from here. */
+export interface MeterState {
+  /** Fill from empty (0) to full (1) at `at`. */
+  readonly fill: number;
+  /** When `fill` was sampled (`Date.now()`). */
+  readonly at: number;
+  /** Draining toward empty — only while a question is open. */
+  readonly draining: boolean;
 }
 
 export interface TrainingState {
@@ -114,6 +128,12 @@ export interface TrainingState {
   /** First-ever correct check: pause for the "count keeps going" tip. */
   readonly countTipPending: boolean;
 
+  readonly meter: MeterState;
+  /** Full-to-empty time for this level (ms). */
+  readonly meterDrainMs: number;
+  /** The run failed because the meter ran dry, not on misses. */
+  readonly timedOut: boolean;
+
   /** Point the felt at a level. Clears any run in progress. */
   readonly load: (mapId: number, level: number) => void;
   /** Begin / restart the level from scratch with fresh cards. */
@@ -128,7 +148,11 @@ export interface TrainingState {
   readonly reset: () => void;
 }
 
-const timers = new Set<ReturnType<typeof setTimeout>>();
+type Timer = ReturnType<typeof setTimeout>;
+
+const timers = new Set<Timer>();
+/** The meter's own timer — cancelled on its own whenever a question closes. */
+let meterTimer: Timer | null = null;
 let rng: Rng = defaultRng;
 let random: Rng = Math.random;
 
@@ -137,14 +161,32 @@ function clearAllTimers(): void {
     clearTimeout(timer);
   }
   timers.clear();
+  meterTimer = null;
 }
 
-function schedule(fn: () => void, delay: number): void {
+function schedule(fn: () => void, delay: number): Timer {
   const timer = setTimeout(() => {
     timers.delete(timer);
     fn();
   }, delay);
   timers.add(timer);
+  return timer;
+}
+
+function cancelMeterTimer(): void {
+  if (meterTimer) {
+    clearTimeout(meterTimer);
+    timers.delete(meterTimer);
+    meterTimer = null;
+  }
+}
+
+/** Where the meter stands now, extrapolating the drain since it was sampled. */
+export function meterFillAt(meter: MeterState, drainMs: number, now: number): number {
+  if (!meter.draining) {
+    return meter.fill;
+  }
+  return Math.max(0, meter.fill - (now - meter.at) / drainMs);
 }
 
 /** Deterministic dealing for tests. Pass nothing to restore the defaults. */
@@ -226,7 +268,44 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
       outcome: null,
       stars: 0,
       countTipPending: false,
+      meter: { fill: 1, at: Date.now(), draining: false },
+      meterDrainMs: meterDrainMs(mapId, spec),
+      timedOut: false,
     };
+  }
+
+  // -------------------------------------------------------------------------
+  // Answer meter
+  // -------------------------------------------------------------------------
+
+  /** A question just opened: drain from wherever the meter stands. */
+  function drainMeter(): void {
+    const { meter, meterDrainMs: drainMs } = get();
+    cancelMeterTimer();
+    const now = Date.now();
+    const fill = meterFillAt(meter, drainMs, now);
+    set({ meter: { fill, at: now, draining: true } });
+    meterTimer = schedule(meterEmpty, fill * drainMs);
+  }
+
+  /** The question closed: freeze the meter where it is. */
+  function holdMeter(): void {
+    const { meter, meterDrainMs: drainMs } = get();
+    cancelMeterTimer();
+    const now = Date.now();
+    set({ meter: { fill: meterFillAt(meter, drainMs, now), at: now, draining: false } });
+  }
+
+  /** A right answer tops the (held) meter up, never past full. */
+  function feedMeter(): void {
+    const { meter } = get();
+    set({ meter: { ...meter, fill: Math.min(1, meter.fill + METER_TOP_UP) } });
+  }
+
+  /** The meter ran dry: the run is over. */
+  function meterEmpty(): void {
+    clearAllTimers();
+    set({ status: 'failed', timedOut: true, meter: { fill: 0, at: Date.now(), draining: false } });
   }
 
   // -------------------------------------------------------------------------
@@ -260,6 +339,7 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
         return;
     }
     set({ status: 'asking', item, itemSerial: itemSerial + 1, question: null });
+    drainMeter();
   }
 
   function streakCorrect(item: StreakItem): number {
@@ -281,6 +361,10 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
     }
     const correct = streakCorrect(state.item);
     const wasCorrect = value === correct;
+    holdMeter();
+    if (wasCorrect) {
+      feedMeter();
+    }
     const question: TrainingQuestion = {
       kind: 'runningCount',
       correct,
@@ -386,6 +470,7 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
         givens,
       },
     });
+    drainMeter();
   }
 
   function resumeAfterCheck(): void {
@@ -406,6 +491,10 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
     }
     const checkpoint = script.checkpoints[state.checkpointIndex];
     const wasCorrect = value === question.correct;
+    holdMeter();
+    if (wasCorrect) {
+      feedMeter();
+    }
     partResults = [...partResults, wasCorrect];
     const answered = { ...question, selected: value, wasCorrect };
 

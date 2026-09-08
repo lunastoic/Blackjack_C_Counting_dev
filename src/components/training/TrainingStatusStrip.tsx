@@ -20,7 +20,7 @@ interface TrainingStatusStripProps {
 
 /**
  * The drill's dashboard above the felt: streak or checks, misses, deck, pace.
- * There is deliberately no clock cell — nothing in training is timed.
+ * The clock is not a cell: it is the answer meter drawn underneath.
  */
 export function TrainingStatusStrip({ cells }: TrainingStatusStripProps) {
   return (
