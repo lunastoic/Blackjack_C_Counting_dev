@@ -117,7 +117,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   const loadedLevel = useTrainingStore((state) => state.level);
   const storeStatus = useTrainingStore((state) => state.status);
   const streak = useTrainingStore((state) => state.streak);
-  const resets = useTrainingStore((state) => state.resets);
+  const misses = useTrainingStore((state) => state.misses);
   const item = useTrainingStore((state) => state.item);
   const itemSerial = useTrainingStore((state) => state.itemSerial);
   const frame = useTrainingStore((state) => state.frame);
@@ -315,17 +315,30 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
     });
   } else {
     const target = streakSpec?.streakTarget ?? 0;
+    const strikes = streakSpec?.strikes ?? 0;
     cells.push({
-      label: 'STREAK',
+      label: 'RIGHT',
       value: `${streak}`,
       dim: `/${target}`,
-      accessibilityLabel: `Streak ${streak} of ${target}`,
+      accessibilityLabel: `${streak} of ${target} right`,
     });
-    cells.push({
-      label: 'RESETS',
-      value: `${resets}`,
-      tone: resets > 0 ? 'error' : 'gold',
-    });
+    cells.push(
+      strikes > 0
+        ? {
+            label: 'STRIKES',
+            // The miss that ends the run is one past the strikes: show them all used.
+            value: `${Math.min(misses, strikes)}`,
+            dim: `/${strikes}`,
+            tone: misses > 0 ? 'error' : 'gold',
+            accessibilityLabel: `${Math.min(misses, strikes)} of ${strikes} strikes used`,
+          }
+        : {
+            label: 'STRIKES',
+            value: 'NONE',
+            locked: true,
+            accessibilityLabel: 'No strikes: a miss ends the run',
+          },
+    );
     if (spec.mode === 'cardGroup' && item?.kind === 'cards') {
       cells.push({ label: 'CARDS', value: `${item.cards.length}` });
     }
@@ -514,10 +527,12 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
       return `Correct — ${right}`;
     }
     if (status === 'failed') {
-      return `Level failed — it was ${right}.`;
+      return checkpointSpec ? `Level failed — it was ${right}.` : `Out of strikes — it was ${right}.`;
     }
     if (!checkpointSpec) {
-      return `Not quite — it was ${right}. Streak resets.`;
+      const left = (streakSpec?.strikes ?? 0) - misses;
+      const strikes = left === 1 ? 'Last strike.' : `${left} strikes left.`;
+      return `Not quite — it was ${right}. ${strikes}`;
     }
     return `Not quite — it was ${right}. Pick the count up from here.`;
   }
@@ -666,7 +681,9 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
     ? isExam
       ? 'Certified card counter.'
       : `${tally.correct} of ${tally.asked} checks.`
-    : `${streakSpec?.streakTarget ?? streak} in a row.`;
+    : misses === 0
+      ? `${streakSpec?.streakTarget ?? streak} in a row.`
+      : `${streakSpec?.streakTarget ?? streak} right, ${misses === 1 ? 'one strike' : `${misses} strikes`}.`;
   const completeBody = nextSpec ? `Next up: ${nextSpec.title}.` : 'The table is already open.';
 
   return (

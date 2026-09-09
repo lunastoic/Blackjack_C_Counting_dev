@@ -184,23 +184,33 @@ interface LevelBase {
   readonly speed: SpeedPreset;
 }
 
-export interface CardValueLevel extends LevelBase {
-  readonly mode: 'cardValue';
-  /** Straight correct answers needed; a miss resets to zero. */
+/**
+ * Streak drills are a run of `streakTarget` right answers with `strikes`
+ * misses to spare: a miss costs a strike (and a star), never the count, and
+ * one more miss than the strikes ends the run. Early maps forgive three,
+ * then two, then one; from map 4 a single miss ends it.
+ */
+interface StreakBase extends LevelBase {
+  /** Right answers that clear the level. */
   readonly streakTarget: number;
+  /** Misses the run survives. 0 = the first miss ends it. */
+  readonly strikes: number;
 }
 
-export interface CardGroupLevel extends LevelBase {
+export interface CardValueLevel extends StreakBase {
+  readonly mode: 'cardValue';
+}
+
+export interface CardGroupLevel extends StreakBase {
   readonly mode: 'cardGroup';
-  /** Cards per group. `progressive` climbs through the list as the streak grows. */
+  /** Cards per group. `progressive` climbs through the list as the run goes. */
   readonly groupSizes: readonly number[];
   readonly groupOrder: 'progressive' | 'random';
   /** Bias the deal toward cancelling pairs (+1/−1) and ±2 pairs. */
   readonly emphasizeCancellation: boolean;
-  readonly streakTarget: number;
 }
 
-export interface DeckEstimateLevel extends LevelBase {
+export interface DeckEstimateLevel extends StreakBase {
   readonly mode: 'deckEstimate';
   /** The shoe shown is one of these sizes. */
   readonly shoeSizes: readonly DeckCount[];
@@ -210,10 +220,9 @@ export interface DeckEstimateLevel extends LevelBase {
   readonly anyPenetration: boolean;
   /** Draw deck graduations beside the tray. */
   readonly showDeckScale: boolean;
-  readonly streakTarget: number;
 }
 
-export interface TrueCountLevel extends LevelBase {
+export interface TrueCountLevel extends StreakBase {
   readonly mode: 'trueCount';
   /** Decks remaining may be x.5 values. */
   readonly halfDecks: boolean;
@@ -221,7 +230,6 @@ export interface TrueCountLevel extends LevelBase {
   readonly negatives: boolean;
   /** Only ask divisions with a whole-number answer. */
   readonly cleanDivision: boolean;
-  readonly streakTarget: number;
 }
 
 export interface CountStreamLevel extends LevelBase {
@@ -324,33 +332,36 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         level: 1,
         title: 'Card Values',
         brief:
-          'One card at a time. 2–6 count +1, 7–9 count 0, 10 through Ace count −1. Tap the value — 21 in a row clears it. The meter drains while you think; every right answer tops it up.',
+          'One card at a time. 2–6 count +1, 7–9 count 0, 10 through Ace count −1. Tap the value — 21 right clears it, and you have three strikes. The meter drains while you think; every right answer tops it up.',
         speed: 'beginner',
         streakTarget: 21,
+        strikes: 3,
       },
       {
         mode: 'cardGroup',
         level: 2,
         title: 'Two Card Combos',
         brief:
-          'Count both cards together. A +1 and a −1 cancel to 0 — see the pair, call the sum.',
+          'Count both cards together. A +1 and a −1 cancel to 0 — see the pair, call the sum. Three strikes.',
         speed: 'easy',
         groupSizes: [2],
         groupOrder: 'progressive',
         emphasizeCancellation: false,
         streakTarget: 21,
+        strikes: 3,
       },
       {
         mode: 'cardGroup',
         level: 3,
         title: 'Card Groups',
         brief:
-          'Three cards, then four, then five. Cancel what you can and call the net value of the group.',
+          'Three cards, then four, then five. Cancel what you can and call the net value of the group. Three strikes.',
         speed: 'easy',
         groupSizes: [3, 4, 5],
         groupOrder: 'progressive',
         emphasizeCancellation: false,
         streakTarget: 21,
+        strikes: 3,
       },
       {
         mode: 'countStream',
@@ -416,33 +427,36 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         mode: 'cardValue',
         level: 1,
         title: 'Fast Card Values',
-        brief: 'Same values, less time to think. Thirty in a row.',
+        brief: 'Same values, less time to think. Twenty-one right, two strikes.',
         speed: 'fast',
-        streakTarget: 30,
+        streakTarget: 21,
+        strikes: 2,
       },
       {
         mode: 'cardGroup',
         level: 2,
         title: 'Fast Cancellation',
         brief:
-          'Pairs fly by. Spot the ones that cancel to 0 and the +2 / −2 pairs on sight. Thirty in a row.',
+          'Pairs fly by. Spot the ones that cancel to 0 and the +2 / −2 pairs on sight. Twenty-one right, two strikes.',
         speed: 'fast',
         groupSizes: [2],
         groupOrder: 'progressive',
         emphasizeCancellation: true,
-        streakTarget: 30,
+        streakTarget: 21,
+        strikes: 2,
       },
       {
         mode: 'cardGroup',
         level: 3,
         title: 'Fast Groups',
         brief:
-          'Three to six cards at once. Pair off highs against lows first, then count what is left. Twenty-five in a row.',
+          'Three to six cards at once. Pair off highs against lows first, then count what is left. Twenty-one right, two strikes.',
         speed: 'fast',
         groupSizes: [3, 4, 5, 6],
         groupOrder: 'random',
         emphasizeCancellation: false,
-        streakTarget: 25,
+        streakTarget: 21,
+        strikes: 2,
       },
       {
         mode: 'countStream',
@@ -511,38 +525,41 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         level: 1,
         title: 'Whole Decks',
         brief:
-          'Read the discard tray against the shoe. A deck is 52 cards — how many whole decks are still to come? Twenty-one in a row.',
+          'Read the discard tray against the shoe. A deck is 52 cards — how many whole decks are still to come? Twenty-one right, one strike.',
         speed: 'normal',
         shoeSizes: [4, 6],
         precision: 1,
         anyPenetration: false,
         showDeckScale: true,
         streakTarget: 21,
+        strikes: 1,
       },
       {
         mode: 'deckEstimate',
         level: 2,
         title: 'Half Decks',
-        brief: 'Now to the nearest half deck — 26 cards is half a deck. Twenty-one in a row.',
+        brief: 'Now to the nearest half deck — 26 cards is half a deck. Twenty-one right, one strike.',
         speed: 'normal',
         shoeSizes: [2, 4, 6],
         precision: 0.5,
         anyPenetration: false,
         showDeckScale: true,
         streakTarget: 21,
+        strikes: 1,
       },
       {
         mode: 'deckEstimate',
         level: 3,
         title: 'Six-Deck Shoe',
         brief:
-          'A six-deck shoe cut anywhere. Estimate the decks left to the nearest half. Twenty-one in a row.',
+          'A six-deck shoe cut anywhere. Estimate the decks left to the nearest half. Twenty-one right, one strike.',
         speed: 'normal',
         shoeSizes: [6],
         precision: 0.5,
         anyPenetration: true,
         showDeckScale: true,
         streakTarget: 21,
+        strikes: 1,
       },
       {
         mode: 'countStream',
@@ -609,36 +626,39 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         level: 1,
         title: 'Clean Division',
         brief:
-          'True count = running count ÷ decks remaining. Whole decks and clean division: +8 with 2 decks left is +4. Twenty-one in a row.',
+          'True count = running count ÷ decks remaining. Whole decks and clean division: +8 with 2 decks left is +4. Twenty-one in a row — no strikes.',
         speed: 'normal',
         halfDecks: false,
         negatives: false,
         cleanDivision: true,
         streakTarget: 21,
+        strikes: 0,
       },
       {
         mode: 'trueCount',
         level: 2,
         title: 'Half-Deck Division',
         brief:
-          'Half decks now: +6 ÷ 1.5 = +4, +5 ÷ 2.5 = +2. When a division is not clean, round to the nearest half (2.24 → 2, 2.25 → 2.5). Twenty-one in a row.',
+          'Half decks now: +6 ÷ 1.5 = +4, +5 ÷ 2.5 = +2. When a division is not clean, round to the nearest half (2.24 → 2, 2.25 → 2.5). Twenty-one in a row — no strikes.',
         speed: 'normal',
         halfDecks: true,
         negatives: false,
         cleanDivision: true,
         streakTarget: 21,
+        strikes: 0,
       },
       {
         mode: 'trueCount',
         level: 3,
         title: 'Positive & Negative',
         brief:
-          'Negative counts divide the same way, and every answer rounds to the nearest half. Twenty-five in a row.',
+          'Negative counts divide the same way, and every answer rounds to the nearest half. Twenty-one in a row — no strikes.',
         speed: 'fast',
         halfDecks: true,
         negatives: true,
         cleanDivision: false,
-        streakTarget: 25,
+        streakTarget: 21,
+        strikes: 0,
       },
       {
         mode: 'countStream',
@@ -992,12 +1012,9 @@ export function buildNumberChoices(
   return fisherYatesShuffle([correct, ...decoys], random);
 }
 
-/** Streak drills: clean run → 3, a couple of resets → 2, otherwise 1. */
-export function starsForStreakRun(resets: number): number {
-  if (resets === 0) {
-    return 3;
-  }
-  return resets <= 2 ? 2 : 1;
+/** Streak drills: every miss costs a star, down to one — clean run → 3, one miss → 2, otherwise 1. */
+export function starsForStreakRun(misses: number): number {
+  return Math.max(1, 3 - misses);
 }
 
 /** Checkpoint levels: no misses → 3, one → 2, otherwise 1 (only ever called on a pass). */
@@ -1106,7 +1123,7 @@ export function drawCardGroupItem(
   return { shoe: current, item: { cards, correct: sumHiLo(cards) } };
 }
 
-/** Group size for the current streak: progressive levels climb through the list. */
+/** Group size for the run so far: progressive levels climb through the list as right answers add up. */
 export function groupSizeForStreak(spec: CardGroupLevel, streak: number, rng: Rng = defaultRng): number {
   const sizes = spec.groupSizes;
   if (spec.groupOrder === 'random') {

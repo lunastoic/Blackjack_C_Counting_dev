@@ -22,7 +22,10 @@ const LEVEL_TUTORIALS: Readonly<Record<string, readonly TutorialSlide[]>> = {
   // -------------------------------------------------------------------------
   // Map 1 — Running Count Basics
   // -------------------------------------------------------------------------
-  '1:1': slides(['One card at a time', 'Tap its value: −1, 0 or +1. Twenty-one in a row clears it. Answer before the meter runs dry — right answers top it up.']),
+  '1:1': slides(
+    ['One card at a time', 'Tap its value: −1, 0 or +1. Twenty-one right clears it. Answer before the meter runs dry — right answers top it up.'],
+    ['Three strikes', 'A miss is a strike; your count stands. Three to spare — a fourth miss ends the run.'],
+  ),
   '1:2': slides(
     ['Two cards, one number', 'Add both values and tap the total.'],
     ['Pairs that cancel', 'A +1 next to a −1 is 0. Two lows are +2, two highs are −2.'],
@@ -48,14 +51,14 @@ const LEVEL_TUTORIALS: Readonly<Record<string, readonly TutorialSlide[]>> = {
   // -------------------------------------------------------------------------
   // Map 2 — Speed & Cancellation
   // -------------------------------------------------------------------------
-  '2:1': slides(['Same values, faster', 'One card, tap its value. Thirty in a row clears it.']),
+  '2:1': slides(['Same values, faster', 'One card, tap its value. Twenty-one right clears it — two strikes now.']),
   '2:2': slides(
     ['Pairs on sight', 'A high with a low is 0. Two lows are +2, two highs are −2.'],
-    ['Recognise, don’t add', 'Call the pair the moment it lands. Thirty in a row.'],
+    ['Recognise, don’t add', 'Call the pair the moment it lands. Twenty-one right, two strikes.'],
   ),
   '2:3': slides(
     ['Three to six cards, mixed', 'Group sizes come at random.'],
-    ['Pair off, then count', 'Match highs against lows first. Count what is left. Twenty-five in a row.'],
+    ['Pair off, then count', 'Match highs against lows first. Count what is left. Twenty-one right, two strikes.'],
   ),
   '2:4': slides(['A full deck, quicker', 'One card at a time, no total shown. Ten checks, all correct.']),
   '2:5': slides(
@@ -72,13 +75,13 @@ const LEVEL_TUTORIALS: Readonly<Record<string, readonly TutorialSlide[]>> = {
   // -------------------------------------------------------------------------
   '3:1': slides(
     ['Read the tray', 'The discard tray holds what has been dealt. A deck is 52 cards.'],
-    ['Decks still to come', 'The shoe minus the tray. Answer in whole decks. Twenty-one in a row.'],
+    ['Decks still to come', 'The shoe minus the tray. Answer in whole decks. Twenty-one right — one strike.'],
   ),
   '3:2': slides(
-    ['To the nearest half', '26 cards is half a deck. Two-, four- and six-deck shoes. Twenty-one in a row.'],
+    ['To the nearest half', '26 cards is half a deck. Two-, four- and six-deck shoes. Twenty-one right, one strike.'],
   ),
   '3:3': slides(
-    ['Cut anywhere', 'The tray no longer lands on clean marks. Round to the nearest half deck. Twenty-one in a row.'],
+    ['Cut anywhere', 'The tray no longer lands on clean marks. Round to the nearest half deck. Twenty-one right, one strike.'],
   ),
   '3:4': slides(
     ['Two jobs at once', 'Keep the running count while the tray fills.'],
@@ -98,14 +101,14 @@ const LEVEL_TUTORIALS: Readonly<Record<string, readonly TutorialSlide[]>> = {
   // -------------------------------------------------------------------------
   '4:1': slides(
     ['True count = running ÷ decks', 'The running count and decks remaining are given. Divide.'],
-    ['Whole numbers only', '+8 with 2 decks left is +4. Twenty-one in a row.'],
+    ['Whole numbers only', '+8 with 2 decks left is +4. Twenty-one in a row — no strikes from here on.'],
   ),
   '4:2': slides(
     ['Half decks', '+6 ÷ 1.5 = +4. +5 ÷ 2.5 = +2.'],
-    ['Round to the nearest half', '2.24 rounds to 2. 2.25 rounds to 2.5. Twenty-one in a row.'],
+    ['Round to the nearest half', '2.24 rounds to 2. 2.25 rounds to 2.5. Twenty-one in a row, no strikes.'],
   ),
   '4:3': slides(
-    ['Negatives divide the same way', '−6 ÷ 2 = −3. Round every answer to the nearest half. Twenty-five in a row.'],
+    ['Negatives divide the same way', '−6 ÷ 2 = −3. Round every answer to the nearest half. Twenty-one in a row, no strikes.'],
   ),
   '4:4': slides(
     ['Two questions each pause', 'First estimate the decks remaining. Then the true count, using the decks shown.'],

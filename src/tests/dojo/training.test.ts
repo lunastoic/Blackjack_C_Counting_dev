@@ -91,9 +91,9 @@ describe('training ladder — configuration', () => {
 
   it('Map 1 follows the spec: values → combos → groups → drill → full deck → blackjack test', () => {
     const [l1, l2, l3, l4, l5, l6] = trainingLevelsForMap(1);
-    expect(l1).toMatchObject({ mode: 'cardValue', streakTarget: 21 });
-    expect(l2).toMatchObject({ mode: 'cardGroup', groupSizes: [2], streakTarget: 21 });
-    expect(l3).toMatchObject({ mode: 'cardGroup', groupSizes: [3, 4, 5], streakTarget: 21 });
+    expect(l1).toMatchObject({ mode: 'cardValue', streakTarget: 21, strikes: 3 });
+    expect(l2).toMatchObject({ mode: 'cardGroup', groupSizes: [2], streakTarget: 21, strikes: 3 });
+    expect(l3).toMatchObject({ mode: 'cardGroup', groupSizes: [3, 4, 5], streakTarget: 21, strikes: 3 });
     expect(l4).toMatchObject({
       mode: 'countStream',
       deckCount: 1,
@@ -129,6 +129,16 @@ describe('training ladder — configuration', () => {
         expect(spec.streakTarget).toBeGreaterThan(0);
       }
     }
+  });
+
+  it('every streak drill is a run of 21, with strikes that taper by map: 3, 2, 1, then none', () => {
+    const strikesByMap: Record<number, number> = { 1: 3, 2: 2, 3: 1 };
+    for (const { map, spec } of allSpecs) {
+      if (!isCheckpointLevel(spec)) {
+        expect(spec.streakTarget).toBe(21);
+        expect(spec.strikes).toBe(strikesByMap[map.mapId] ?? 0);
+      }
+    }
     const final = trainingLevelSpec(6, 6);
     expect(final).toMatchObject({ mode: 'tableCount', exam: true, distractions: true, deckCount: 6 });
     if (final.mode === 'tableCount') {
@@ -162,9 +172,10 @@ describe('training ladder — answer choices and stars', () => {
     }
   });
 
-  it('scores stars from resets and misses', () => {
+  it('scores stars from misses', () => {
     expect(starsForStreakRun(0)).toBe(3);
-    expect(starsForStreakRun(2)).toBe(2);
+    expect(starsForStreakRun(1)).toBe(2);
+    expect(starsForStreakRun(2)).toBe(1);
     expect(starsForStreakRun(3)).toBe(1);
     expect(starsForCheckpointRun(0)).toBe(3);
     expect(starsForCheckpointRun(1)).toBe(2);

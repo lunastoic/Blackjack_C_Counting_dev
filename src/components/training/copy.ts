@@ -49,7 +49,10 @@ export function deckLabel(deckCount: number): string {
 /** Bullets for the level brief: what it takes to clear the level. */
 export function requirementChips(spec: TrainingLevelSpec): string[] {
   if (!isCheckpointLevel(spec)) {
-    return [`${spec.streakTarget} in a row`, 'A miss resets the streak'];
+    if (spec.strikes === 0) {
+      return [`${spec.streakTarget} in a row`, 'A miss ends the run'];
+    }
+    return [`${spec.streakTarget} right`, `${spec.strikes} strike${spec.strikes === 1 ? '' : 's'}, then out`];
   }
   const total = totalCheckpoints(spec);
   const chips: string[] = [];

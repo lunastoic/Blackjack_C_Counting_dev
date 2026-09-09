@@ -121,7 +121,7 @@ describe('training store — streak drills', () => {
     expect(useDojoStore.getState().isFlashLevelUnlocked(1, 2)).toBe(true);
   });
 
-  it('a miss shows the answer, resets the streak and costs a star', () => {
+  it('a miss shows the answer and costs a strike and a star, not the count', () => {
     store().begin();
     answerCorrectly();
     answerCorrectly();
@@ -131,8 +131,8 @@ describe('training store — streak drills', () => {
     expect(store().status).toBe('feedback');
     expect(store().question?.wasCorrect).toBe(false);
     expect(store().question?.correct).toBeDefined();
-    expect(store().streak).toBe(0);
-    expect(store().resets).toBe(1);
+    expect(store().streak).toBe(2);
+    expect(store().misses).toBe(1);
     // The pad is dead while the correction shows.
     expect(store().answer(0)).toBe(false);
     jest.advanceTimersByTime(SPEED_PROFILES.beginner.missMs - 1);
@@ -140,11 +140,77 @@ describe('training store — streak drills', () => {
     jest.advanceTimersByTime(1);
     expect(store().status).toBe('asking');
 
-    for (let n = 1; n <= 21; n++) {
+    // 19 more right answers finish the 21, not a fresh 21.
+    for (let n = 1; n <= 19; n++) {
       answerCorrectly();
     }
     expect(store().status).toBe('levelComplete');
     expect(store().stars).toBe(2);
+  });
+
+  it('map 1 forgives three strikes; the fourth miss ends the run on its correction', () => {
+    store().begin();
+    expect(store().spec).toMatchObject({ strikes: 3 });
+    for (let strike = 1; strike <= 3; strike++) {
+      answerCorrectly();
+      answerWrongly();
+      expect(store().status).toBe('feedback');
+      expect(store().misses).toBe(strike);
+      jest.advanceTimersByTime(SPEED_PROFILES.beginner.missMs);
+      expect(store().status).toBe('asking');
+    }
+
+    answerWrongly();
+    expect(store().status).toBe('failed');
+    expect(store().timedOut).toBe(false);
+    expect(store().misses).toBe(4);
+    expect(store().streak).toBe(3);
+    expect(store().question).toMatchObject({ wasCorrect: false });
+    expect(store().meter.draining).toBe(false);
+    expect(jest.getTimerCount()).toBe(0);
+    // Dead pad; no correction timer brings the next card.
+    expect(store().answer(0)).toBe(false);
+    jest.advanceTimersByTime(60_000);
+    expect(store().status).toBe('failed');
+    expect(useDojoStore.getState().flashLevels[flashLevelKey(1, 1)]).toBeUndefined();
+
+    // Try again is a clean 21 with all three strikes back.
+    store().begin();
+    expect(store()).toMatchObject({ status: 'asking', streak: 0, misses: 0 });
+  });
+
+  it('three strikes used still clears at one star', () => {
+    store().begin();
+    for (let strike = 1; strike <= 3; strike++) {
+      answerWrongly();
+      jest.advanceTimersByTime(SPEED_PROFILES.beginner.missMs);
+    }
+    for (let n = 1; n <= 21; n++) {
+      answerCorrectly();
+    }
+    expect(store().status).toBe('levelComplete');
+    expect(store().stars).toBe(1);
+  });
+
+  it('strikes taper by map — two, then one, then none: a first miss on map 4 ends the run', () => {
+    store().load(2, 1);
+    expect(store().spec).toMatchObject({ streakTarget: 21, strikes: 2 });
+    store().load(3, 1);
+    expect(store().spec).toMatchObject({ streakTarget: 21, strikes: 1 });
+    store().begin();
+    answerWrongly();
+    expect(store().status).toBe('feedback');
+    jest.advanceTimersByTime(SPEED_PROFILES.normal.missMs);
+    answerWrongly();
+    expect(store().status).toBe('failed');
+
+    store().load(4, 1);
+    expect(store().spec).toMatchObject({ streakTarget: 21, strikes: 0 });
+    store().begin();
+    answerCorrectly();
+    answerWrongly();
+    expect(store().status).toBe('failed');
+    expect(store().misses).toBe(1);
   });
 
   it('a run of right answers leaves no timers behind', () => {

@@ -102,9 +102,10 @@ export interface TrainingState {
   readonly status: TrainingStatus;
 
   // Streak drills
+  /** Right answers this run. A miss costs a strike, never the count. */
   readonly streak: number;
-  /** Misses so far (each one restarts the streak). */
-  readonly resets: number;
+  /** Misses this run; one more than the level's strikes ends it. */
+  readonly misses: number;
   readonly item: StreakItem | null;
   /** Bumps with every new item so the stage can re-animate. */
   readonly itemSerial: number;
@@ -131,7 +132,7 @@ export interface TrainingState {
   readonly meter: MeterState;
   /** Full-to-empty time for this level (ms). */
   readonly meterDrainMs: number;
-  /** The run failed because the meter ran dry, not on misses. */
+  /** The run failed because the meter ran dry, not on strikes. */
   readonly timedOut: boolean;
 
   /** Point the felt at a level. Clears any run in progress. */
@@ -254,7 +255,7 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
       speed: speedProfile(spec.speed),
       status: 'idle' as const,
       streak: 0,
-      resets: 0,
+      misses: 0,
       item: null,
       itemSerial: 0,
       script: null,
@@ -381,7 +382,7 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
       const streak = state.streak + 1;
       if (streak >= state.spec.streakTarget) {
         set({ question, streak });
-        completeLevel(starsForStreakRun(state.resets));
+        completeLevel(starsForStreakRun(state.misses));
         return true;
       }
       // No feedback beat on a right answer: the next item lands immediately so
@@ -391,7 +392,15 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
       return true;
     }
 
-    set({ question, streak: 0, resets: state.resets + 1, status: 'feedback' });
+    // A miss burns a strike and shows the correction; the run's count stands.
+    // Out of strikes, the run ends on the correction instead.
+    const misses = state.misses + 1;
+    if (misses > state.spec.strikes) {
+      clearAllTimers();
+      set({ question, misses, status: 'failed' });
+      return false;
+    }
+    set({ question, misses, status: 'feedback' });
     schedule(nextStreakItem, state.speed.missMs);
     return false;
   }
