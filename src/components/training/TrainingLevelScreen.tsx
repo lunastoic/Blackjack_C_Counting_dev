@@ -23,7 +23,7 @@ import {
   trainingLevelsForMap,
   TrainingLevelSpec,
 } from '../../engine/dojo';
-import { playSound } from '../../services/audio';
+import { playMeterTopUp, playSound } from '../../services/audio';
 import { haptics } from '../../services/haptics';
 import { useDojoStore } from '../../stores/dojoStore';
 import { FLASH_DEBUG_AVAILABLE, useFlashDebugStore } from '../../stores/flashDebugStore';
@@ -255,8 +255,12 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   function handleAnswer(value: number) {
     const wasCorrect = answer(value);
     if (wasCorrect) {
-      // The right answer is what tops the meter up: one sound for both.
-      playSound('meterTopUp');
+      // The right answer is what tops the meter up: one sound for both, a
+      // note higher for every right answer in the run (a streak miss starts
+      // the phrase over).
+      const run = useTrainingStore.getState();
+      const combo = checkpointSpec ? run.tally.correct : run.streak;
+      playMeterTopUp(Math.max(0, combo - 1));
       void haptics.success();
     } else {
       playSound('loss');

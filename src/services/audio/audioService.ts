@@ -1,7 +1,7 @@
 import { AudioPlayer, createAudioPlayer } from 'expo-audio';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { soundRegistry } from './registry';
-import { SoundId } from './types';
+import { METER_TOP_UP_STEPS, MeterTopUpStep, SoundId } from './types';
 
 /**
  * Central audio service. All gameplay/UI sound goes through here so the
@@ -58,6 +58,19 @@ export function playSound(id: SoundId): void {
       console.warn(`[audio] Failed to play "${id}":`, error);
     }
   }
+}
+
+/**
+ * The meter top-up note for the `combo`-th straight right answer (0-based):
+ * each one climbs a step, wrapping back to the root after the phrase.
+ */
+export function meterTopUpId(combo: number): SoundId {
+  const step = ((Math.max(0, Math.floor(combo)) % METER_TOP_UP_STEPS) + 1) as MeterTopUpStep;
+  return `meterTopUp${step}`;
+}
+
+export function playMeterTopUp(combo: number): void {
+  playSound(meterTopUpId(combo));
 }
 
 export function stopSound(id: SoundId): void {

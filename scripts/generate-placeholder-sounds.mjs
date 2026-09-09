@@ -126,13 +126,26 @@ const SOUNDS = {
   'achievement-unlock.wav': sequence(tone(1175, 120, { decay: 14, volume: 0.16 }), 10, tone(1568, 260, { decay: 9, volume: 0.16 })),
   'shuffle.wav': sequence(swish(180, { decay: 10 }), 30, swish(160, { decay: 12 }), 30, swish(220, { decay: 9 })),
   'button-tap.wav': tone(1250, 55, { volume: 0.1, decay: 55 }),
-  // The answer meter filling: a quick rise into a bright ping with a sparkle on top.
-  'meter-top-up.wav': sequence(
-    sweep(660, 1320, 110, { volume: 0.15, decay: 5 }),
-    0,
-    mix(tone(1568, 220, { volume: 0.18, decay: 11 }), tone(2349, 170, { volume: 0.06, decay: 16 })),
-  ),
 };
+
+/**
+ * The answer meter topping up. Right answers come a second apart on the
+ * card drills, so each is a soft, short "plink" — a marimba-ish note with a
+ * tiny upward bend — and consecutive ones climb a major pentatonic phrase
+ * (C5 → E6) so a fast streak plays a tune instead of the same blip.
+ */
+const TOP_UP_PITCHES = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51];
+function topUp(freq) {
+  return mix(
+    sweep(freq * 0.82, freq, 45, { volume: 0.09, decay: 12 }),
+    sequence(12, tone(freq, 170, { volume: 0.14, decay: 15, attackMs: 3 })),
+    sequence(12, tone(freq * 2, 120, { volume: 0.035, decay: 24, attackMs: 3 })),
+    sequence(12, tone(freq * 3, 80, { volume: 0.012, decay: 40 })),
+  );
+}
+TOP_UP_PITCHES.forEach((freq, index) => {
+  SOUNDS[`meter-top-up-${index + 1}.wav`] = topUp(freq);
+});
 
 const only = process.argv.slice(2);
 const entries = Object.entries(SOUNDS).filter(([name]) => only.length === 0 || only.includes(name));
