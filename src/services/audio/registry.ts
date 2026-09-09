@@ -19,6 +19,7 @@ export const soundRegistry: Readonly<Record<SoundId, SoundSource>> = {
   achievementUnlock: require('../../../assets/audio/achievement-unlock.wav'),
   shuffle: require('../../../assets/audio/shuffle.wav'),
   buttonTap: require('../../../assets/audio/button-tap.wav'),
+  meterTopUp: require('../../../assets/audio/meter-top-up.wav'),
   meterTopUp1: require('../../../assets/audio/meter-top-up-1.wav'),
   meterTopUp2: require('../../../assets/audio/meter-top-up-2.wav'),
   meterTopUp3: require('../../../assets/audio/meter-top-up-3.wav'),

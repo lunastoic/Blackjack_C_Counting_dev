@@ -33,6 +33,17 @@ const AUDIO_MODE = {
 } as const;
 
 /**
+ * The meter top-up is one soft chime at the same pitch every time. The
+ * climbing pentatonic phrase (one note per straight right answer) is kept
+ * behind this switch: on a long streak it read as a rising alarm.
+ */
+export const METER_TOP_UP_CLIMBS = false;
+const METER_TOP_UP_NOTES: readonly SoundId[] = Array.from(
+  { length: METER_TOP_UP_STEPS },
+  (_, index) => `meterTopUp${(index + 1) as MeterTopUpStep}` as const,
+);
+
+/**
  * Every player holds a native AVPlayer and its media threads (~1 MB each),
  * so only the sounds the app opens on — the drills — are created at boot.
  * The table's sounds are warmed when a table opens and are the ones released
@@ -46,14 +57,7 @@ const RESIDENT_SOUNDS: readonly SoundId[] = [
   'loss',
   'push',
   'shuffle',
-  'meterTopUp1',
-  'meterTopUp2',
-  'meterTopUp3',
-  'meterTopUp4',
-  'meterTopUp5',
-  'meterTopUp6',
-  'meterTopUp7',
-  'meterTopUp8',
+  ...(METER_TOP_UP_CLIMBS ? METER_TOP_UP_NOTES : ['meterTopUp' as const]),
 ];
 const TABLE_SOUNDS: readonly SoundId[] = [
   'chipTap',
@@ -141,10 +145,14 @@ export function playSound(id: SoundId): void {
 }
 
 /**
- * The meter top-up note for the `combo`-th straight right answer (0-based):
- * each one climbs a step, wrapping back to the root after the phrase.
+ * The meter top-up sound for the `combo`-th straight right answer (0-based):
+ * the same chime every time, or — with the climb on — one step up per
+ * answer, wrapping back to the root after the phrase.
  */
 export function meterTopUpId(combo: number): SoundId {
+  if (!METER_TOP_UP_CLIMBS) {
+    return 'meterTopUp';
+  }
   const step = ((Math.max(0, Math.floor(combo)) % METER_TOP_UP_STEPS) + 1) as MeterTopUpStep;
   return `meterTopUp${step}`;
 }

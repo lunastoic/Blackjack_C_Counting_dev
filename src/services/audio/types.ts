@@ -11,9 +11,10 @@ export type SoundId =
   | 'achievementUnlock'
   | 'shuffle'
   | 'buttonTap'
+  | 'meterTopUp'
   | `meterTopUp${MeterTopUpStep}`;
 
-/** The meter top-up climbs a pentatonic phrase: one note per step. */
+/** The climbing top-up phrase (off by default — see METER_TOP_UP_CLIMBS): one note per step. */
 export type MeterTopUpStep = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 export const METER_TOP_UP_STEPS = 8;
 

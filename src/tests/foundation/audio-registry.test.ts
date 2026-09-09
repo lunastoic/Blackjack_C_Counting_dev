@@ -1,5 +1,6 @@
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import {
+  METER_TOP_UP_CLIMBS,
   meterTopUpId,
   preloadSounds,
   releaseTableSounds,
@@ -21,8 +22,10 @@ jest.mock('expo-audio', () => ({
 }));
 
 /** The drill sounds live from boot; the table's five load when a table opens. */
-const RESIDENT_COUNT = 14;
+const RESIDENT_COUNT = 7;
 const TABLE_COUNT = 5;
+/** The climbing phrase stays sourced but unloaded while the climb is off. */
+const SHELVED_COUNT = METER_TOP_UP_STEPS;
 
 describe('audio registry', () => {
   it('sources every sound, including one top-up note per step of the phrase', () => {
@@ -32,7 +35,7 @@ describe('audio registry', () => {
     for (let step = 1; step <= METER_TOP_UP_STEPS; step++) {
       expect(soundRegistry[`meterTopUp${step}` as SoundId]).toBeDefined();
     }
-    expect(Object.keys(soundRegistry)).toHaveLength(RESIDENT_COUNT + TABLE_COUNT);
+    expect(Object.keys(soundRegistry)).toHaveLength(RESIDENT_COUNT + TABLE_COUNT + SHELVED_COUNT);
   });
 
   it('boots with the drill sounds only and keeps the audio session up between one-shots', () => {
@@ -61,13 +64,10 @@ describe('audio registry', () => {
     expect(createAudioPlayer).toHaveBeenCalledTimes(RESIDENT_COUNT + 2 * TABLE_COUNT);
   });
 
-  it('the top-up climbs a note per straight right answer and wraps after the phrase', () => {
+  it('the top-up is the same chime on every straight right answer', () => {
+    expect(METER_TOP_UP_CLIMBS).toBe(false);
     const notes = Array.from({ length: METER_TOP_UP_STEPS + 2 }, (_, combo) => meterTopUpId(combo));
-    expect(notes).toEqual([
-      'meterTopUp1', 'meterTopUp2', 'meterTopUp3', 'meterTopUp4',
-      'meterTopUp5', 'meterTopUp6', 'meterTopUp7', 'meterTopUp8',
-      'meterTopUp1', 'meterTopUp2',
-    ]);
-    expect(meterTopUpId(-3)).toBe('meterTopUp1');
+    expect(new Set(notes)).toEqual(new Set(['meterTopUp']));
+    expect(meterTopUpId(-3)).toBe('meterTopUp');
   });
 });

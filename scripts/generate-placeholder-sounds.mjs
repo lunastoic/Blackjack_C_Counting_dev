@@ -147,6 +147,23 @@ TOP_UP_PITCHES.forEach((freq, index) => {
   SOUNDS[`meter-top-up-${index + 1}.wav`] = topUp(freq);
 });
 
+/**
+ * The top-up the app actually plays: one soft chime at the same pitch every
+ * time (the climbing phrase above read as a rising alarm on a long streak).
+ * E5 with a warm octave and twelfth, a whisper of the major third for
+ * consonance, and a longer ring than the plink so it sits under the deal.
+ */
+function chime(freq) {
+  return mix(
+    tone(freq, 260, { volume: 0.13, decay: 11, attackMs: 5 }),
+    tone(freq * 2, 200, { volume: 0.045, decay: 16, attackMs: 5 }),
+    tone(freq * 3, 120, { volume: 0.014, decay: 30, attackMs: 5 }),
+    tone(freq * 1.26, 220, { volume: 0.03, decay: 14, attackMs: 8 }),
+    tone(freq / 2, 240, { volume: 0.035, decay: 12, attackMs: 5 }),
+  );
+}
+SOUNDS['meter-top-up.wav'] = chime(659.25);
+
 const only = process.argv.slice(2);
 const entries = Object.entries(SOUNDS).filter(([name]) => only.length === 0 || only.includes(name));
 for (const [name, samples] of entries) {
