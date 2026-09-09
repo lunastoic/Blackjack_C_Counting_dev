@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
 import { Card, hiLoValue, withVisibility } from '../../engine/cards/card';
+import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { colors, fontSizes, fontWeights, radii, spacing } from '../../theme';
 import { formatCount } from '../../utils/countCoach';
 import { PlayingCard } from '../game/PlayingCard';
@@ -15,14 +17,36 @@ interface CardsStageProps {
   /** Bumps per item so identical cards still re-deal. */
   readonly serial: number;
   readonly caption?: string;
+  /** The answer just given was wrong: the cards rattle like a locked map's lock. */
+  readonly missed?: boolean;
 }
 
 /** A group of face-up cards side by side — the streak drills' whole table. */
-export function CardsStage({ cards, cardWidth, speed, valueTags, serial, caption }: CardsStageProps) {
+export function CardsStage({ cards, cardWidth, speed, valueTags, serial, caption, missed = false }: CardsStageProps) {
+  const reducedMotion = useReducedMotion();
+  const shakeX = useSharedValue(0);
+  const shakeStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shakeX.value }] }));
+
+  useEffect(() => {
+    if (!missed || reducedMotion) {
+      return;
+    }
+    shakeX.set(
+      withSequence(
+        withTiming(-10, { duration: 55 }),
+        withTiming(10, { duration: 70 }),
+        withTiming(-7, { duration: 70 }),
+        withTiming(7, { duration: 70 }),
+        withTiming(-3, { duration: 60 }),
+        withTiming(0, { duration: 60 }),
+      ),
+    );
+  }, [missed, reducedMotion, shakeX]);
+
   return (
     <View style={styles.stage}>
       {caption ? <Text style={styles.caption}>{caption}</Text> : null}
-      <View key={serial} style={styles.row}>
+      <Animated.View key={serial} style={[styles.row, shakeStyle]}>
         {cards.map((card, index) => {
           const value = hiLoValue(card.rank);
           const tagColor =
@@ -50,7 +74,7 @@ export function CardsStage({ cards, cardWidth, speed, valueTags, serial, caption
             </View>
           );
         })}
-      </View>
+      </Animated.View>
     </View>
   );
 }

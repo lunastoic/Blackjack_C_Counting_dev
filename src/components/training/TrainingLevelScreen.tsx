@@ -376,6 +376,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
             valueTags={revealing}
             serial={itemSerial}
             caption={spec.mode === 'cardGroup' ? `${cards.length} CARDS` : undefined}
+            missed={question?.wasCorrect === false}
           />
         );
       }
