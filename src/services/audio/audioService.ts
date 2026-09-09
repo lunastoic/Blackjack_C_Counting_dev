@@ -96,8 +96,8 @@ export const DUCKED_VOLUME = 0.35;
  */
 export const SOUND_GAIN: Readonly<Partial<Record<SoundId, number>>> = {
   answerRight: 0.4,
-  answerWrong: 0.25,
-  strikeOut: 1,
+  answerWrong: 0.3125, // 0.25, up a quarter
+  strikeOut: 0.7, // down 30%
 };
 /** Fallback ring time for a lead sound whose player has not loaded yet. */
 const UNKNOWN_LEAD_MS = 500;
