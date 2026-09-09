@@ -15,12 +15,13 @@ function v8Save(): Record<string, unknown> {
 }
 
 describe('v8 → v9 migration', () => {
-  it('is registered and the current version is 12', () => {
-    expect(SAVE_SCHEMA_VERSION).toBe(12);
+  it('is registered and the current version is 13', () => {
+    expect(SAVE_SCHEMA_VERSION).toBe(13);
     expect(MIGRATIONS[8]).toBeDefined();
     expect(MIGRATIONS[9]).toBeDefined();
     expect(MIGRATIONS[10]).toBeDefined();
     expect(MIGRATIONS[11]).toBeDefined();
+    expect(MIGRATIONS[12]).toBeDefined();
   });
 
   it('adds an empty flash ladder while preserving every v8 field', () => {
@@ -89,7 +90,8 @@ describe('v10 → v11 migration', () => {
       cleared[`1:${level}`] = 3;
     }
     const parsed = saveDataSchema.parse(runMigrations(v10Save({ ...cleared, '2:1': 1 }), 10));
-    expect(parsed.dojo.flashLevels).toEqual({ ...cleared, '2:1': 1 });
+    // The v13 step lifts the old one-star clear to the two stars that clear a level now.
+    expect(parsed.dojo.flashLevels).toEqual({ ...cleared, '2:1': 2 });
   });
 
   it('drops entries not reachable from level 1 and clamps stars', () => {

@@ -9,17 +9,20 @@ import { mapById } from '../../engine/betting/casino';
 import { hiLoValue } from '../../engine/cards/card';
 import { CARDS_PER_DECK } from '../../engine/cards/deck';
 import {
+  CLEAR_STARS,
   decksRemainingEstimate,
   DOJO_XP,
   isCheckpointLevel,
+  isClearingStars,
   isFlashLevel,
   isFlashLevelDone,
   isStreakLevel,
   levelTutorial,
+  nextStarTarget,
   QuestionKind,
   speedProfile,
+  STAR_COUNT,
   TableFrame,
-  totalCheckpoints,
   trainingLevelSpec,
   trainingLevelsForMap,
   TrainingLevelSpec,
@@ -31,7 +34,9 @@ import { FLASH_DEBUG_AVAILABLE, useFlashDebugStore } from '../../stores/flashDeb
 import { StreakItem, TrainingQuestion, useTrainingStore } from '../../stores/trainingStore';
 import { colors, fontSizes, fontWeights, layout, spacing } from '../../theme';
 import { formatCount } from '../../utils/countCoach';
+import { formatChips } from '../../utils/format';
 import { PrimaryButton } from '../common/PrimaryButton';
+import { SecondaryButton } from '../common/SecondaryButton';
 import { FlashCountReview } from '../flash/FlashCountReview';
 import { FlashLevelCompleteOverlay } from '../flash/FlashLevelCompleteOverlay';
 import { FlashPanel, FlashPanelChip } from '../flash/FlashPanel';
@@ -54,11 +59,23 @@ import { CountEntry } from './CountEntry';
 import { CountStreamStage } from './CountStreamStage';
 import { DeckEstimateStage } from './DeckEstimateStage';
 import { LevelTutorialPanel } from './LevelTutorialPanel';
+import { StarBankToast } from './StarBankToast';
 import { TableStage } from './TableStage';
 import { TrainingMeter } from './TrainingMeter';
 import { TrueCountStage } from './TrueCountStage';
 import { StatusCell, TrainingStatusStrip } from './TrainingStatusStrip';
-import { deckLabel, formatAnswer, formatDecks, questionPrompt, kindLabel, missesAllowed, requirementChips } from './copy';
+import {
+  deckLabel,
+  formatAnswer,
+  formatDecks,
+  questionPrompt,
+  kindLabel,
+  missesAllowed,
+  requirementChips,
+  starGlyphs,
+  stretchLine,
+  stretchRulesLine,
+} from './copy';
 
 interface TrainingLevelScreenProps {
   readonly mapId: number;
@@ -112,6 +129,8 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   const begin = useTrainingStore((state) => state.begin);
   const answer = useTrainingStore((state) => state.answer);
   const continueAfterMiss = useTrainingStore((state) => state.continueAfterMiss);
+  const keepGoing = useTrainingStore((state) => state.keepGoing);
+  const stopRun = useTrainingStore((state) => state.stopRun);
   const acknowledgeCountTip = useTrainingStore((state) => state.acknowledgeCountTip);
   const loadedMapId = useTrainingStore((state) => state.mapId);
   const loadedLevel = useTrainingStore((state) => state.level);
@@ -125,6 +144,10 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   const cardsSinceCheck = useTrainingStore((state) => state.cardsSinceCheck);
   const question = useTrainingStore((state) => state.question);
   const outcome = useTrainingStore((state) => state.outcome);
+  const stars = useTrainingStore((state) => state.stars);
+  const targets = useTrainingStore((state) => state.targets);
+  const starBank = useTrainingStore((state) => state.starBank);
+  const stretch = useTrainingStore((state) => state.stretch);
   const countTipPending = useTrainingStore((state) => state.countTipPending);
   const meter = useTrainingStore((state) => state.meter);
   const meterDrainMs = useTrainingStore((state) => state.meterDrainMs);
@@ -161,6 +184,11 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
       setTutorialStep(0);
     }
   }
+
+  // A star banked in passing (the first): a pill over the felt. The second
+  // pauses the run on its own panel and the third ends it, so neither needs one.
+  const passingBank = synced && starBank && !isClearingStars(starBank.stars) ? starBank : null;
+  const lastStarChips = starBank?.chips ?? 0;
 
   // Casino distractions: the house calls the results out loud.
   const settled = frame?.beat === 'settle' ? frame : null;
@@ -254,11 +282,14 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   }
 
   function handleAnswer(value: number) {
+    const before = useTrainingStore.getState().stars;
     const wasCorrect = answer(value);
+    const after = useTrainingStore.getState();
     if (wasCorrect) {
-      playSound('answerRight');
+      // The answer that banks a star rings the chime instead of the pop.
+      playSound(after.stars > before ? 'achievementUnlock' : 'answerRight');
       void haptics.success();
-    } else if (useTrainingStore.getState().status === 'failed') {
+    } else if (after.status === 'failed' || after.status === 'levelComplete') {
       // The miss that ends the run: the whoosh instead of the error.
       playSound('strikeOut');
       void haptics.error();
@@ -291,16 +322,18 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   // Status strip
   // ---------------------------------------------------------------------------
 
+  // Progress reads against the next star's target: "14/21 ★★".
+  const nextTarget = nextStarTarget(targets, stars);
+  const nextStars = starGlyphs(Math.min(STAR_COUNT, stars + 1));
   const cells: StatusCell[] = [];
   if (checkpointSpec) {
-    const total = totalCheckpoints(checkpointSpec);
     const allowed = missesAllowed(checkpointSpec);
     const misses = tally.asked - tally.correct;
     cells.push({
       label: 'CHECKS',
-      value: `${tally.correct}`,
-      dim: `/${total}`,
-      accessibilityLabel: `${tally.correct} of ${total} checks correct`,
+      value: `${tally.asked}`,
+      dim: `/${nextTarget} ${nextStars}`,
+      accessibilityLabel: `${tally.asked} of ${nextTarget} checks toward ${nextStars.length} stars`,
     });
     cells.push({
       label: 'MISSES',
@@ -316,13 +349,12 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
       accessibilityLabel: `${checkpointSpec.deckCount} deck, fixed`,
     });
   } else {
-    const target = streakSpec?.streakTarget ?? 0;
     const strikes = streakSpec?.strikes ?? 0;
     cells.push({
       label: 'RIGHT',
       value: `${streak}`,
-      dim: `/${target}`,
-      accessibilityLabel: `${streak} of ${target} right`,
+      dim: `/${nextTarget} ${nextStars}`,
+      accessibilityLabel: `${streak} of ${nextTarget} right toward ${nextStars.length} stars`,
     });
     cells.push(
       strikes > 0
@@ -351,7 +383,8 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   // Stage
   // ---------------------------------------------------------------------------
 
-  const revealing = status === 'feedback' || status === 'failed' || status === 'levelComplete';
+  const revealing =
+    status === 'feedback' || status === 'cleared' || status === 'failed' || status === 'levelComplete';
 
   function renderStage() {
     if (status === 'idle') {
@@ -529,8 +562,8 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
     if (current.wasCorrect) {
       return `Correct — ${right}`;
     }
-    if (status === 'failed') {
-      return checkpointSpec ? `Level failed — it was ${right}.` : `Out of strikes — it was ${right}.`;
+    if (status === 'failed' || status === 'levelComplete') {
+      return checkpointSpec ? `Run over — it was ${right}.` : `Out of strikes — it was ${right}.`;
     }
     if (!checkpointSpec) {
       const left = (streakSpec?.strikes ?? 0) - misses;
@@ -593,10 +626,15 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
     }
 
     if (status === 'running') {
+      const fresh = stretch && frame === null;
       return (
         <View style={styles.statusSlot}>
           <Text style={styles.statusText}>
-            {spec.mode === 'tableCount' ? 'Count every card on the table…' : 'Keep counting…'}
+            {fresh
+              ? 'New shoe — the count starts at 0.'
+              : spec.mode === 'tableCount'
+                ? 'Count every card on the table…'
+                : 'Keep counting…'}
           </Text>
         </View>
       );
@@ -630,6 +668,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
           <Text style={styles.statusText}>
             It drains while a question is open; every right answer tops it up.
           </Text>
+          {stars > 0 ? <Text style={styles.banked}>{starGlyphs(stars)} banked</Text> : null}
           <View style={styles.actionRow}>
             <PrimaryButton label="Try again" onPress={begin} />
             <Text style={styles.replayLink} onPress={reset} accessibilityRole="button">
@@ -642,6 +681,27 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
 
     if (!question) {
       return null;
+    }
+
+    // The second star: the level is cleared and the run pauses here.
+    if (status === 'cleared') {
+      return (
+        <View style={styles.questionSection}>
+          <Text style={[styles.feedback, { color: question.wasCorrect ? colors.success : colors.error }]}>
+            {feedbackLine(question)}
+          </Text>
+          {checkpointSpec && question.wasCorrect === false ? renderReview(question) : null}
+          <Text style={styles.clearedTitle}>Level cleared — {starGlyphs(CLEAR_STARS)}</Text>
+          <Text style={styles.statusText}>
+            {lastStarChips > 0 ? `+${formatChips(lastStarChips)} chips. ` : ''}
+            Keep going for {starGlyphs(STAR_COUNT)}? {stretchLine(spec, targets)} {stretchRulesLine(spec)}
+          </Text>
+          <View style={styles.actionRow}>
+            <PrimaryButton label="Keep going" onPress={keepGoing} />
+            <SecondaryButton label="Stop" onPress={stopRun} />
+          </View>
+        </View>
+      );
     }
 
     // feedback / failed / levelComplete
@@ -666,6 +726,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
         )}
         {status === 'failed' ? (
           <View style={styles.actionRow}>
+            {stars > 0 ? <Text style={styles.banked}>{starGlyphs(stars)} banked</Text> : null}
             <PrimaryButton label="Try again" onPress={begin} />
             <Text style={styles.replayLink} onPress={reset} accessibilityRole="button">
               Back to the brief
@@ -685,9 +746,11 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
       ? 'Certified card counter.'
       : `${tally.correct} of ${tally.asked} checks.`
     : misses === 0
-      ? `${streakSpec?.streakTarget ?? streak} in a row.`
-      : `${streakSpec?.streakTarget ?? streak} right, ${misses === 1 ? 'one strike' : `${misses} strikes`}.`;
-  const completeBody = nextSpec ? `Next up: ${nextSpec.title}.` : 'The table is already open.';
+      ? `${streak} in a row.`
+      : `${streak} right, ${misses === 1 ? 'one strike' : `${misses} strikes`}.`;
+  const nextUp = nextSpec ? `Next up: ${nextSpec.title}.` : 'The table is already open.';
+  // Short of the third star, say what it takes; the level map shows the best.
+  const completeBody = stars < STAR_COUNT ? `${stretchLine(spec, targets)} ${nextUp}` : nextUp;
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -740,6 +803,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
           { paddingBottom: insets.bottom + spacing.md },
         ]}
       >
+        <StarBankToast bank={passingBank} />
         {renderPanel()}
       </View>
 
@@ -760,8 +824,9 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
         <FlashLevelCompleteOverlay
           mapName={map.name}
           level={level}
-          stars={outcome?.stars ?? 1}
+          stars={stars}
           xpAwarded={outcome?.firstClear ? DOJO_XP.flashLevel : 0}
+          chipsAwarded={outcome?.chipsAwarded ?? 0}
           title={completeTitle}
           body={completeBody}
           scorecard={isExam ? accuracyRows(tally) : undefined}
@@ -873,6 +938,19 @@ const styles = StyleSheet.create({
   },
   feedback: {
     fontSize: fontSizes.body,
+    fontWeight: fontWeights.bold,
+    textAlign: 'center',
+  },
+  clearedTitle: {
+    color: colors.goldBright,
+    fontSize: fontSizes.subtitle,
+    fontWeight: fontWeights.heavy,
+    letterSpacing: 1,
+    textAlign: 'center',
+  },
+  banked: {
+    color: colors.goldBright,
+    fontSize: fontSizes.small,
     fontWeight: fontWeights.bold,
     textAlign: 'center',
   },

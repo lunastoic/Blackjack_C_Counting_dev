@@ -5,6 +5,7 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { FLASH_LEVELS_PER_MAP } from '../../engine/dojo';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { colors, fontSizes, fontWeights, radii, shadows, spacing } from '../../theme';
+import { formatChips } from '../../utils/format';
 import { PrimaryButton } from '../common/PrimaryButton';
 import { SecondaryButton } from '../common/SecondaryButton';
 import { AccuracyRow, AccuracyRows } from '../training/AccuracyRows';
@@ -12,8 +13,11 @@ import { AccuracyRow, AccuracyRows } from '../training/AccuracyRows';
 interface FlashLevelCompleteOverlayProps {
   readonly mapName: string;
   readonly level: number;
+  /** Stars this run earned. */
   readonly stars: number;
   readonly xpAwarded: number;
+  /** Chips the run's new stars paid. */
+  readonly chipsAwarded: number;
   /** Headline for the clear — "21 in a row." / "10 of 10 checks." */
   readonly title: string;
   /** What comes next — "Next up: Card Groups." */
@@ -37,6 +41,7 @@ export function FlashLevelCompleteOverlay({
   level,
   stars,
   xpAwarded,
+  chipsAwarded,
   title,
   body,
   scorecard,
@@ -91,7 +96,14 @@ export function FlashLevelCompleteOverlay({
             <Text style={styles.body}>{body}</Text>
           </>
         )}
-        {xpAwarded > 0 ? <Text style={styles.xp}>+{xpAwarded} XP</Text> : null}
+        {xpAwarded > 0 || chipsAwarded > 0 ? (
+          <View style={styles.rewards}>
+            {chipsAwarded > 0 ? (
+              <Text style={styles.chips}>+{formatChips(chipsAwarded)} chips</Text>
+            ) : null}
+            {xpAwarded > 0 ? <Text style={styles.xp}>+{xpAwarded} XP</Text> : null}
+          </View>
+        ) : null}
 
         <View style={styles.actions}>
           {tableOpen ? <PrimaryButton label="Sit at the table" onPress={onSitAtTable} /> : null}
@@ -189,6 +201,15 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: fontSizes.small,
     lineHeight: 20,
+  },
+  rewards: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  chips: {
+    color: colors.goldBright,
+    fontSize: fontSizes.subtitle,
+    fontWeight: fontWeights.bold,
   },
   xp: {
     color: colors.success,

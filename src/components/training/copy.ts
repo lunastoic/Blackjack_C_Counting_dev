@@ -2,6 +2,9 @@ import {
   CheckpointLevelSpec,
   isCheckpointLevel,
   QuestionKind,
+  STAR_COUNT,
+  StarTargets,
+  starTargets,
   totalCheckpoints,
   TrainingLevelSpec,
 } from '../../engine/dojo';
@@ -46,20 +49,55 @@ export function deckLabel(deckCount: number): string {
   return deckCount === 1 ? '1 deck' : `${deckCount}-deck shoe`;
 }
 
-/** Bullets for the level brief: what it takes to clear the level. */
-export function requirementChips(spec: TrainingLevelSpec): string[] {
+/** "★", "★★", "★★★". */
+export function starGlyphs(stars: number): string {
+  return '★'.repeat(Math.max(0, Math.min(STAR_COUNT, stars)));
+}
+
+/** What a streak level counts toward its stars. */
+function streakUnit(spec: TrainingLevelSpec): string {
+  return isCheckpointLevel(spec) ? 'checks' : 'right';
+}
+
+/** "★ 11 · ★★ 21 · ★★★ 32 right" — the run's three stages. */
+export function starTargetsLine(spec: TrainingLevelSpec, targets: StarTargets = starTargets(spec)): string {
+  const stages = targets.map((target, index) => `${starGlyphs(index + 1)} ${target}`);
+  return `${stages.join(' · ')} ${streakUnit(spec)}`;
+}
+
+/** "32 right earns ★★★." — what the stretch asks for. */
+export function stretchLine(spec: TrainingLevelSpec, targets: StarTargets = starTargets(spec)): string {
+  return `${targets[STAR_COUNT - 1]} ${streakUnit(spec)} earns ${starGlyphs(STAR_COUNT)}.`;
+}
+
+/** What carries into the stretch: the shoe (fresh for a deal) and the run's misses. */
+export function stretchRulesLine(spec: TrainingLevelSpec): string {
   if (!isCheckpointLevel(spec)) {
-    if (spec.strikes === 0) {
-      return [`${spec.streakTarget} in a row`, 'A miss ends the run'];
-    }
-    return [`${spec.streakTarget} right`, `${spec.strikes} strike${spec.strikes === 1 ? '' : 's'}, then out`];
+    return spec.strikes === 0 ? 'A miss still ends the run.' : 'Strikes carry over.';
+  }
+  return missesAllowed(spec) === 0 ? 'Fresh shoe — a miss still ends the run.' : 'Fresh shoe — misses carry over.';
+}
+
+/**
+ * Bullets for the level brief: the star stages first, then the rules that
+ * hold for the whole run.
+ */
+export function requirementChips(spec: TrainingLevelSpec): string[] {
+  const chips: string[] = [starTargetsLine(spec)];
+  if (!isCheckpointLevel(spec)) {
+    chips.push(
+      spec.strikes === 0
+        ? 'A miss ends the run'
+        : `${spec.strikes} strike${spec.strikes === 1 ? '' : 's'}, then out`,
+    );
+    return chips;
   }
   const total = totalCheckpoints(spec);
-  const chips: string[] = [];
-  if (spec.pass.minCorrect >= total) {
-    chips.push(`${total} checks · all correct`);
+  const allowed = missesAllowed(spec);
+  if (allowed === 0) {
+    chips.push('A miss ends the run');
   } else {
-    chips.push(`${spec.pass.minCorrect} of ${total} checks`);
+    chips.push(`${allowed} miss${allowed === 1 ? '' : 'es'}, then out`);
     if (spec.pass.maxRunningCountMisses < total - spec.pass.minCorrect) {
       chips.push(
         spec.pass.maxRunningCountMisses === 0

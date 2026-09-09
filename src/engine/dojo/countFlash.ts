@@ -78,8 +78,14 @@ export function dealFlashAutoRound(
 // Progress
 // ---------------------------------------------------------------------------
 
-/** Stars per cleared level, keyed by `flashLevelKey(mapId, level)`. */
+/** Best stars per level, keyed by `flashLevelKey(mapId, level)`. */
 export type FlashProgress = Readonly<Record<string, number>>;
+
+/**
+ * Stars that clear a level: the second of three. One star is banked
+ * progress (the next level stays shut); the third is the stretch.
+ */
+export const CLEAR_STARS = 2;
 
 export function flashLevelKey(mapId: number, level: number): string {
   return `${mapId}:${level}`;
@@ -90,7 +96,7 @@ export function flashStars(progress: FlashProgress, mapId: number, level: number
 }
 
 export function isFlashLevelDone(progress: FlashProgress, mapId: number, level: number): boolean {
-  return flashStars(progress, mapId, level) > 0;
+  return flashStars(progress, mapId, level) >= CLEAR_STARS;
 }
 
 /** Level 1 is always open; every other level needs the one before it cleared. */

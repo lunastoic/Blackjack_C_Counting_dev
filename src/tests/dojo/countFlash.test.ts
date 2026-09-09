@@ -1,9 +1,11 @@
 import { isFaceUp } from '../../engine/cards/card';
 import {
+  CLEAR_STARS,
   dealFlashAutoRound,
   FLASH_LEVELS_PER_MAP,
   flashLevelKey,
   isFlashLevel,
+  isFlashLevelDone,
   isFlashLevelUnlocked,
   isMapFlashComplete,
   nextFlashLevel,
@@ -71,5 +73,22 @@ describe('count training — ladder progress', () => {
     }
     expect(isMapFlashComplete(progress, 1)).toBe(true);
     expect(isMapFlashComplete(progress, 2)).toBe(false);
+  });
+
+  it('one star is banked progress, not a clear: two open the next level and the table', () => {
+    expect(CLEAR_STARS).toBe(2);
+    const oneStar = { [flashLevelKey(1, 1)]: 1 };
+    expect(isFlashLevelDone(oneStar, 1, 1)).toBe(false);
+    expect(isFlashLevelUnlocked(oneStar, 1, 2)).toBe(false);
+    expect(nextFlashLevel(oneStar, 1)).toBe(1);
+    expect(isFlashLevelDone({ [flashLevelKey(1, 1)]: 2 }, 1, 1)).toBe(true);
+
+    const progress: Record<string, number> = {};
+    for (let level = 1; level <= FLASH_LEVELS_PER_MAP; level++) {
+      progress[flashLevelKey(1, level)] = level === 6 ? 1 : 2;
+    }
+    expect(isMapFlashComplete(progress, 1)).toBe(false);
+    progress[flashLevelKey(1, 6)] = 2;
+    expect(isMapFlashComplete(progress, 1)).toBe(true);
   });
 });

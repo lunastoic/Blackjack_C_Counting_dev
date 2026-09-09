@@ -277,6 +277,29 @@ function migrateV11toV12(data: unknown): unknown {
   };
 }
 
+/**
+ * v12 → v13: training levels earn their stars in stages, and a level now
+ * needs two to count as cleared. A level cleared under the old scoring
+ * (one star for a run with several misses) stays cleared: its one star
+ * becomes two. Higher stars are kept as they are.
+ */
+function migrateV12toV13(data: unknown): unknown {
+  const save = (data ?? {}) as Record<string, unknown>;
+  const dojo = (save.dojo ?? {}) as Record<string, unknown>;
+  const legacy = (dojo.flashLevels ?? {}) as Record<string, unknown>;
+  const flashLevels: Record<string, unknown> = {};
+  for (const [key, stars] of Object.entries(legacy)) {
+    flashLevels[key] = typeof stars === 'number' && stars < 2 ? 2 : stars;
+  }
+  return {
+    ...save,
+    dojo: {
+      ...dojo,
+      flashLevels,
+    },
+  };
+}
+
 export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -289,6 +312,7 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   9: migrateV9toV10,
   10: migrateV10toV11,
   11: migrateV11toV12,
+  12: migrateV12toV13,
 };
 
 export class MigrationError extends Error {

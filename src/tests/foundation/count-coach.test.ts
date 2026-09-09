@@ -160,6 +160,6 @@ describe('save migration', () => {
       });
       expect(settingsSchema.parse(migrated.settings).countCoachLevel).toBe(to);
     }
-    expect(SAVE_SCHEMA_VERSION).toBe(12);
+    expect(SAVE_SCHEMA_VERSION).toBe(13);
   });
 });

@@ -1,6 +1,8 @@
 import { create } from 'zustand';
+import { mapById } from '../engine/betting/casino';
 import {
   awardDojoXp,
+  CLEAR_STARS,
   DojoProgressionResult,
   DojoRank,
   DOJO_XP,
@@ -14,8 +16,11 @@ import {
   LessonId,
   nextFlashLevel,
   rankForXp,
+  STAR_COUNT,
+  starChips,
 } from '../engine/dojo';
 import { DojoSave } from '../persistence/schema';
+import { useEconomyStore } from './economyStore';
 import { useProgressionStore } from './progressionStore';
 
 export interface DojoState {
@@ -27,7 +32,7 @@ export interface DojoState {
   readonly lastPracticeAt: number | null;
   readonly tableObjectivesCompleted: ReadonlySet<string>;
   readonly onboardingDone: boolean;
-  /** Count Flash ladder: "mapId:level" → stars once cleared. */
+  /** Count Flash ladder: "mapId:level" → best stars (two clear the level). */
   readonly flashLevels: FlashProgress;
   /** The one-time "count carries over" tip has been acknowledged. */
   readonly flashCountTipSeen: boolean;
@@ -42,9 +47,9 @@ export interface DojoState {
   readonly resetProgress: () => void;
   readonly isLessonUnlocked: (lessonId: LessonId) => boolean;
   /**
-   * Records a cleared training level with the stars the run earned (stars
-   * only ever go up). Clearing the sixth level licenses the casino's table
-   * and opens the next casino.
+   * Records a training run's stars (best only ever goes up) and pays chips
+   * for each star the level has not paid before. Two stars clear the level;
+   * two on the sixth license the casino's table and open the next casino.
    */
   readonly completeTrainingLevel: (
     mapId: number,
@@ -58,11 +63,14 @@ export interface DojoState {
 }
 
 export interface TrainingLevelOutcome {
+  /** The level's best stars after this run. */
   readonly stars: number;
   /** True the first time this level is cleared (XP is only paid once). */
   readonly firstClear: boolean;
   /** True when this clear completed the ladder and opened the table. */
   readonly tableUnlocked: boolean;
+  /** Chips paid for the stars this run earned for the first time. */
+  readonly chipsAwarded: number;
   readonly progression: DojoProgressionResult | null;
 }
 
@@ -202,9 +210,19 @@ export const useDojoStore = create<DojoState>()((set, get) => ({
   completeTrainingLevel: (mapId, level, earned) => {
     const key = flashLevelKey(mapId, level);
     const previousStars = get().flashLevels[key] ?? 0;
-    const stars = Math.max(previousStars, Math.min(3, Math.max(1, Math.round(earned))));
-    const firstClear = previousStars === 0;
+    const stars = Math.max(previousStars, Math.min(STAR_COUNT, Math.max(1, Math.round(earned))));
+    const firstClear = previousStars < CLEAR_STARS && stars >= CLEAR_STARS;
     const wasComplete = isMapFlashComplete(get().flashLevels, mapId);
+
+    // Each star pays once, scaled to the casino's table.
+    const maxBet = mapById(mapId)?.maxBet ?? 0;
+    let chipsAwarded = 0;
+    for (let star = previousStars + 1; star <= stars; star += 1) {
+      chipsAwarded += starChips(maxBet, star);
+    }
+    if (chipsAwarded > 0) {
+      useEconomyStore.getState().creditChips(chipsAwarded);
+    }
 
     let progression: DojoProgressionResult | null = null;
     if (firstClear) {
@@ -226,7 +244,7 @@ export const useDojoStore = create<DojoState>()((set, get) => ({
       progress.grantLicense(mapId, 'licensed');
       progress.unlockMap(mapId + 1);
     }
-    return { stars, firstClear, tableUnlocked, progression };
+    return { stars, firstClear, tableUnlocked, chipsAwarded, progression };
   },
 
   isFlashLevelUnlocked: (mapId, level) => isFlashLevelUnlocked(get().flashLevels, mapId, level),

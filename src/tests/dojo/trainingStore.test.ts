@@ -13,6 +13,7 @@ import { seededRng } from '../../engine/shoe/rng';
 import { createDefaultSave } from '../../persistence/defaults';
 import { __resetPersistenceForTests } from '../../persistence/hydrate';
 import { useDojoStore } from '../../stores/dojoStore';
+import { useEconomyStore } from '../../stores/economyStore';
 import { useProgressionStore } from '../../stores/progressionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import {
@@ -35,6 +36,7 @@ function resetStores(): void {
   const defaults = createDefaultSave();
   // Most tests exercise the loops, not the one-time count tip.
   useDojoStore.getState().hydrate({ ...defaults.dojo, flashCountTipSeen: true });
+  useEconomyStore.getState().hydrate(defaults.economy);
   useProgressionStore.getState().hydrate(defaults.progression);
   useSettingsStore.getState().hydrate(defaults.settings);
 }
@@ -96,9 +98,11 @@ describe('training store — streak drills', () => {
     expect(store().status).toBe('idle');
   });
 
-  it('shows one card at a time and clears at 21 straight (3 stars, level 2 opens)', () => {
+  it('shows one card at a time; a star at 11, the clear at 21 (level 2 opens), the third at 32', () => {
+    const chipsBefore = useEconomyStore.getState().chips;
     store().begin();
     expect(store().status).toBe('asking');
+    expect(store().targets).toEqual([11, 21, 32]);
     for (let n = 1; n <= 21; n++) {
       const item = store().item;
       expect(item?.kind).toBe('cards');
@@ -113,12 +117,122 @@ describe('training store — streak drills', () => {
         expect(store().streak).toBe(n);
         expect(store().question).toBeNull();
       }
+      if (n === 10) {
+        expect(store().stars).toBe(0);
+        expect(store().starBank).toBeNull();
+      }
+      if (n === 11) {
+        // The first star is banked in passing: chips, no pause, no clear yet.
+        expect(store().stars).toBe(1);
+        expect(store().starBank).toMatchObject({ stars: 1, chips: 25 });
+        expect(useEconomyStore.getState().chips).toBe(chipsBefore + 25);
+        expect(useDojoStore.getState().flashLevels[flashLevelKey(1, 1)]).toBe(1);
+        expect(useDojoStore.getState().isFlashLevelUnlocked(1, 2)).toBe(false);
+      }
+    }
+    // The second star clears the level and pauses the run.
+    expect(store().status).toBe('cleared');
+    expect(store().stars).toBe(2);
+    expect(store().streak).toBe(21);
+    expect(store().meter.draining).toBe(false);
+    expect(jest.getTimerCount()).toBe(0);
+    expect(store().outcome).toMatchObject({ stars: 2, firstClear: true, tableUnlocked: false, chipsAwarded: 75 });
+    expect(useEconomyStore.getState().chips).toBe(chipsBefore + 75);
+    expect(useDojoStore.getState().flashLevels[flashLevelKey(1, 1)]).toBe(2);
+    expect(useDojoStore.getState().isFlashLevelUnlocked(1, 2)).toBe(true);
+    expect(store().answer(0)).toBe(false);
+
+    // Keep going: the same run, eleven more for the third.
+    store().keepGoing();
+    expect(store().status).toBe('asking');
+    expect(store().meter.draining).toBe(true);
+    for (let n = 22; n <= 32; n++) {
+      answerCorrectly();
+      if (n < 32) {
+        expect(store().status).toBe('asking');
+      }
     }
     expect(store().status).toBe('levelComplete');
     expect(store().stars).toBe(3);
-    expect(store().outcome).toMatchObject({ stars: 3, firstClear: true, tableUnlocked: false });
+    expect(store().outcome).toMatchObject({ stars: 3, firstClear: true, chipsAwarded: 175 });
+    expect(useEconomyStore.getState().chips).toBe(chipsBefore + 175);
     expect(useDojoStore.getState().flashLevels[flashLevelKey(1, 1)]).toBe(3);
-    expect(useDojoStore.getState().isFlashLevelUnlocked(1, 2)).toBe(true);
+  });
+
+  it('Stop at the clear banks two stars and ends the run', () => {
+    store().begin();
+    for (let n = 1; n <= 21; n++) {
+      answerCorrectly();
+    }
+    expect(store().status).toBe('cleared');
+    store().stopRun();
+    expect(store().status).toBe('levelComplete');
+    expect(store().stars).toBe(2);
+    expect(store().outcome?.stars).toBe(2);
+    expect(jest.getTimerCount()).toBe(0);
+    // Keep going / Stop only mean something at the pause.
+    store().keepGoing();
+    expect(store().status).toBe('levelComplete');
+  });
+
+  it('a star already paid on a level pays nothing again; a higher one still does', () => {
+    const chipsBefore = useEconomyStore.getState().chips;
+    store().begin();
+    for (let n = 1; n <= 21; n++) {
+      answerCorrectly();
+    }
+    store().stopRun();
+    expect(useEconomyStore.getState().chips).toBe(chipsBefore + 75);
+
+    store().begin();
+    for (let n = 1; n <= 21; n++) {
+      answerCorrectly();
+    }
+    expect(store().status).toBe('cleared');
+    expect(store().starBank).toMatchObject({ stars: 2, chips: 0 });
+    expect(store().outcome).toMatchObject({ stars: 2, firstClear: false, chipsAwarded: 0 });
+    expect(useEconomyStore.getState().chips).toBe(chipsBefore + 75);
+    store().keepGoing();
+    for (let n = 22; n <= 32; n++) {
+      answerCorrectly();
+    }
+    expect(store().status).toBe('levelComplete');
+    expect(store().outcome).toMatchObject({ stars: 3, firstClear: false, chipsAwarded: 100 });
+    expect(useEconomyStore.getState().chips).toBe(chipsBefore + 175);
+  });
+
+  it('running out of strikes on the stretch keeps the clear: the run ends complete at two stars', () => {
+    store().begin();
+    for (let n = 1; n <= 21; n++) {
+      answerCorrectly();
+    }
+    store().keepGoing();
+    for (let strike = 1; strike <= 3; strike++) {
+      answerWrongly();
+      jest.advanceTimersByTime(SPEED_PROFILES.beginner.missMs);
+    }
+    answerWrongly();
+    expect(store().status).toBe('levelComplete');
+    expect(store().stars).toBe(2);
+    expect(store().question?.wasCorrect).toBe(false);
+    expect(useDojoStore.getState().flashLevels[flashLevelKey(1, 1)]).toBe(2);
+  });
+
+  it('a run that ends with one star banked fails the level but keeps the star', () => {
+    store().begin();
+    for (let n = 1; n <= 11; n++) {
+      answerCorrectly();
+    }
+    expect(store().stars).toBe(1);
+    for (let strike = 1; strike <= 3; strike++) {
+      answerWrongly();
+      jest.advanceTimersByTime(SPEED_PROFILES.beginner.missMs);
+    }
+    answerWrongly();
+    expect(store().status).toBe('failed');
+    expect(store().stars).toBe(1);
+    expect(useDojoStore.getState().flashLevels[flashLevelKey(1, 1)]).toBe(1);
+    expect(useDojoStore.getState().isFlashLevelUnlocked(1, 2)).toBe(false);
   });
 
   it('a miss shows the answer and costs a strike and a star, not the count', () => {
@@ -144,7 +258,7 @@ describe('training store — streak drills', () => {
     for (let n = 1; n <= 19; n++) {
       answerCorrectly();
     }
-    expect(store().status).toBe('levelComplete');
+    expect(store().status).toBe('cleared');
     expect(store().stars).toBe(2);
   });
 
@@ -179,7 +293,7 @@ describe('training store — streak drills', () => {
     expect(store()).toMatchObject({ status: 'asking', streak: 0, misses: 0 });
   });
 
-  it('three strikes used still clears at one star', () => {
+  it('three strikes used still clears: misses cost strikes, never stars', () => {
     store().begin();
     for (let strike = 1; strike <= 3; strike++) {
       answerWrongly();
@@ -188,8 +302,8 @@ describe('training store — streak drills', () => {
     for (let n = 1; n <= 21; n++) {
       answerCorrectly();
     }
-    expect(store().status).toBe('levelComplete');
-    expect(store().stars).toBe(1);
+    expect(store().status).toBe('cleared');
+    expect(store().stars).toBe(2);
   });
 
   it('strikes taper by map — two, then one, then none: a first miss on map 4 ends the run', () => {
@@ -218,6 +332,12 @@ describe('training store — streak drills', () => {
     for (let n = 1; n <= 21; n++) {
       answerCorrectly();
     }
+    expect(store().status).toBe('cleared');
+    expect(jest.getTimerCount()).toBe(0);
+    store().keepGoing();
+    for (let n = 22; n <= 32; n++) {
+      answerCorrectly();
+    }
     expect(store().status).toBe('levelComplete');
     expect(jest.getTimerCount()).toBe(0);
   });
@@ -235,7 +355,7 @@ describe('training store — streak drills', () => {
       answerCorrectly();
     }
     expect([...sizes].sort()).toEqual([3, 4, 5]);
-    expect(store().status).toBe('levelComplete');
+    expect(store().status).toBe('cleared');
   });
 
   it('deck estimation and true-count drills serve their own items', () => {
@@ -418,6 +538,7 @@ describe('training store — count streams', () => {
   it('clears the level after every checkpoint is right; the count continues between checks', () => {
     store().begin();
     const spec = store().spec as CountStreamLevel;
+    expect(store().targets).toEqual([5, 10, 15]);
     for (let k = 0; k < totalCheckpoints(spec); k++) {
       advanceUntil('asking');
       expect(store().checkpointIndex).toBe(k);
@@ -426,10 +547,52 @@ describe('training store — count streams', () => {
         expect(store().status).toBe('feedback');
         expect(store().tally.correct).toBe(k + 1);
       }
+      // The first star lands at the fifth check without stopping the stream.
+      if (k < totalCheckpoints(spec) - 1) {
+        expect(store().stars).toBe(k + 1 >= 5 ? 1 : 0);
+      }
+    }
+    expect(store().status).toBe('cleared');
+    expect(store().stars).toBe(2);
+    expect(store().stretch).toBe(false);
+    expect(useDojoStore.getState().flashLevels[flashLevelKey(1, 4)]).toBe(2);
+    expect(useDojoStore.getState().isFlashLevelUnlocked(1, 5)).toBe(true);
+
+    // The stretch: a fresh shoe, five more checks, the count from 0 again.
+    store().keepGoing();
+    expect(store().status).toBe('running');
+    expect(store().stretch).toBe(true);
+    expect(store().frameIndex).toBe(-1);
+    expect(store().checkpointIndex).toBe(0);
+    expect(store().script?.checkpoints).toHaveLength(5);
+    for (let k = 0; k < 5; k++) {
+      advanceUntil('asking');
+      const { frame, question, script } = store();
+      const seen = script!.frames.slice(0, store().frameIndex + 1);
+      expect(seen.reduce((sum, f) => sum + hiLoValue(f.card!.rank), 0)).toBe(frame?.runningCount);
+      expect(question?.correct).toBe(frame?.runningCount);
+      answerCorrectly();
     }
     expect(store().status).toBe('levelComplete');
     expect(store().stars).toBe(3);
+    expect(store().tally.asked).toBe(15);
     expect(useDojoStore.getState().flashLevels[flashLevelKey(1, 4)]).toBe(3);
+  });
+
+  it('a miss on the stretch of an all-correct level ends the run cleared at two stars', () => {
+    store().begin();
+    for (let k = 0; k < 10; k++) {
+      advanceUntil('asking');
+      answerCorrectly();
+    }
+    store().keepGoing();
+    advanceUntil('asking');
+    answerWrongly();
+    expect(store().status).toBe('levelComplete');
+    expect(store().stars).toBe(2);
+    expect(store().question?.wasCorrect).toBe(false);
+    expect(jest.getTimerCount()).toBe(0);
+    expect(useDojoStore.getState().flashLevels[flashLevelKey(1, 4)]).toBe(2);
   });
 
   it('a wrong count on an all-correct level fails the run, shows the review, and can restart from zero', () => {
@@ -468,7 +631,24 @@ describe('training store — count streams', () => {
     expect(store().question?.correct).toBe(0);
     expect(store().frameIndex).toBe(51);
     answerCorrectly();
+    expect(store().status).toBe('cleared');
+
+    // The stretch deals the whole deck again, so its final count is 0 too.
+    store().keepGoing();
+    expect(store().script?.frames).toHaveLength(52);
+    expect(store().script?.checkpoints).toHaveLength(5);
+    for (let k = 0; k < 4; k++) {
+      advanceUntil('asking');
+      expect(store().question?.isFinal).toBe(false);
+      answerCorrectly();
+    }
+    advanceUntil('asking');
+    expect(store().question?.isFinal).toBe(true);
+    expect(store().question?.correct).toBe(0);
+    expect(store().frameIndex).toBe(51);
+    answerCorrectly();
     expect(store().status).toBe('levelComplete');
+    expect(store().stars).toBe(3);
   });
 
   it('paired checkpoints ask decks remaining, then the true count from the decks shown', () => {
@@ -509,6 +689,13 @@ describe('training store — count streams', () => {
         answerCorrectly(); // second part
       }
     }
+    expect(store().status).toBe('cleared');
+    expect(store().stars).toBe(2);
+
+    // The one allowed miss is spent for the whole run: a second on the stretch ends it.
+    store().keepGoing();
+    advanceUntil('asking');
+    answerWrongly();
     expect(store().status).toBe('levelComplete');
     expect(store().stars).toBe(2);
   });
@@ -569,8 +756,11 @@ describe('training store — live tables', () => {
       expect(frame?.table.dealer).not.toBeNull();
       answerCorrectly();
     }
-    expect(store().status).toBe('levelComplete');
+    // Two stars on the sixth level open the table; the third is optional.
+    expect(store().status).toBe('cleared');
     expect(store().outcome?.tableUnlocked).toBe(true);
+    store().stopRun();
+    expect(store().status).toBe('levelComplete');
     expect(useDojoStore.getState().isMapFlashComplete(1)).toBe(true);
     expect(useDojoStore.getState().nextFlashLevel(1)).toBeNull();
     expect(useProgressionStore.getState().licenseForMap(1)).toBe('licensed');
@@ -600,6 +790,10 @@ describe('training store — live tables', () => {
         store().begin();
         let guard = 0;
         while (store().status !== 'levelComplete' && guard++ < 2000) {
+          if (store().status === 'cleared') {
+            expect(store().stars).toBe(2);
+            store().keepGoing();
+          }
           advanceUntil('asking');
           answerCorrectly();
           if (store().status === 'feedback') {

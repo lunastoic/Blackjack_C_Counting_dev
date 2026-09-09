@@ -10,8 +10,8 @@ import {
   drawCardValueItem,
   EMPTY_TALLY,
   groupSizeForStreak,
-  hasPassed,
   isCheckpointLevel,
+  isClearingStars,
   isStreakLevel,
   makeDeckEstimateItem,
   makeTrueCountItem,
@@ -23,8 +23,11 @@ import {
   recordCheckpoint,
   speedProfile,
   SpeedProfile,
-  starsForCheckpointRun,
-  starsForStreakRun,
+  STAR_COUNT,
+  starsReached,
+  starStretchSpec,
+  StarTargets,
+  starTargets,
   StreamFrame,
   totalCheckpoints,
   trainingLevelSpec,
@@ -56,11 +59,27 @@ import { useDojoStore, TrainingLevelOutcome } from './dojoStore';
  *                                                   │
  *                              levelComplete ◀──────┴──────▶ failed
  *
+ * Stars come in stages along the run (see `starTargets`): the first is
+ * banked in passing, the second clears the level and pauses the run —
+ *
+ *   … ──(second star)──▶ cleared ──keepGoing──▶ asking / running (the stretch)
+ *                           └──────stopRun───▶ levelComplete
+ *
+ * — and the third ends it. A run that ends on strikes or the meter keeps
+ * the stars it banked: levelComplete once cleared, failed before that.
+ *
  * The only clock is the answer meter: full at Start, it drains while a
  * question is open (never while cards deal or a correction shows), every
- * right answer tops it up, and running dry fails the run.
+ * right answer tops it up, and running dry ends the run.
  */
-export type TrainingStatus = 'idle' | 'running' | 'asking' | 'feedback' | 'levelComplete' | 'failed';
+export type TrainingStatus =
+  | 'idle'
+  | 'running'
+  | 'asking'
+  | 'feedback'
+  | 'cleared'
+  | 'levelComplete'
+  | 'failed';
 
 /** What a streak drill is showing right now. */
 export type StreakItem =
@@ -82,6 +101,16 @@ export interface TrainingQuestion {
   readonly partCount: number;
   /** Parts already answered at this checkpoint, shown as givens. */
   readonly givens: readonly QuestionPart[];
+}
+
+/** A star banked mid-run, for the felt to call out. */
+export interface StarBank {
+  /** Stars the run holds after this one. */
+  readonly stars: number;
+  /** Chips this star paid (0 when the level had paid it before). */
+  readonly chips: number;
+  /** Bumps with every bank, so the same star on a new run still reads as new. */
+  readonly serial: number;
 }
 
 /** The answer meter, sampled: the UI extrapolates the drain from here. */
@@ -123,9 +152,16 @@ export interface TrainingState {
   readonly countAtLastCheck: number;
 
   readonly question: TrainingQuestion | null;
+  /** What the run has banked so far, merged across its stars. */
   readonly outcome: TrainingLevelOutcome | null;
-  /** Stars this run earned (set on completion). */
+  /** Stars this run has banked. */
   readonly stars: number;
+  /** What each star asks for (right answers, or checks answered). */
+  readonly targets: StarTargets;
+  /** The most recent star banked this run. */
+  readonly starBank: StarBank | null;
+  /** A checkpoint level on its third-star stage: a fresh shoe, count from 0. */
+  readonly stretch: boolean;
   /** First-ever correct check: pause for the "count keeps going" tip. */
   readonly countTipPending: boolean;
 
@@ -143,6 +179,10 @@ export interface TrainingState {
   readonly answer: (value: number) => boolean;
   /** After a miss on a checkpoint drill that can still pass: resume the deal. */
   readonly continueAfterMiss: () => void;
+  /** Cleared and paused: go for the third star. */
+  readonly keepGoing: () => void;
+  /** Cleared and paused: bank the stars and end the run. */
+  readonly stopRun: () => void;
   /** Dismiss the one-time tip and resume. */
   readonly acknowledgeCountTip: () => void;
   /** Back to the level brief. */
@@ -156,6 +196,7 @@ const timers = new Set<Timer>();
 let meterTimer: Timer | null = null;
 let rng: Rng = defaultRng;
 let random: Rng = Math.random;
+let bankSerial = 0;
 
 function clearAllTimers(): void {
   for (const timer of timers) {
@@ -268,6 +309,9 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
       question: null,
       outcome: null,
       stars: 0,
+      targets: starTargets(spec),
+      starBank: null,
+      stretch: false,
       countTipPending: false,
       meter: { fill: 1, at: Date.now(), draining: false },
       meterDrainMs: meterDrainMs(mapId, level),
@@ -303,10 +347,61 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
     set({ meter: { ...meter, fill: Math.min(1, meter.fill + METER_TOP_UP) } });
   }
 
-  /** The meter ran dry: the run is over. */
+  /** The meter ran dry: the run is over with whatever it banked. */
   function meterEmpty(): void {
+    set({ timedOut: true, meter: { fill: 0, at: Date.now(), draining: false } });
+    endRun();
+  }
+
+  // -------------------------------------------------------------------------
+  // Stars
+  // -------------------------------------------------------------------------
+
+  /**
+   * Records the stars the run has reached with the casino (best, chips, XP,
+   * unlocks) and folds the result into the run's outcome.
+   */
+  function bankStars(stars: number): void {
+    const { mapId, level, outcome } = get();
+    const dojo = useDojoStore.getState();
+    const banked = dojo.completeTrainingLevel(mapId, level, stars);
+    dojo.touchPractice();
+    bankSerial += 1;
+    set({
+      stars,
+      starBank: { stars, chips: banked.chipsAwarded, serial: bankSerial },
+      outcome: {
+        stars: banked.stars,
+        firstClear: banked.firstClear || (outcome?.firstClear ?? false),
+        tableUnlocked: banked.tableUnlocked || (outcome?.tableUnlocked ?? false),
+        chipsAwarded: banked.chipsAwarded + (outcome?.chipsAwarded ?? 0),
+        progression: banked.progression ?? outcome?.progression ?? null,
+      },
+    });
+  }
+
+  /** The run is over: complete once cleared, failed before that. */
+  function endRun(): void {
     clearAllTimers();
-    set({ status: 'failed', timedOut: true, meter: { fill: 0, at: Date.now(), draining: false } });
+    set({ status: isClearingStars(get().stars) ? 'levelComplete' : 'failed' });
+  }
+
+  /**
+   * Progress reached a new stage: bank it, then end the run on the third
+   * star or pause it on the second. Returns whether the run goes on.
+   */
+  function reachStars(stars: number): boolean {
+    bankStars(stars);
+    if (stars >= STAR_COUNT) {
+      endRun();
+      return false;
+    }
+    if (isClearingStars(stars)) {
+      clearAllTimers();
+      set({ status: 'cleared' });
+      return false;
+    }
+    return true;
   }
 
   // -------------------------------------------------------------------------
@@ -347,14 +442,6 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
     return item.kind === 'cards' ? item.correct : item.item.correct;
   }
 
-  function completeLevel(stars: number): void {
-    const { mapId, level } = get();
-    const dojo = useDojoStore.getState();
-    const outcome = dojo.completeTrainingLevel(mapId, level, stars);
-    dojo.touchPractice();
-    set({ status: 'levelComplete', outcome, stars });
-  }
-
   function answerStreak(value: number): boolean {
     const state = get();
     if (!state.item || !isStreakLevel(state.spec)) {
@@ -380,14 +467,13 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
 
     if (wasCorrect) {
       const streak = state.streak + 1;
-      if (streak >= state.spec.streakTarget) {
-        set({ question, streak });
-        completeLevel(starsForStreakRun(state.misses));
+      set({ question, streak });
+      const reached = starsReached(state.targets, streak);
+      if (reached > state.stars && !reachStars(reached)) {
         return true;
       }
       // No feedback beat on a right answer: the next item lands immediately so
       // the pad is live again the moment the trainee taps.
-      set({ streak });
       nextStreakItem();
       return true;
     }
@@ -395,12 +481,12 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
     // A miss burns a strike and shows the correction; the run's count stands.
     // Out of strikes, the run ends on the correction instead.
     const misses = state.misses + 1;
+    set({ question, misses });
     if (misses > state.spec.strikes) {
-      clearAllTimers();
-      set({ question, misses, status: 'failed' });
+      endRun();
       return false;
     }
-    set({ question, misses, status: 'feedback' });
+    set({ status: 'feedback' });
     schedule(nextStreakItem, state.speed.missMs);
     return false;
   }
@@ -444,15 +530,7 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
 
   /** Deal ran out before the last check (only a truncated script does this). */
   function finishScript(): void {
-    const { spec, tally } = get();
-    if (!isCheckpointLevel(spec)) {
-      return;
-    }
-    if (hasPassed(spec.pass, tally)) {
-      completeLevel(starsForCheckpointRun(tally.asked - tally.correct));
-    } else {
-      set({ status: 'failed' });
-    }
+    endRun();
   }
 
   function askPart(partIndex: number, givens: readonly QuestionPart[]): void {
@@ -522,12 +600,17 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
     const isLast = state.checkpointIndex + 1 >= script.checkpoints.length;
     set({ question: answered, tally });
 
+    // The level's misses are the whole run's strikes, stretch included.
+    if (!canStillPass(spec.pass, tally, totalCheckpoints(spec))) {
+      endRun();
+      return wasCorrect;
+    }
+    const reached = starsReached(state.targets, tally.asked);
+    if (reached > state.stars && !reachStars(reached)) {
+      return wasCorrect;
+    }
     if (isLast) {
-      if (hasPassed(spec.pass, tally)) {
-        completeLevel(starsForCheckpointRun(tally.asked - tally.correct));
-      } else {
-        set({ status: 'failed' });
-      }
+      endRun();
       return wasCorrect;
     }
 
@@ -542,7 +625,7 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
       return true;
     }
 
-    set({ status: canStillPass(spec.pass, tally, totalCheckpoints(spec)) ? 'feedback' : 'failed' });
+    set({ status: 'feedback' });
     return false;
   }
 
@@ -553,6 +636,28 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
     }
     const script = buildTrainingScript(spec, rng, random);
     set({ script, status: 'running' });
+    schedule(() => playFrame(0), OPENING_DELAY_MS);
+  }
+
+  /** The third star's checks, dealt from a fresh shoe: the count starts over. */
+  function beginStretch(): void {
+    const { spec } = get();
+    if (!isCheckpointLevel(spec)) {
+      return;
+    }
+    const script = buildTrainingScript(starStretchSpec(spec), rng, random);
+    partResults = [];
+    set({
+      script,
+      stretch: true,
+      status: 'running',
+      frameIndex: -1,
+      frame: null,
+      checkpointIndex: 0,
+      cardsSinceCheck: [],
+      countAtLastCheck: 0,
+      question: null,
+    });
     schedule(() => playFrame(0), OPENING_DELAY_MS);
   }
 
@@ -591,6 +696,24 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
         return;
       }
       resumeAfterCheck();
+    },
+
+    keepGoing: () => {
+      if (get().status !== 'cleared') {
+        return;
+      }
+      if (isCheckpointLevel(get().spec)) {
+        beginStretch();
+      } else {
+        nextStreakItem();
+      }
+    },
+
+    stopRun: () => {
+      if (get().status !== 'cleared') {
+        return;
+      }
+      set({ status: 'levelComplete' });
     },
 
     acknowledgeCountTip: () => {

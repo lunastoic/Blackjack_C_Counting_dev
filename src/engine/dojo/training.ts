@@ -18,7 +18,7 @@ import {
   Shoe,
   totalCards,
 } from '../shoe/shoe';
-import { FLASH_AUTOPLAY_STAND, FLASH_LEVELS_PER_MAP } from './countFlash';
+import { CLEAR_STARS, FLASH_AUTOPLAY_STAND, FLASH_LEVELS_PER_MAP } from './countFlash';
 
 /**
  * Count training — the six-level ladder every casino makes you climb before
@@ -1012,17 +1012,95 @@ export function buildNumberChoices(
   return fisherYatesShuffle([correct, ...decoys], random);
 }
 
-/** Streak drills: every miss costs a star, down to one — clean run → 3, one miss → 2, otherwise 1. */
+/**
+ * Shelved: stars used to score a run by its misses (clean → 3, one → 2,
+ * otherwise 1). A run now earns its stars in stages — see `starTargets`.
+ */
 export function starsForStreakRun(misses: number): number {
   return Math.max(1, 3 - misses);
 }
 
-/** Checkpoint levels: no misses → 3, one → 2, otherwise 1 (only ever called on a pass). */
+/** Shelved with `starsForStreakRun`: no misses → 3, one → 2, otherwise 1. */
 export function starsForCheckpointRun(misses: number): number {
   if (misses === 0) {
     return 3;
   }
   return misses === 1 ? 2 : 1;
+}
+
+// ---------------------------------------------------------------------------
+// Star stages
+// ---------------------------------------------------------------------------
+
+/**
+ * Every level is one run through three stages, a star each: half the
+ * level's target, the target itself, and half again on top. The second star
+ * clears the level — the next one opens, and all six open the table; the
+ * third is the stretch. The rules (strikes, allowed misses, pace) hold for
+ * the whole run, and a star once reached is banked even if the run ends
+ * before the next.
+ */
+export const STAR_COUNT = 3;
+const STAR_STAGE_RATIOS = [0.5, 1, 1.5] as const;
+
+export type StarTargets = readonly [number, number, number];
+
+/**
+ * What each star asks for: right answers on a streak drill, checks answered
+ * on a checkpoint level (its misses are the run's strikes). Halves round up.
+ */
+export function starTargets(spec: TrainingLevelSpec): StarTargets {
+  const base = isCheckpointLevel(spec) ? totalCheckpoints(spec) : spec.streakTarget;
+  return [
+    Math.round(base * STAR_STAGE_RATIOS[0]),
+    Math.round(base * STAR_STAGE_RATIOS[1]),
+    Math.round(base * STAR_STAGE_RATIOS[2]),
+  ];
+}
+
+/** Stars a run has reached at `progress` right answers / checks answered. */
+export function starsReached(targets: StarTargets, progress: number): number {
+  return targets.filter((target) => progress >= target).length;
+}
+
+/** The next star's target, or the last one once every star is in. */
+export function nextStarTarget(targets: StarTargets, stars: number): number {
+  return targets[Math.min(stars, STAR_COUNT - 1)];
+}
+
+/** Whether a run with this many stars has cleared its level. */
+export function isClearingStars(stars: number): boolean {
+  return stars >= CLEAR_STARS;
+}
+
+/**
+ * The chips a star pays the first time it is earned on a level, scaled to
+ * the casino: 2.5% / 5% / 10% of its maximum bet.
+ */
+const STAR_CHIP_SHARES = [0.025, 0.05, 0.1] as const;
+
+export function starChips(maxBet: number, star: number): number {
+  const share = STAR_CHIP_SHARES[star - 1];
+  return share === undefined ? 0 : Math.round(maxBet * share);
+}
+
+/**
+ * The third star's stage on a checkpoint level: the extra checks, dealt from
+ * a fresh shoe at the level's own density. A level that ends on the final
+ * count keeps its whole deck so the count still lands on 0.
+ */
+export function starStretchSpec(spec: CheckpointLevelSpec): CheckpointLevelSpec {
+  const [, clear, third] = starTargets(spec);
+  const extra = third - clear;
+  const share = extra / clear;
+  if (spec.mode === 'countStream') {
+    return {
+      ...spec,
+      checkpoints: extra - (spec.finalCountQuestion ? 1 : 0),
+      cardCount: spec.finalCountQuestion ? spec.cardCount : Math.round(spec.cardCount * share),
+    };
+  }
+  return { ...spec, checkpoints: extra, cardBudget: Math.round(spec.cardBudget * share) };
 }
 
 // ---------------------------------------------------------------------------

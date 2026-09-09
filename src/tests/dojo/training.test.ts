@@ -24,8 +24,14 @@ import {
   practiceShoe,
   recordCheckpoint,
   SPEED_PROFILES,
+  STAR_COUNT,
+  starChips,
   starsForCheckpointRun,
   starsForStreakRun,
+  starsReached,
+  starStretchSpec,
+  starTargets,
+  nextStarTarget,
   TableCountLevel,
   totalCheckpoints,
   TRAINING_MAPS,
@@ -172,7 +178,7 @@ describe('training ladder — answer choices and stars', () => {
     }
   });
 
-  it('scores stars from misses', () => {
+  it('scores stars from misses (shelved scoring)', () => {
     expect(starsForStreakRun(0)).toBe(3);
     expect(starsForStreakRun(1)).toBe(2);
     expect(starsForStreakRun(2)).toBe(1);
@@ -180,6 +186,65 @@ describe('training ladder — answer choices and stars', () => {
     expect(starsForCheckpointRun(0)).toBe(3);
     expect(starsForCheckpointRun(1)).toBe(2);
     expect(starsForCheckpointRun(2)).toBe(1);
+  });
+});
+
+describe('training ladder — star stages', () => {
+  it('stages every level at half, the level itself, and half again (halves round up)', () => {
+    expect(STAR_COUNT).toBe(3);
+    for (const { spec } of allSpecs) {
+      const base = isCheckpointLevel(spec) ? totalCheckpoints(spec) : spec.streakTarget;
+      const targets = starTargets(spec);
+      expect(targets).toEqual([Math.round(base / 2), base, Math.round(base * 1.5)]);
+      expect(targets[0]).toBeGreaterThan(0);
+      expect(targets[0]).toBeLessThan(targets[1]);
+      expect(targets[1]).toBeLessThan(targets[2]);
+    }
+    expect(starTargets(trainingLevelSpec(1, 1))).toEqual([11, 21, 32]);
+    expect(starTargets(trainingLevelSpec(1, 5))).toEqual([5, 9, 14]);
+  });
+
+  it('counts the stars reached and names the next target', () => {
+    const targets = starTargets(trainingLevelSpec(1, 1));
+    expect(starsReached(targets, 0)).toBe(0);
+    expect(starsReached(targets, 10)).toBe(0);
+    expect(starsReached(targets, 11)).toBe(1);
+    expect(starsReached(targets, 21)).toBe(2);
+    expect(starsReached(targets, 31)).toBe(2);
+    expect(starsReached(targets, 32)).toBe(3);
+    expect(nextStarTarget(targets, 0)).toBe(11);
+    expect(nextStarTarget(targets, 1)).toBe(21);
+    expect(nextStarTarget(targets, 2)).toBe(32);
+    expect(nextStarTarget(targets, 3)).toBe(32);
+  });
+
+  it('pays chips per star as a share of the casino table: 2.5%, 5%, 10% of the max bet', () => {
+    expect(starChips(1_000, 1)).toBe(25);
+    expect(starChips(1_000, 2)).toBe(50);
+    expect(starChips(1_000, 3)).toBe(100);
+    expect(starChips(1_000_000, 3)).toBe(100_000);
+    expect(starChips(1_000, 0)).toBe(0);
+    expect(starChips(1_000, 4)).toBe(0);
+  });
+
+  it('the stretch of every checkpoint level deals the extra checks from a fresh shoe', () => {
+    for (const { map, spec } of allSpecs) {
+      if (!isCheckpointLevel(spec)) {
+        continue;
+      }
+      const [, clear, third] = starTargets(spec);
+      const stretch = starStretchSpec(spec);
+      expect(totalCheckpoints(stretch)).toBe(third - clear);
+      expect(stretch.deckCount).toBe(spec.deckCount);
+      expect(stretch.pass).toEqual(spec.pass);
+      // The stretch must fit its checks — the script schedules every one.
+      const script = buildTrainingScript(stretch, seededRng(map.mapId * 10 + spec.level), seededRng(3));
+      expect(script.checkpoints).toHaveLength(third - clear);
+      if (spec.mode === 'countStream' && stretch.mode === 'countStream' && spec.finalCountQuestion) {
+        expect(stretch.cardCount).toBe(spec.cardCount);
+        expect(script.checkpoints[script.checkpoints.length - 1].isFinal).toBe(true);
+      }
+    }
   });
 });
 
