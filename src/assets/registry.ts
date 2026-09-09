@@ -54,6 +54,21 @@ export const TABLE_FELTS: Record<string, number> = {
   'yellow-suede': require('../../assets/tables/yellow-suede.png'),
 };
 
+/**
+ * Level-node art on the ladder, keyed by casino id then level. A casino
+ * without a set here (or a level missing from its set) shows chip art.
+ */
+export const LEVEL_ART: Record<number, Record<number, number>> = {
+  1: {
+    1: require('../../assets/levels/map1/level-1.png'),
+    2: require('../../assets/levels/map1/level-2.png'),
+    3: require('../../assets/levels/map1/level-3.png'),
+    4: require('../../assets/levels/map1/level-4.png'),
+    5: require('../../assets/levels/map1/level-5.png'),
+    6: require('../../assets/levels/map1/level-6.png'),
+  },
+};
+
 /** Casino artwork keyed by the engine's artKey. */
 export const MAP_ART: Record<string, number> = {
   'luna-luxe': require('../../assets/maps/luna-luxe.png'),

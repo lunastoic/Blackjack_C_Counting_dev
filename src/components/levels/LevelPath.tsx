@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { CHIP_SETS } from '../../assets/registry';
+import { CHIP_SETS, LEVEL_ART } from '../../assets/registry';
 import { CasinoMap } from '../../engine/betting/casino';
 import {
   FlashProgress,
@@ -37,6 +37,8 @@ const CURVE_SAMPLES = 48;
 const LABEL_WIDTH_RATIO = 0.55;
 const FLAG_WIDTH = 64;
 const FLAG_ROOM = 22;
+/** Level art carries clear margins a chip does not, so it draws past the node's box. */
+const LEVEL_ART_SCALE = 1.25;
 
 export type LevelNodeState = 'done' | 'current' | 'locked';
 
@@ -58,14 +60,22 @@ interface Point {
   readonly y: number;
 }
 
-/** Chip art climbs the denominations as the ladder climbs. */
-function chipForLevel(map: CasinoMap, level: number): number {
+/**
+ * The level's own art where the casino has it (Luna Luxe: the cards and
+ * decks each drill is about); elsewhere chip art climbs the denominations
+ * as the ladder climbs.
+ */
+function artForLevel(map: CasinoMap, level: number): { source: number; scale: number } {
+  const art = LEVEL_ART[map.id]?.[level];
+  if (art !== undefined) {
+    return { source: art, scale: LEVEL_ART_SCALE };
+  }
   const set = CHIP_SETS[map.chipSetKey] ?? CHIP_SETS.default;
   const denominations = Object.keys(set)
     .map(Number)
     .sort((a, b) => a - b);
   const denomination = denominations[Math.min(level - 1, denominations.length - 1)];
-  return set[denomination];
+  return { source: set[denomination], scale: 1 };
 }
 
 function nodeState(progress: FlashProgress, mapId: number, level: number): LevelNodeState {
@@ -133,7 +143,8 @@ export function LevelPath({
           }
           isStart={spec.level === nextLevel}
           stars={flashStars(progress, map.id, spec.level)}
-          chip={chipForLevel(map, spec.level)}
+          art={artForLevel(map, spec.level).source}
+          artScale={artForLevel(map, spec.level).scale}
           center={centers[index]}
           nodeSize={nodeSize}
           labelWidth={labelFor(centers[index]).width}
@@ -151,7 +162,8 @@ interface LevelNodeProps {
   readonly state: LevelNodeState;
   readonly isStart: boolean;
   readonly stars: number;
-  readonly chip: number;
+  readonly art: number;
+  readonly artScale: number;
   readonly center: Point;
   readonly nodeSize: number;
   readonly labelWidth: number;
@@ -165,7 +177,8 @@ function LevelNode({
   state,
   isStart,
   stars,
-  chip,
+  art,
+  artScale,
   center,
   nodeSize,
   labelWidth,
@@ -173,6 +186,7 @@ function LevelNode({
   onPress,
 }: LevelNodeProps) {
   const locked = state === 'locked';
+  const levelArt = artScale !== 1;
   const badge = Math.round(nodeSize * 0.4);
   return (
     <View
@@ -204,7 +218,7 @@ function LevelNode({
           state === 'current' && styles.chipWrapCurrent,
         ]}
       >
-        {locked ? (
+        {locked && !levelArt ? (
           <View
             style={[
               styles.lockedDisc,
@@ -212,9 +226,14 @@ function LevelNode({
             ]}
           />
         ) : null}
+        {/* A locked chip dims over its disc; locked level art goes to a gray silhouette. */}
         <Image
-          source={chip}
-          style={[{ width: nodeSize, height: nodeSize }, locked && styles.chipLocked]}
+          source={art}
+          style={[
+            { width: nodeSize * artScale, height: nodeSize * artScale },
+            locked && (levelArt ? styles.artLocked : styles.chipLocked),
+          ]}
+          tintColor={locked && levelArt ? colors.textMuted : undefined}
           contentFit="contain"
         />
         {locked ? (
@@ -392,6 +411,9 @@ const styles = StyleSheet.create({
   },
   chipLocked: {
     opacity: 0.35,
+  },
+  artLocked: {
+    opacity: 0.8,
   },
   lockedDisc: {
     position: 'absolute',

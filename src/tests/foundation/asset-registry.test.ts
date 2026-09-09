@@ -1,7 +1,8 @@
-import { appAssets, CHIP_SETS, MAP_ART, TABLE_FELTS } from '../../assets/registry';
+import { appAssets, CHIP_SETS, LEVEL_ART, MAP_ART, TABLE_FELTS } from '../../assets/registry';
 import { CARD_BACK, CARD_FACES } from '../../assets/cards.generated';
 import { CASINO_MAPS } from '../../engine/betting/casino';
 import { RANKS, SUITS } from '../../engine/cards/card';
+import { trainingLevelsForMap } from '../../engine/dojo';
 
 /**
  * Completeness check: every registry entry must resolve to a bundleable
@@ -49,5 +50,12 @@ describe('asset registry', () => {
         expect(chipSet[value]).toBeDefined();
       }
     }
+  });
+
+  it('gives every Luna Luxe level its own art and leaves the other casinos on chips', () => {
+    for (const spec of trainingLevelsForMap(1)) {
+      expect(LEVEL_ART[1][spec.level]).toBeDefined();
+    }
+    expect(Object.keys(LEVEL_ART)).toEqual(['1']);
   });
 });
