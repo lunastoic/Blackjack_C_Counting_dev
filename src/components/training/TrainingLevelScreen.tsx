@@ -24,7 +24,7 @@ import {
   trainingLevelsForMap,
   TrainingLevelSpec,
 } from '../../engine/dojo';
-import { playMeterTopUp, playSound } from '../../services/audio';
+import { playSound } from '../../services/audio';
 import { haptics } from '../../services/haptics';
 import { useDojoStore } from '../../stores/dojoStore';
 import { FLASH_DEBUG_AVAILABLE, useFlashDebugStore } from '../../stores/flashDebugStore';
@@ -256,12 +256,14 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   function handleAnswer(value: number) {
     const wasCorrect = answer(value);
     if (wasCorrect) {
-      // The right answer is what tops the meter up: one chime for both,
-      // pitched by where the bar now stands (home once it is full).
-      playMeterTopUp(useTrainingStore.getState().meter.fill);
+      playSound('answerRight');
       void haptics.success();
+    } else if (useTrainingStore.getState().status === 'failed') {
+      // The miss that ends the run: the whoosh instead of the error.
+      playSound('strikeOut');
+      void haptics.error();
     } else {
-      playSound('loss');
+      playSound('answerWrong');
       void haptics.warning();
     }
   }

@@ -33,11 +33,10 @@ const AUDIO_MODE = {
 } as const;
 
 /**
- * The meter's chimes follow the bar: a right answer that lifts it to a
- * quarter below full plays that quarter's chime, each a step higher, and one
- * that lands on (or was already at) full plays the home chime. The climb is
- * bounded by the bar, so a streak answered at full is the same calm chime
- * every time rather than a rising alarm.
+ * Shelved: the synthesized meter chimes followed the bar — a right answer
+ * that lifted it to a quarter below full played that quarter's chime, each
+ * a step higher, and one that landed on full played the home chime. The
+ * drills answer with the picked pop now; these stay sourced but unloaded.
  */
 const METER_CLIMB: readonly SoundId[] = Array.from(
   { length: METER_CLIMB_STEPS },
@@ -58,8 +57,9 @@ const RESIDENT_SOUNDS: readonly SoundId[] = [
   'loss',
   'push',
   'shuffle',
-  'meterTopUp',
-  ...METER_CLIMB,
+  'answerRight',
+  'answerWrong',
+  'strikeOut',
 ];
 const TABLE_SOUNDS: readonly SoundId[] = [
   'chipTap',
@@ -81,10 +81,24 @@ const LEAD_SOUNDS: ReadonlySet<SoundId> = new Set<SoundId>([
   'push',
   'levelUp',
   'achievementUnlock',
+  'answerRight',
+  'answerWrong',
+  'strikeOut',
   'meterTopUp',
   ...METER_CLIMB,
 ]);
 export const DUCKED_VOLUME = 0.35;
+
+/**
+ * The picked SFX are mastered near full scale, four to seven times the
+ * level of the synthesized placeholders they sit among, so they play at a
+ * gain that lands them at the same loudness. Unlisted sounds play at 1.
+ */
+export const SOUND_GAIN: Readonly<Partial<Record<SoundId, number>>> = {
+  answerRight: 0.4,
+  answerWrong: 0.25,
+  strikeOut: 1,
+};
 /** Fallback ring time for a lead sound whose player has not loaded yet. */
 const UNKNOWN_LEAD_MS = 500;
 /** Sounds start a beat after play() on device; the ring is padded to match. */
@@ -172,12 +186,13 @@ export function playSound(id: SoundId): void {
 async function restart(id: SoundId, player: AudioPlayer): Promise<void> {
   try {
     const now = Date.now();
+    const gain = SOUND_GAIN[id] ?? 1;
     if (LEAD_SOUNDS.has(id)) {
       const ringMs = player.duration > 0 ? player.duration * 1000 : UNKNOWN_LEAD_MS;
       leadRingsUntil = Math.max(leadRingsUntil, now + START_LATENCY_MS + ringMs);
-      player.volume = 1;
+      player.volume = gain;
     } else {
-      player.volume = leadRingsUntil > now ? DUCKED_VOLUME : 1;
+      player.volume = leadRingsUntil > now ? gain * DUCKED_VOLUME : gain;
     }
     if (player.currentTime > 0) {
       await player.seekTo(0);
@@ -191,8 +206,9 @@ async function restart(id: SoundId, player: AudioPlayer): Promise<void> {
 }
 
 /**
- * The chime for a right answer, from where the meter stands once topped up
- * (0–1): home at full, else the quarter the bar reaches.
+ * Shelved with the chimes: the chime for a right answer, from where the
+ * meter stands once topped up (0–1): home at full, else the quarter the bar
+ * reaches.
  */
 export function meterTopUpId(fill: number): SoundId {
   if (!(fill < 1)) {

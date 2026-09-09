@@ -5,6 +5,7 @@ import {
   playSound,
   preloadSounds,
   releaseTableSounds,
+  SOUND_GAIN,
   unloadSounds,
   warmTableSounds,
 } from '../../services/audio/audioService';
@@ -49,15 +50,18 @@ async function flush(): Promise<void> {
 }
 
 /** The drill sounds live from boot; the table's five load when a table opens. */
-const RESIDENT_COUNT = 6 + 1 + METER_CLIMB_STEPS;
+const RESIDENT_COUNT = 6 + 3;
 const TABLE_COUNT = 5;
-/** The older plink phrase stays sourced but is never loaded. */
-const SHELVED_COUNT = METER_TOP_UP_STEPS;
+/** The meter chimes and the older plink phrase stay sourced but are never loaded. */
+const SHELVED_COUNT = 1 + METER_CLIMB_STEPS + METER_TOP_UP_STEPS;
 
 describe('audio registry', () => {
-  it('sources every sound, including one chime per quarter of the meter', () => {
+  it('sources every sound, the picked drill SFX and the shelved chimes included', () => {
     for (const source of Object.values(soundRegistry)) {
       expect(source).not.toBeNull();
+    }
+    for (const id of ['answerRight', 'answerWrong', 'strikeOut'] as const) {
+      expect(soundRegistry[id]).toBeDefined();
     }
     for (let step = 1; step <= METER_CLIMB_STEPS; step++) {
       expect(soundRegistry[`meterClimb${step}` as SoundId]).toBeDefined();
@@ -163,5 +167,14 @@ describe('playing a sound', () => {
     playSound('meterTopUp');
     const [, chime] = mockPlayers;
     expect(chime.volume).toBe(1);
+  });
+
+  it('plays the picked SFX at their gain, ducked from there when they are table noise', () => {
+    playSound('answerRight');
+    playSound('answerWrong');
+    const [pop, error] = mockPlayers;
+    expect(pop.volume).toBe(SOUND_GAIN.answerRight);
+    expect(error.volume).toBe(SOUND_GAIN.answerWrong); // A call, never ducked.
+    expect(SOUND_GAIN.answerRight).toBeLessThan(1);
   });
 });
