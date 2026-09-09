@@ -255,7 +255,8 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   function handleAnswer(value: number) {
     const wasCorrect = answer(value);
     if (wasCorrect) {
-      playSound('win');
+      // The right answer is what tops the meter up: one sound for both.
+      playSound('meterTopUp');
       void haptics.success();
     } else {
       playSound('loss');

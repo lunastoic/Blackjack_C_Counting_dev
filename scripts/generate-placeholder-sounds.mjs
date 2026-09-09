@@ -3,6 +3,7 @@
  * (22.05 kHz) under assets/audio/. Everything is synthesized from sine waves
  * and white noise — no sampled or copyrighted material. Rerunnable; replace
  * individual files with professionally produced SFX later without code changes.
+ * Pass file names to write only those (the noise-based ones differ every run).
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -47,6 +48,22 @@ function tone(freq, ms, { volume = 0.22, decay = 6, attackMs = 4 } = {}) {
     const t = i / RATE;
     const env = Math.min(1, i / Math.max(1, attack)) * Math.exp(-decay * t);
     out[i] = Math.sin(2 * Math.PI * freq * t) * env * volume;
+  }
+  return out;
+}
+
+/** A sine gliding from one pitch to another (exponentially) as it decays. */
+function sweep(from, to, ms, { volume = 0.2, decay = 4, attackMs = 4 } = {}) {
+  const n = seconds(ms);
+  const attack = seconds(attackMs);
+  const out = new Float64Array(n);
+  let phase = 0;
+  for (let i = 0; i < n; i++) {
+    const t = i / RATE;
+    const freq = from * Math.pow(to / from, i / n);
+    phase += (2 * Math.PI * freq) / RATE;
+    const env = Math.min(1, i / Math.max(1, attack)) * Math.exp(-decay * t);
+    out[i] = Math.sin(phase) * env * volume;
   }
   return out;
 }
@@ -109,9 +126,17 @@ const SOUNDS = {
   'achievement-unlock.wav': sequence(tone(1175, 120, { decay: 14, volume: 0.16 }), 10, tone(1568, 260, { decay: 9, volume: 0.16 })),
   'shuffle.wav': sequence(swish(180, { decay: 10 }), 30, swish(160, { decay: 12 }), 30, swish(220, { decay: 9 })),
   'button-tap.wav': tone(1250, 55, { volume: 0.1, decay: 55 }),
+  // The answer meter filling: a quick rise into a bright ping with a sparkle on top.
+  'meter-top-up.wav': sequence(
+    sweep(660, 1320, 110, { volume: 0.15, decay: 5 }),
+    0,
+    mix(tone(1568, 220, { volume: 0.18, decay: 11 }), tone(2349, 170, { volume: 0.06, decay: 16 })),
+  ),
 };
 
-for (const [name, samples] of Object.entries(SOUNDS)) {
+const only = process.argv.slice(2);
+const entries = Object.entries(SOUNDS).filter(([name]) => only.length === 0 || only.includes(name));
+for (const [name, samples] of entries) {
   writeFileSync(join(OUT, name), wav(samples));
 }
-console.log(`Wrote ${Object.keys(SOUNDS).length} placeholder sounds to assets/audio/`);
+console.log(`Wrote ${entries.length} placeholder sounds to assets/audio/`);

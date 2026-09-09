@@ -10,7 +10,8 @@ export type SoundId =
   | 'levelUp'
   | 'achievementUnlock'
   | 'shuffle'
-  | 'buttonTap';
+  | 'buttonTap'
+  | 'meterTopUp';
 
 /** Static require() result, or null while the sound file has not been sourced. */
 export type SoundSource = number | null;
