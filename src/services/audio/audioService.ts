@@ -1,4 +1,4 @@
-import { AudioPlayer, createAudioPlayer } from 'expo-audio';
+import { AudioPlayer, createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { soundRegistry } from './registry';
 import { METER_TOP_UP_STEPS, MeterTopUpStep, SoundId } from './types';
@@ -10,6 +10,27 @@ import { METER_TOP_UP_STEPS, MeterTopUpStep, SoundId } from './types';
  */
 
 const players = new Map<SoundId, AudioPlayer>();
+
+/**
+ * Every sound is a short one-shot fired between taps, so the audio session
+ * must stay up between them. By default expo-audio deactivates the iOS
+ * session 100 ms after each sound ends and re-activates it on the next
+ * play(): two synchronous AVAudioSession round-trips per sound, each of
+ * which stalls the calling thread for tens of milliseconds — that was the
+ * late plink and the stuttering card deal in the drills.
+ */
+const PLAYER_OPTIONS = { keepAudioSessionActive: true } as const;
+
+/**
+ * Game effects: sit alongside whatever the player is listening to and honor
+ * the ring/silent switch (iOS "ambient"). Without this the session takes the
+ * system default, which pauses the player's music every time a sound fires.
+ */
+const AUDIO_MODE = {
+  playsInSilentMode: false,
+  interruptionMode: 'mixWithOthers',
+  shouldPlayInBackground: false,
+} as const;
 
 function isEnabled(): boolean {
   return useSettingsStore.getState().soundEnabled;
@@ -25,7 +46,7 @@ function getOrCreatePlayer(id: SoundId): AudioPlayer | null {
     return null; // Sound not sourced yet — safe no-op.
   }
   try {
-    const player = createAudioPlayer(source);
+    const player = createAudioPlayer(source, PLAYER_OPTIONS);
     players.set(id, player);
     return player;
   } catch (error) {
@@ -36,8 +57,13 @@ function getOrCreatePlayer(id: SoundId): AudioPlayer | null {
   }
 }
 
-/** Eagerly creates players for every registered (non-null) sound. */
+/** Configures the session and eagerly creates players for every registered (non-null) sound. */
 export function preloadSounds(): void {
+  setAudioModeAsync(AUDIO_MODE).catch((error: unknown) => {
+    if (__DEV__) {
+      console.warn('[audio] Failed to set the audio mode:', error);
+    }
+  });
   for (const id of Object.keys(soundRegistry) as SoundId[]) {
     getOrCreatePlayer(id);
   }

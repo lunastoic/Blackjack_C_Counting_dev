@@ -1,8 +1,10 @@
-import { meterTopUpId } from '../../services/audio/audioService';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import { meterTopUpId, preloadSounds } from '../../services/audio/audioService';
 import { soundRegistry } from '../../services/audio/registry';
 import { METER_TOP_UP_STEPS, SoundId } from '../../services/audio/types';
 
 jest.mock('expo-audio', () => ({
+  setAudioModeAsync: jest.fn(() => Promise.resolve()),
   createAudioPlayer: jest.fn(() => ({
     play: jest.fn(),
     seekTo: jest.fn(),
@@ -18,6 +20,20 @@ describe('audio registry', () => {
     }
     for (let step = 1; step <= METER_TOP_UP_STEPS; step++) {
       expect(soundRegistry[`meterTopUp${step}` as SoundId]).toBeDefined();
+    }
+  });
+
+  it('preloads one player per sound and keeps the audio session up between one-shots', () => {
+    preloadSounds();
+    expect(setAudioModeAsync).toHaveBeenCalledWith({
+      playsInSilentMode: false,
+      interruptionMode: 'mixWithOthers',
+      shouldPlayInBackground: false,
+    });
+    const sourced = Object.values(soundRegistry).filter((source) => source !== null).length;
+    expect(createAudioPlayer).toHaveBeenCalledTimes(sourced);
+    for (const [, options] of (createAudioPlayer as jest.Mock).mock.calls) {
+      expect(options).toEqual({ keepAudioSessionActive: true });
     }
   });
 
