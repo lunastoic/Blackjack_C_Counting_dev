@@ -23,8 +23,8 @@ export const soundRegistry: Readonly<Record<SoundId, SoundSource>> = {
   // The drills: a right answer, a miss with strikes to spare, and the miss
   // that ends the run.
   answerRight: require('../../../assets/audio/library/pop-4.wav'),
-  answerWrong: require('../../../assets/audio/library/error_sfx.wav'),
-  strikeOut: require('../../../assets/audio/library/woosh-long.wav'),
+  answerWrong: require('../../../assets/audio/library/new_error_sfx.wav'),
+  strikeOut: require('../../../assets/audio/library/whoosh-5.wav'),
   meterTopUp: require('../../../assets/audio/meter-top-up.wav'),
   meterClimb1: require('../../../assets/audio/meter-climb-1.wav'),
   meterClimb2: require('../../../assets/audio/meter-climb-2.wav'),
