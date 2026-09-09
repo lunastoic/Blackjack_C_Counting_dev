@@ -62,9 +62,19 @@ export function PlayingCard({
   const flip = useSharedValue(faceUp ? 1 : 0);
   const dealtFaceDown = useSharedValue(faceUp ? 0 : 1);
 
+  // The swish belongs to the card's own entrance, which the Keyframe below
+  // holds back by enterDelay: a hand dealt together sounds card by card
+  // instead of one swish for all of them on mount.
   useEffect(() => {
-    playSound('cardDeal');
-    // Sound only; the visual entrance is the Keyframe below.
+    const delay = reducedMotion ? 0 : enterDelay;
+    if (delay <= 0) {
+      playSound('cardDeal');
+      return;
+    }
+    const timer = setTimeout(() => playSound('cardDeal'), delay);
+    return () => clearTimeout(timer);
+    // Once, on mount: the entrance itself never replays.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

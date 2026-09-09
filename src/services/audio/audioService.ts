@@ -67,6 +67,28 @@ const TABLE_SOUNDS: readonly SoundId[] = [
   'buttonTap',
 ];
 
+/**
+ * The house's calls — a result, a right answer, a level — lead the mix: the
+ * table noise (cards, chips, buttons) that lands while one is still ringing
+ * plays under it at DUCKED_VOLUME instead of drowning its tail, which is
+ * what made the win read as cut off when the next hand dealt over it.
+ */
+const LEAD_SOUNDS: ReadonlySet<SoundId> = new Set<SoundId>([
+  'win',
+  'loss',
+  'push',
+  'levelUp',
+  'achievementUnlock',
+  'meterTopUp',
+  ...METER_TOP_UP_NOTES,
+]);
+export const DUCKED_VOLUME = 0.35;
+/** Fallback ring time for a lead sound whose player has not loaded yet. */
+const UNKNOWN_LEAD_MS = 500;
+/** Sounds start a beat after play() on device; the ring is padded to match. */
+const START_LATENCY_MS = 80;
+let leadRingsUntil = 0;
+
 function isEnabled(): boolean {
   return useSettingsStore.getState().soundEnabled;
 }
@@ -131,12 +153,34 @@ export function playSound(id: SoundId): void {
   if (!isEnabled()) {
     return;
   }
+  const player = getOrCreatePlayer(id);
+  if (!player) {
+    return;
+  }
+  void restart(id, player);
+}
+
+/**
+ * Mixes, rewinds, and plays. A player that has finished sits at its end,
+ * and the rewind is asynchronous on iOS — play() issued in the same tick
+ * raced it and lost every other time, leaving that card or call silent —
+ * so the rewind is awaited (a millisecond or two on a local file). An
+ * unplayed or already-rewound player skips straight to play().
+ */
+async function restart(id: SoundId, player: AudioPlayer): Promise<void> {
   try {
-    const player = getOrCreatePlayer(id);
-    if (player) {
-      player.seekTo(0);
-      player.play();
+    const now = Date.now();
+    if (LEAD_SOUNDS.has(id)) {
+      const ringMs = player.duration > 0 ? player.duration * 1000 : UNKNOWN_LEAD_MS;
+      leadRingsUntil = Math.max(leadRingsUntil, now + START_LATENCY_MS + ringMs);
+      player.volume = 1;
+    } else {
+      player.volume = leadRingsUntil > now ? DUCKED_VOLUME : 1;
     }
+    if (player.currentTime > 0) {
+      await player.seekTo(0);
+    }
+    player.play();
   } catch (error) {
     if (__DEV__) {
       console.warn(`[audio] Failed to play "${id}":`, error);
@@ -179,4 +223,7 @@ export function unloadSounds(): void {
     }
   }
   players.clear();
+  leadRingsUntil = 0;
 }
+
+
