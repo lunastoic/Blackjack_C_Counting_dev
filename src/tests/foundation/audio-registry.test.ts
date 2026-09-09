@@ -1,7 +1,6 @@
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import {
   DUCKED_VOLUME,
-  METER_TOP_UP_CLIMBS,
   meterTopUpId,
   playSound,
   preloadSounds,
@@ -10,7 +9,7 @@ import {
   warmTableSounds,
 } from '../../services/audio/audioService';
 import { soundRegistry } from '../../services/audio/registry';
-import { METER_TOP_UP_STEPS, SoundId } from '../../services/audio/types';
+import { METER_CLIMB_STEPS, METER_TOP_UP_STEPS, SoundId } from '../../services/audio/types';
 
 const mockRemove = jest.fn();
 /** Every player made, in creation order (the registry keeps its own map). */
@@ -50,18 +49,18 @@ async function flush(): Promise<void> {
 }
 
 /** The drill sounds live from boot; the table's five load when a table opens. */
-const RESIDENT_COUNT = 7;
+const RESIDENT_COUNT = 6 + 1 + METER_CLIMB_STEPS;
 const TABLE_COUNT = 5;
-/** The climbing phrase stays sourced but unloaded while the climb is off. */
+/** The older plink phrase stays sourced but is never loaded. */
 const SHELVED_COUNT = METER_TOP_UP_STEPS;
 
 describe('audio registry', () => {
-  it('sources every sound, including one top-up note per step of the phrase', () => {
+  it('sources every sound, including one chime per quarter of the meter', () => {
     for (const source of Object.values(soundRegistry)) {
       expect(source).not.toBeNull();
     }
-    for (let step = 1; step <= METER_TOP_UP_STEPS; step++) {
-      expect(soundRegistry[`meterTopUp${step}` as SoundId]).toBeDefined();
+    for (let step = 1; step <= METER_CLIMB_STEPS; step++) {
+      expect(soundRegistry[`meterClimb${step}` as SoundId]).toBeDefined();
     }
     expect(Object.keys(soundRegistry)).toHaveLength(RESIDENT_COUNT + TABLE_COUNT + SHELVED_COUNT);
   });
@@ -92,11 +91,24 @@ describe('audio registry', () => {
     expect(createAudioPlayer).toHaveBeenCalledTimes(RESIDENT_COUNT + 2 * TABLE_COUNT);
   });
 
-  it('the top-up is the same chime on every straight right answer', () => {
-    expect(METER_TOP_UP_CLIMBS).toBe(false);
-    const notes = Array.from({ length: METER_TOP_UP_STEPS + 2 }, (_, combo) => meterTopUpId(combo));
-    expect(new Set(notes)).toEqual(new Set(['meterTopUp']));
-    expect(meterTopUpId(-3)).toBe('meterTopUp');
+  it('chimes the quarter the meter reaches, and home once it is full', () => {
+    // A refill from empty: three steps up, then home on the fourth.
+    expect([0.25, 0.5, 0.75, 1].map(meterTopUpId)).toEqual([
+      'meterClimb1',
+      'meterClimb2',
+      'meterClimb3',
+      'meterTopUp',
+    ]);
+    // Between the quarters (the bar drains between answers).
+    expect(meterTopUpId(0.35)).toBe('meterClimb2');
+    expect(meterTopUpId(0.85)).toBe('meterClimb4');
+    expect(meterTopUpId(0.999)).toBe('meterClimb4');
+    // Already full, or something odd: home.
+    expect(meterTopUpId(1.2)).toBe('meterTopUp');
+    expect(meterTopUpId(Number.NaN)).toBe('meterTopUp');
+    expect(meterTopUpId(0)).toBe('meterClimb1');
+    // Exact quarter sums never round up a step.
+    expect(meterTopUpId(0.1 + 0.2 + 0.2)).toBe('meterClimb2');
   });
 });
 

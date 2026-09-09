@@ -148,21 +148,36 @@ TOP_UP_PITCHES.forEach((freq, index) => {
 });
 
 /**
- * The top-up the app actually plays: one soft chime at the same pitch every
- * time (the climbing phrase above read as a rising alarm on a long streak).
- * E5 with a warm octave and twelfth, a whisper of the major third for
+ * The meter's home chime: one soft E5 at the same pitch every time the bar
+ * is full. A warm octave and twelfth, a whisper of the major third for
  * consonance, and a longer ring than the plink so it sits under the deal.
+ * `gain` scales the whole chime.
  */
-function chime(freq) {
+function chime(freq, gain = 1) {
   return mix(
-    tone(freq, 260, { volume: 0.13, decay: 11, attackMs: 5 }),
-    tone(freq * 2, 200, { volume: 0.045, decay: 16, attackMs: 5 }),
-    tone(freq * 3, 120, { volume: 0.014, decay: 30, attackMs: 5 }),
-    tone(freq * 1.26, 220, { volume: 0.03, decay: 14, attackMs: 8 }),
-    tone(freq / 2, 240, { volume: 0.035, decay: 12, attackMs: 5 }),
+    tone(freq, 260, { volume: 0.13 * gain, decay: 11, attackMs: 5 }),
+    tone(freq * 2, 200, { volume: 0.045 * gain, decay: 16, attackMs: 5 }),
+    tone(freq * 3, 120, { volume: 0.014 * gain, decay: 30, attackMs: 5 }),
+    tone(freq * 1.26, 220, { volume: 0.03 * gain, decay: 14, attackMs: 8 }),
+    tone(freq / 2, 240, { volume: 0.035 * gain, decay: 12, attackMs: 5 }),
   );
 }
 SOUNDS['meter-top-up.wav'] = chime(659.25);
+
+/**
+ * The climb: the quarter the bar reaches below full — F#5, G#5, B5, C#6, the
+ * E major pentatonic above the home chime — so a refill runs up and landing
+ * on full resolves down to E5. A touch softer as it rises: high chimes carry.
+ */
+const CLIMB = [
+  [739.99, 1],
+  [830.61, 0.94],
+  [987.77, 0.86],
+  [1108.73, 0.78],
+];
+CLIMB.forEach(([freq, gain], index) => {
+  SOUNDS[`meter-climb-${index + 1}.wav`] = chime(freq, gain);
+});
 
 const only = process.argv.slice(2);
 const entries = Object.entries(SOUNDS).filter(([name]) => only.length === 0 || only.includes(name));

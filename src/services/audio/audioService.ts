@@ -1,7 +1,7 @@
 import { AudioPlayer, createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { soundRegistry } from './registry';
-import { METER_TOP_UP_STEPS, MeterTopUpStep, SoundId } from './types';
+import { METER_CLIMB_STEPS, MeterClimbStep, SoundId } from './types';
 
 /**
  * Central audio service. All gameplay/UI sound goes through here so the
@@ -33,14 +33,15 @@ const AUDIO_MODE = {
 } as const;
 
 /**
- * The meter top-up is one soft chime at the same pitch every time. The
- * climbing pentatonic phrase (one note per straight right answer) is kept
- * behind this switch: on a long streak it read as a rising alarm.
+ * The meter's chimes follow the bar: a right answer that lifts it to a
+ * quarter below full plays that quarter's chime, each a step higher, and one
+ * that lands on (or was already at) full plays the home chime. The climb is
+ * bounded by the bar, so a streak answered at full is the same calm chime
+ * every time rather than a rising alarm.
  */
-export const METER_TOP_UP_CLIMBS = false;
-const METER_TOP_UP_NOTES: readonly SoundId[] = Array.from(
-  { length: METER_TOP_UP_STEPS },
-  (_, index) => `meterTopUp${(index + 1) as MeterTopUpStep}` as const,
+const METER_CLIMB: readonly SoundId[] = Array.from(
+  { length: METER_CLIMB_STEPS },
+  (_, index) => `meterClimb${(index + 1) as MeterClimbStep}` as const,
 );
 
 /**
@@ -57,7 +58,8 @@ const RESIDENT_SOUNDS: readonly SoundId[] = [
   'loss',
   'push',
   'shuffle',
-  ...(METER_TOP_UP_CLIMBS ? METER_TOP_UP_NOTES : ['meterTopUp' as const]),
+  'meterTopUp',
+  ...METER_CLIMB,
 ];
 const TABLE_SOUNDS: readonly SoundId[] = [
   'chipTap',
@@ -80,7 +82,7 @@ const LEAD_SOUNDS: ReadonlySet<SoundId> = new Set<SoundId>([
   'levelUp',
   'achievementUnlock',
   'meterTopUp',
-  ...METER_TOP_UP_NOTES,
+  ...METER_CLIMB,
 ]);
 export const DUCKED_VOLUME = 0.35;
 /** Fallback ring time for a lead sound whose player has not loaded yet. */
@@ -189,20 +191,21 @@ async function restart(id: SoundId, player: AudioPlayer): Promise<void> {
 }
 
 /**
- * The meter top-up sound for the `combo`-th straight right answer (0-based):
- * the same chime every time, or — with the climb on — one step up per
- * answer, wrapping back to the root after the phrase.
+ * The chime for a right answer, from where the meter stands once topped up
+ * (0–1): home at full, else the quarter the bar reaches.
  */
-export function meterTopUpId(combo: number): SoundId {
-  if (!METER_TOP_UP_CLIMBS) {
+export function meterTopUpId(fill: number): SoundId {
+  if (!(fill < 1)) {
     return 'meterTopUp';
   }
-  const step = ((Math.max(0, Math.floor(combo)) % METER_TOP_UP_STEPS) + 1) as MeterTopUpStep;
-  return `meterTopUp${step}`;
+  // A hair under the exact quarters so 0.25 + 0.25 lands on 2, not 3.
+  const quarter = Math.ceil(fill * METER_CLIMB_STEPS - 1e-6);
+  const step = Math.min(METER_CLIMB_STEPS, Math.max(1, quarter)) as MeterClimbStep;
+  return `meterClimb${step}`;
 }
 
-export function playMeterTopUp(combo: number): void {
-  playSound(meterTopUpId(combo));
+export function playMeterTopUp(fill: number): void {
+  playSound(meterTopUpId(fill));
 }
 
 export function stopSound(id: SoundId): void {
