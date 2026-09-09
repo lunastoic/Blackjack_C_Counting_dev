@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { TABLE_FELTS } from '../../assets/registry';
 import { colors, layout, spacing } from '../../theme';
 import { FeltMarkings } from './FeltMarkings';
@@ -33,7 +34,7 @@ export function FeltBackdrop({ feltKey, casinoName }: FeltBackdropProps) {
       <Image
         source={TABLE_FELTS[feltKey] ?? TABLE_FELTS['gray-suede']}
         style={styles.felt}
-        resizeMode="cover"
+        contentFit="cover"
       />
       <View style={styles.tint} />
       <FeltMarkings

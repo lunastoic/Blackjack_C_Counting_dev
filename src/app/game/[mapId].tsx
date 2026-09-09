@@ -32,7 +32,7 @@ import { objectivesForMap } from '../../engine/dojo';
 import { SpeedSlider } from '../../components/settings/SettingsRows';
 import { HandResult } from '../../engine/blackjack/resolve';
 import { mapById } from '../../engine/betting/casino';
-import { playSound } from '../../services/audio';
+import { playSound, warmTableSounds } from '../../services/audio';
 import { initialDealVisibleCounts } from '../../utils/dealSequence';
 import { useDojoStore } from '../../stores/dojoStore';
 import { FLASH_DEBUG_AVAILABLE, useFlashDebugStore } from '../../stores/flashDebugStore';
@@ -124,6 +124,7 @@ export default function GameScreen() {
 
   useEffect(() => {
     if (map) {
+      warmTableSounds();
       startSession(map.id);
     }
     return () => {

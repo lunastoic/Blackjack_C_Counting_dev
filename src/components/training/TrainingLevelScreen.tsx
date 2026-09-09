@@ -1,6 +1,7 @@
+import { Image } from 'expo-image';
 import { Redirect, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Image, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TABLE_FELTS } from '../../assets/registry';
@@ -676,7 +677,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
       <Image
         source={TABLE_FELTS[map.feltKey] ?? TABLE_FELTS['gray-suede']}
         style={styles.felt}
-        resizeMode="cover"
+        contentFit="cover"
       />
       <View style={styles.feltTint} pointerEvents="none" />
 

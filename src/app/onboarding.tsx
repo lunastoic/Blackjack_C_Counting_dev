@@ -1,6 +1,7 @@
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { appAssets } from '../assets/registry';
 import { DojoButton } from '../components/dojo/DojoButton';
@@ -48,7 +49,7 @@ export default function OnboardingScreen() {
   return (
     <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom + spacing.xl }]}>
       <View style={styles.hero}>
-        <Image source={appAssets.branding.appIcon} style={styles.icon} resizeMode="contain" />
+        <Image source={appAssets.branding.appIcon} style={styles.icon} contentFit="contain" />
         <Text style={styles.appName}>Counting Dojo</Text>
       </View>
 

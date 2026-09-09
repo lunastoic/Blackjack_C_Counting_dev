@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { CHIP_SETS } from '../../assets/registry';
 import { playSound } from '../../services/audio';
 import { useEconomyStore } from '../../stores/economyStore';
@@ -51,7 +52,7 @@ export function ChipTray() {
           >
             <View style={styles.chipFace}>
               {image != null ? (
-                <Image source={image} style={styles.chipImage} resizeMode="contain" />
+                <Image source={image} style={styles.chipImage} contentFit="contain" />
               ) : (
                 <View style={styles.chipFallback}>
                   <Text style={styles.chipFallbackText}>{formatChipShort(value)}</Text>

@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useEffect, useMemo } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
   FadeIn,
@@ -216,7 +217,7 @@ function RibbonSpread({ width, pile }: { width: number; pile: Point }) {
             ]}
           >
             <View style={[styles.spreadCard, { transform: [{ rotate }] }]}>
-              <Image source={CARD_FACES.regular[suit][rank]} style={styles.cardImage} resizeMode="cover" />
+              <Image source={CARD_FACES.regular[suit][rank]} style={styles.cardImage} contentFit="cover" />
             </View>
           </Animated.View>
         );
@@ -247,7 +248,7 @@ function DeckPile({ pile, cardWidth }: { pile: Point; cardWidth: number }) {
             styles.pileCard,
             { width: cardWidth, height: cardHeight, top: -offset * 2, left: -offset * 1.5 },
           ]}
-          resizeMode="cover"
+          contentFit="cover"
         />
       ))}
     </Animated.View>
@@ -328,7 +329,7 @@ function BeatCards({ beat, width, pile }: { beat: number; width: number; pile: P
                 <Image
                   source={CARD_FACES.regular[suit][rank]}
                   style={styles.cardImage}
-                  resizeMode="cover"
+                  contentFit="cover"
                 />
               </View>
             </Animated.View>

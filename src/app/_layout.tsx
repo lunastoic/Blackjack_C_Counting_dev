@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { LoadingGate } from '../components/common/LoadingGate';
 import { initializeApp } from '../persistence/hydrate';
 import { preloadSounds } from '../services/audio';
+import { configureImageMemory, subscribeToMemoryWarnings } from '../services/memory';
 import { useHydrationStore } from '../stores/hydrationStore';
 import { colors } from '../theme';
 
@@ -22,6 +23,8 @@ export default function RootLayout() {
 
   useEffect(() => {
     async function bootstrap() {
+      configureImageMemory();
+      subscribeToMemoryWarnings();
       await initializeApp();
       preloadSounds();
     }

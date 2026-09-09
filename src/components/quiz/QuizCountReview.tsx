@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React from 'react';
-import { Image, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { CARD_BACK } from '../../assets/cards.generated';
 import { hiLoValue } from '../../engine/cards/card';
 import { QuizFlashCard } from '../../stores/quizSessionStore';

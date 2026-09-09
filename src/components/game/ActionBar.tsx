@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useEffect } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -126,7 +127,7 @@ function ActionButton({
         accessibilityHint={highlighted ? 'Recommended by basic strategy' : undefined}
         style={[styles.button, !enabled && styles.buttonDisabled]}
       >
-        <Image source={image} style={styles.buttonImage} resizeMode="contain" />
+        <Image source={image} style={styles.buttonImage} contentFit="contain" />
       </PressableScale>
     </Animated.View>
   );

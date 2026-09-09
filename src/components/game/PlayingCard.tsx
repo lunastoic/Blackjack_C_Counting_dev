@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useEffect, useMemo } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
   Keyframe,
   interpolate,
@@ -148,13 +149,13 @@ export function PlayingCard({
       ]}
     >
       <Animated.View style={[styles.face, backStyle]}>
-        <Image source={CARD_BACK} style={styles.image} resizeMode="cover" />
+        <Image source={CARD_BACK} style={styles.image} contentFit="cover" />
       </Animated.View>
       <Animated.View style={[styles.face, faceStyle]}>
         <Image
           source={CARD_FACES[skin][card.suit][card.rank]}
           style={styles.image}
-          resizeMode="cover"
+          contentFit="cover"
         />
       </Animated.View>
       {/* Reserve layout size even while both faces are absolutely positioned. */}

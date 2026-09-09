@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import React, { useEffect } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, {
@@ -11,6 +12,8 @@ import { CARD_BACK } from '../../assets/cards.generated';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { layers, radii, durations } from '../../theme';
 import { CARD_ASPECT } from './PlayingCard';
+
+const AnimatedImage = Animated.createAnimatedComponent(Image);
 
 /** Wall-clock length of the shuffle ceremony (not scaled by dealer speed). */
 export const SHUFFLE_ANIMATION_MS = durations.shoeShuffle;
@@ -137,10 +140,10 @@ function ShuffleFlyer({
   });
 
   return (
-    <Animated.Image
+    <AnimatedImage
       source={CARD_BACK}
       style={[styles.card, style]}
-      resizeMode="cover"
+      contentFit="cover"
     />
   );
 }

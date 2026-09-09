@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React from 'react';
-import { Image, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { Keyframe } from 'react-native-reanimated';
 import { CARD_BACK, CardSkin } from '../../assets/cards.generated';
 import { PlayingCard, CARD_ASPECT } from '../game/PlayingCard';

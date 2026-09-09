@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import React, { useMemo } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { CHIP_SETS } from '../../assets/registry';
 import { CasinoMap } from '../../engine/betting/casino';
 import {
@@ -214,7 +215,7 @@ function LevelNode({
         <Image
           source={chip}
           style={[{ width: nodeSize, height: nodeSize }, locked && styles.chipLocked]}
-          resizeMode="contain"
+          contentFit="contain"
         />
         {locked ? (
           <View style={[styles.badge, { width: badge, height: badge, borderRadius: badge / 2 }]}>

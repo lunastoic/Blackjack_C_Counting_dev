@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useMemo } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { CARD_BACK } from '../../assets/cards.generated';
 import { colors, fontWeights, radii } from '../../theme';
 import { CARD_ASPECT } from './PlayingCard';
@@ -99,7 +100,7 @@ export function CardStack({
             zIndex: index,
             transform: [{ rotate: tilt }],
           }}
-          resizeMode="cover"
+          contentFit="cover"
         />
       ))}
       {variant === 'shoe' && showCutCard ? (

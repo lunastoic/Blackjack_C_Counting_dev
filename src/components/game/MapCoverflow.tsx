@@ -1,6 +1,7 @@
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Image, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
@@ -219,7 +220,7 @@ function CoverflowCard({
                 : `${map.name}, locked — ${lockedLabel}`
           }
         >
-          <Image source={MAP_ART[map.artKey]} style={styles.cardArt} resizeMode="cover" />
+          <Image source={MAP_ART[map.artKey]} style={styles.cardArt} contentFit="cover" />
           <LinearGradient
             colors={['transparent', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.94)']}
             locations={[0, 0.45, 1]}
@@ -281,7 +282,7 @@ function CoverflowCard({
               <Image
                 source={canUnlock ? appAssets.icons.unlock : appAssets.icons.lock}
                 style={styles.lockIcon}
-                resizeMode="contain"
+                contentFit="contain"
               />
               <Text style={styles.lockText}>
                 {canUnlock ? 'Tap to unlock' : lockedLabel}

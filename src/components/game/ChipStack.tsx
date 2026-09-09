@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React, { useMemo } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { CHIP_SETS } from '../../assets/registry';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
@@ -72,7 +73,7 @@ export function ChipStack({
             <Image
               source={chipSet[value]}
               style={{ width: chipSize, height: chipSize }}
-              resizeMode="contain"
+              contentFit="contain"
             />
           </Animated.View>
         ))}

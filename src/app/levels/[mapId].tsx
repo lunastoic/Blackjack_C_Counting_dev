@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { Redirect, useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FlatList,
-  Image,
   LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -43,6 +43,8 @@ import {
 import { useProgressionStore } from '../../stores/progressionStore';
 import { colors, fontSizes, fontWeights, layout, radii, shadows, spacing } from '../../theme';
 import { formatChips } from '../../utils/format';
+
+const AnimatedImage = Animated.createAnimatedComponent(Image);
 
 /** Card takes most of the width; the neighbours peek in from the edges. */
 const CARD_WIDTH_RATIO = 0.8;
@@ -447,7 +449,7 @@ function MapCard({
       <Image
         source={MAP_ART[map.artKey]}
         style={[styles.art, { width: height, height, left: (width - height) / 2 }]}
-        resizeMode="cover"
+        contentFit="cover"
       />
       {/* Locked casino: a dark pane and the lock cover the whole card; the
           ladder stays hidden until the previous casino is cleared. The banner
@@ -463,15 +465,15 @@ function MapCard({
           >
             <Animated.View style={[styles.lockBody, shakeStyle]}>
               <View style={styles.lockBadge}>
-                <Animated.Image
+                <AnimatedImage
                   source={appAssets.icons.lock}
                   style={[styles.lockIcon, lockStyle]}
-                  resizeMode="contain"
+                  contentFit="contain"
                 />
-                <Animated.Image
+                <AnimatedImage
                   source={appAssets.icons.unlock}
                   style={[styles.lockIcon, styles.lockIconOver, unlockStyle]}
-                  resizeMode="contain"
+                  contentFit="contain"
                 />
               </View>
               <Text style={styles.lockText}>{locked ? 'Table locked' : 'Unlocked'}</Text>

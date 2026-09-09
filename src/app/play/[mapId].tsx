@@ -1,6 +1,7 @@
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { TABLE_FELTS } from '../../assets/registry';
 import { AppScreen } from '../../components/common/AppScreen';
 import { ProgressionHeader } from '../../components/progression/ProgressionHeader';
@@ -57,7 +58,7 @@ export default function PlayPreviewScreen() {
         <Image
           source={TABLE_FELTS[currentMap.feltKey] ?? TABLE_FELTS['gray-suede']}
           style={styles.felt}
-          resizeMode="cover"
+          contentFit="cover"
         />
         <View style={styles.feltTint} />
 

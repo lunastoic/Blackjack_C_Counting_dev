@@ -1,6 +1,7 @@
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MAP_ART } from '../assets/registry';
 import { AppScreen } from '../components/common/AppScreen';
 import { ProgressBar } from '../components/common/ProgressBar';
@@ -50,7 +51,9 @@ export default function ProfileScreen() {
         <Text style={styles.playerMeta}>
           Level {level} · {totalUnlocked} / {totalAchievements} achievements unlocked
         </Text>
-        <Pressable onPress={() => router.push('/settings')} accessibilityLabel="Edit player settings">
+        {/* Settings links back here, so unwind to it when it is already open
+            instead of stacking another copy (profile → settings → profile → …). */}
+        <Pressable onPress={() => router.dismissTo('/settings')} accessibilityLabel="Edit player settings">
           <Text style={styles.editLink}>Edit name & settings</Text>
         </Pressable>
       </SectionCard>
@@ -71,7 +74,7 @@ export default function ProfileScreen() {
               accessibilityLabel={`${map.name}, ${summary?.unlocked ?? 0} of ${summary?.total ?? ACHIEVEMENTS_PER_MAP} achievements`}
               style={[styles.mapChip, active && styles.mapChipActive]}
             >
-              <Image source={MAP_ART[map.artKey]} style={styles.mapThumb} resizeMode="cover" />
+              <Image source={MAP_ART[map.artKey]} style={styles.mapThumb} contentFit="cover" />
               <Text style={[styles.mapChipText, active && styles.mapChipTextActive]} numberOfLines={1}>
                 {map.name.split(' ')[0]}
               </Text>

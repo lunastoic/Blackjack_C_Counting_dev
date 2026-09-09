@@ -1,5 +1,6 @@
+import { Image } from 'expo-image';
 import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { CARD_BACK } from '../../assets/cards.generated';
 import { CARDS_PER_DECK } from '../../engine/cards/deck';
 import { colors, fontWeights, radii } from '../../theme';
@@ -53,7 +54,7 @@ export function DeckGauge({ variant, count, totalCards, showScale, label }: Deck
             <Image
               source={CARD_BACK}
               style={[styles.back, { height: backHeight }]}
-              resizeMode="cover"
+              contentFit="cover"
             />
           </View>
         ) : null}

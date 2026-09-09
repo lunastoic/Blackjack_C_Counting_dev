@@ -32,6 +32,37 @@ const AUDIO_MODE = {
   shouldPlayInBackground: false,
 } as const;
 
+/**
+ * Every player holds a native AVPlayer and its media threads (~1 MB each),
+ * so only the sounds the app opens on — the drills — are created at boot.
+ * The table's sounds are warmed when a table opens and are the ones released
+ * again under memory pressure; either way a missing player is created on
+ * first play, just a beat late.
+ */
+const RESIDENT_SOUNDS: readonly SoundId[] = [
+  'cardDeal',
+  'cardFlip',
+  'win',
+  'loss',
+  'push',
+  'shuffle',
+  'meterTopUp1',
+  'meterTopUp2',
+  'meterTopUp3',
+  'meterTopUp4',
+  'meterTopUp5',
+  'meterTopUp6',
+  'meterTopUp7',
+  'meterTopUp8',
+];
+const TABLE_SOUNDS: readonly SoundId[] = [
+  'chipTap',
+  'betPlaced',
+  'levelUp',
+  'achievementUnlock',
+  'buttonTap',
+];
+
 function isEnabled(): boolean {
   return useSettingsStore.getState().soundEnabled;
 }
@@ -57,15 +88,38 @@ function getOrCreatePlayer(id: SoundId): AudioPlayer | null {
   }
 }
 
-/** Configures the session and eagerly creates players for every registered (non-null) sound. */
+/** Configures the session and creates the players the app opens on (the drills). */
 export function preloadSounds(): void {
   setAudioModeAsync(AUDIO_MODE).catch((error: unknown) => {
     if (__DEV__) {
       console.warn('[audio] Failed to set the audio mode:', error);
     }
   });
-  for (const id of Object.keys(soundRegistry) as SoundId[]) {
+  for (const id of RESIDENT_SOUNDS) {
     getOrCreatePlayer(id);
+  }
+}
+
+/** Creates the table's players ahead of the first chip tap. Idempotent. */
+export function warmTableSounds(): void {
+  for (const id of TABLE_SOUNDS) {
+    getOrCreatePlayer(id);
+  }
+}
+
+/** Releases the table's players (memory pressure); they come back on first play. */
+export function releaseTableSounds(): void {
+  for (const id of TABLE_SOUNDS) {
+    const player = players.get(id);
+    if (!player) {
+      continue;
+    }
+    players.delete(id);
+    try {
+      player.remove();
+    } catch {
+      // Already released.
+    }
   }
 }
 
