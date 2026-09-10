@@ -44,3 +44,8 @@ example
 
 # Cursor IDE local skills / cache
 .cursor/
+
+# Claude Code / agent instructions stay local
+CLAUDE.md
+AGENTS.md
+.claude/
