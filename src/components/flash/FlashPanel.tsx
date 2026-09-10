@@ -7,6 +7,8 @@ interface FlashPanelProps {
   /** Small-caps headline set between two hairline rules. */
   readonly kicker?: string;
   readonly kickerColor?: string;
+  /** A second small-caps line set directly under the kicker (a slide count). */
+  readonly subKicker?: string;
   readonly children: React.ReactNode;
   readonly style?: StyleProp<ViewStyle>;
 }
@@ -16,7 +18,7 @@ interface FlashPanelProps {
  * top edge, and an engraved kicker line. One look for the tutorial beats,
  * the round brief, and anything else that sits on the felt.
  */
-export function FlashPanel({ kicker, kickerColor = colors.gold, children, style }: FlashPanelProps) {
+export function FlashPanel({ kicker, kickerColor = colors.gold, subKicker, children, style }: FlashPanelProps) {
   return (
     <View style={[styles.frame, style]}>
       <LinearGradient
@@ -32,6 +34,9 @@ export function FlashPanel({ kicker, kickerColor = colors.gold, children, style 
             <Text style={[styles.kicker, { color: kickerColor }]}>{kicker}</Text>
             <View style={styles.rule} />
           </View>
+        ) : null}
+        {kicker && subKicker ? (
+          <Text style={[styles.kicker, styles.subKicker, { color: kickerColor }]}>{subKicker}</Text>
         ) : null}
         {children}
       </LinearGradient>
@@ -88,6 +93,10 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.caption,
     fontWeight: fontWeights.heavy,
     letterSpacing: 3,
+  },
+  subKicker: {
+    textAlign: 'center',
+    marginTop: -spacing.xs,
   },
   chip: {
     borderRadius: radii.pill,
