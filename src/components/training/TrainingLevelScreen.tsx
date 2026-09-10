@@ -908,7 +908,7 @@ const styles = StyleSheet.create({
    * lifted in place, so the felt and the cards above keep their layout.
    */
   bottomPanelSeated: {
-    transform: [{ translateY: -(spacing.xxl + spacing.md) }],
+    transform: [{ translateY: -(spacing.xxxl + spacing.xxl) }],
   },
   /** Idle: the brief / primer card floats centred in the felt the deck leaves. */
   briefScrim: {
