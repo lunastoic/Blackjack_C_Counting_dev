@@ -606,7 +606,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
         <FlashPanel kicker={hasBegun ? `LEVEL ${level}  ·  TRY AGAIN` : `LEVEL ${level}`}>
           <Text style={styles.introTitle}>{spec.title.toUpperCase()}</Text>
           <Text style={styles.introBody}>{spec.brief}</Text>
-          <View style={styles.chipRow}>
+          <View style={styles.chipStack}>
             {requirementChips(spec).map((chip) => (
               <FlashPanelChip key={chip} label={chip} />
             ))}
@@ -901,6 +901,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexWrap: 'wrap',
     gap: spacing.sm,
+  },
+  // The brief's rules read one under the other: stars, then strikes, then pace.
+  chipStack: {
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   introActions: {
     gap: spacing.xs,
