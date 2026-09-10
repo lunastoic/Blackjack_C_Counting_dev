@@ -82,8 +82,11 @@ export function stretchRulesLine(spec: TrainingLevelSpec): string {
  * Bullets for the level brief: the star stages first, then the rules that
  * hold for the whole run.
  */
-export function requirementChips(spec: TrainingLevelSpec): string[] {
-  const chips: string[] = [starTargetsLine(spec)];
+export function requirementChips(
+  spec: TrainingLevelSpec,
+  { starTargets: withStarTargets = true }: { readonly starTargets?: boolean } = {},
+): string[] {
+  const chips: string[] = withStarTargets ? [starTargetsLine(spec)] : [];
   if (!isCheckpointLevel(spec)) {
     chips.push(
       spec.strikes === 0

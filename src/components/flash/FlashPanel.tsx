@@ -9,6 +9,11 @@ interface FlashPanelProps {
   readonly kickerColor?: string;
   /** A small-caps line set directly above the kicker (a slide count). */
   readonly overline?: string;
+  /**
+   * Something to hang at the top right of the kicker line (the star targets
+   * on a brief). The kicker moves to the left edge to make room.
+   */
+  readonly kickerAside?: React.ReactNode;
   readonly children: React.ReactNode;
   readonly style?: StyleProp<ViewStyle>;
 }
@@ -18,7 +23,14 @@ interface FlashPanelProps {
  * top edge, and an engraved kicker line. One look for the tutorial beats,
  * the round brief, and anything else that sits on the felt.
  */
-export function FlashPanel({ kicker, kickerColor = colors.gold, overline, children, style }: FlashPanelProps) {
+export function FlashPanel({
+  kicker,
+  kickerColor = colors.gold,
+  overline,
+  kickerAside,
+  children,
+  style,
+}: FlashPanelProps) {
   return (
     <View style={[styles.frame, style]}>
       <LinearGradient
@@ -33,9 +45,15 @@ export function FlashPanel({ kicker, kickerColor = colors.gold, overline, childr
         ) : null}
         {kicker ? (
           <View style={styles.kickerRow}>
+            {kickerAside ? null : <View style={styles.rule} />}
+            <Text
+              style={[styles.kicker, { color: kickerColor }, kickerAside ? styles.kickerAsideText : null]}
+              numberOfLines={1}
+            >
+              {kicker}
+            </Text>
             <View style={styles.rule} />
-            <Text style={[styles.kicker, { color: kickerColor }]}>{kicker}</Text>
-            <View style={styles.rule} />
+            {kickerAside}
           </View>
         ) : null}
         {children}
@@ -49,6 +67,17 @@ export function FlashPanelChip({ label }: { readonly label: string }) {
   return (
     <View style={styles.chip}>
       <Text style={styles.chipText}>{label}</Text>
+    </View>
+  );
+}
+
+/** The gold star-targets pill that hangs at the top right of a brief. */
+export function FlashPanelStarChip({ label }: { readonly label: string }) {
+  return (
+    <View style={[styles.chip, styles.starChip]} accessibilityLabel={label}>
+      <Text style={[styles.chipText, styles.starChipText]} numberOfLines={1}>
+        {label}
+      </Text>
     </View>
   );
 }
@@ -94,6 +123,9 @@ const styles = StyleSheet.create({
     fontWeight: fontWeights.heavy,
     letterSpacing: 3,
   },
+  kickerAsideText: {
+    flexShrink: 1,
+  },
   overline: {
     textAlign: 'center',
     marginBottom: -spacing.xs,
@@ -111,5 +143,16 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.caption,
     fontWeight: fontWeights.semibold,
     letterSpacing: 0.5,
+  },
+  starChip: {
+    borderColor: colors.borderGold,
+    backgroundColor: colors.burgundyDeep,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.xxs + 1,
+    flexShrink: 0,
+  },
+  starChipText: {
+    color: colors.goldBright,
+    fontWeight: fontWeights.bold,
   },
 });

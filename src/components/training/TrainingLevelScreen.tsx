@@ -39,7 +39,7 @@ import { PrimaryButton } from '../common/PrimaryButton';
 import { SecondaryButton } from '../common/SecondaryButton';
 import { FlashCountReview } from '../flash/FlashCountReview';
 import { FlashLevelCompleteOverlay } from '../flash/FlashLevelCompleteOverlay';
-import { FlashPanel, FlashPanelChip } from '../flash/FlashPanel';
+import { FlashPanel, FlashPanelChip, FlashPanelStarChip } from '../flash/FlashPanel';
 import {
   FlashTutorialDeck,
   FlashTutorialPanel,
@@ -73,6 +73,7 @@ import {
   missesAllowed,
   requirementChips,
   starGlyphs,
+  starTargetsLine,
   stretchLine,
   stretchRulesLine,
 } from './copy';
@@ -605,11 +606,14 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
 
     if (status === 'idle') {
       return (
-        <FlashPanel kicker={hasBegun ? `LEVEL ${level}  ·  TRY AGAIN` : `LEVEL ${level}`}>
+        <FlashPanel
+          kicker={hasBegun ? `LEVEL ${level} · AGAIN` : `LEVEL ${level}`}
+          kickerAside={<FlashPanelStarChip label={starTargetsLine(spec, targets)} />}
+        >
           <Text style={styles.introTitle}>{spec.title.toUpperCase()}</Text>
           <Text style={styles.introBody}>{spec.brief}</Text>
           <View style={styles.chipStack}>
-            {requirementChips(spec).map((chip) => (
+            {requirementChips(spec, { starTargets: false }).map((chip) => (
               <FlashPanelChip key={chip} label={chip} />
             ))}
             <FlashPanelChip label={`${speed.label} pace`} />
