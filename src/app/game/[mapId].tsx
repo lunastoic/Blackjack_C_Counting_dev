@@ -195,7 +195,7 @@ export default function GameScreen() {
     <View style={[styles.root, { paddingTop: insets.top }]}>
       {/* Felt and house lettering: fixed to the screen, outside the table
           camera, so the print never moves — the pieces sit down onto it. */}
-      <FeltBackdrop feltKey={map.feltKey} casinoName={map.name} />
+      <FeltBackdrop feltKey={map.feltKey} casinoName={map.name} seated={cameraSeated} />
 
       <GameTableHud
         mapName={map.name}

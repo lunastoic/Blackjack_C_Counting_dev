@@ -783,14 +783,15 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
       {seated ? <TrainingMeter meter={meter} drainMs={meterDrainMs} /> : null}
 
       <TableCamera
-        seated={seated}
+        // Training never sits down: the pull-up-a-chair move belongs to the
+        // game table's Deal. The stage holds the standing frame throughout,
+        // which is the frame the spread ribbon and its lettering are cut for.
+        seated={false}
         // A fixed height, not a flex basis: Yoga kept the first basis it laid
         // out, so the felt never grew when the primer dealt.
         style={status === 'idle' ? { flex: 0, height: idleStageHeight } : undefined}
       >
-        {status !== 'idle' ? (
-          <FeltMarkings casinoName={map.name} anchor={0.52} />
-        ) : inPrimer ? null : (
+        {status === 'idle' && !inPrimer ? (
           <Animated.View
             key={gathered ? 'pile' : 'ribbon'}
             style={StyleSheet.absoluteFill}
@@ -800,8 +801,10 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
           >
             <FeltMarkings casinoName={map.name} align="top" topInset={idleDeckBottom} />
           </Animated.View>
-        )}
+        ) : null}
         {renderStage()}
+        {/* In play the house print sits mid-felt, over the cards, and stays put for the run. */}
+        {status !== 'idle' ? <FeltMarkings casinoName={map.name} anchor={0.52} /> : null}
       </TableCamera>
 
       {briefUp ? (

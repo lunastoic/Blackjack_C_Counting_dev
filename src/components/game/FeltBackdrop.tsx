@@ -1,17 +1,24 @@
 import { Image } from 'expo-image';
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { TABLE_FELTS } from '../../assets/registry';
 import { colors, layout, spacing } from '../../theme';
 import { FeltMarkings } from './FeltMarkings';
+import { FELT_SIT_DROP, FELT_SIT_SCALE, useSeatedProgress } from './TableCamera';
 import { TRAINING_TOGGLE_WIDTH } from './TrainingToggle';
 
 /**
  * The table surface every casino screen sits on: the felt, its tint, and the
  * house lettering printed on it. It fills the screen behind everything and
- * belongs to no layout or camera, so the print is at the same spot on the
- * game table and in the Count Sprint and never moves — cards, chips and
- * prompts simply land on top of it, like on a real layout.
+ * belongs to no layout, so the print is at the same spot on the game table
+ * and in the Count Sprint — cards, chips and prompts simply land on top of
+ * it, like on a real layout.
+ *
+ * On the game table the felt is part of the camera: pass `seated` and, on
+ * Deal, the whole surface — lettering included — comes closer in step with
+ * the play content, as if the player pulled up a chair. Left out, the felt
+ * holds still.
  */
 
 /**
@@ -26,22 +33,39 @@ export const FELT_LETTERING_SIDE_INSET = TRAINING_TOGGLE_WIDTH + layout.screenPa
 interface FeltBackdropProps {
   readonly feltKey: string;
   readonly casinoName: string;
+  /** Sit the felt down with the table camera (game table only). */
+  readonly seated?: boolean;
 }
 
-export function FeltBackdrop({ feltKey, casinoName }: FeltBackdropProps) {
+export function FeltBackdrop({ feltKey, casinoName, seated }: FeltBackdropProps) {
+  const { width } = useWindowDimensions();
+  const progress = useSeatedProgress(seated ?? false);
+  // A felt on the camera grows about the screen centre when the player sits,
+  // so its arcs are fitted to clear the rails at the seated size — the same
+  // fit standing, so the print never re-flows mid-move.
+  const half = width / 2;
+  const sideInset =
+    seated === undefined
+      ? FELT_LETTERING_SIDE_INSET
+      : half - (half - FELT_LETTERING_SIDE_INSET) / FELT_SIT_SCALE;
+  const surfaceStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: FELT_SIT_DROP * progress.value },
+      { scale: 1 + (FELT_SIT_SCALE - 1) * progress.value },
+    ],
+  }));
+
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Image
-        source={TABLE_FELTS[feltKey] ?? TABLE_FELTS['gray-suede']}
-        style={styles.felt}
-        contentFit="cover"
-      />
-      <View style={styles.tint} />
-      <FeltMarkings
-        casinoName={casinoName}
-        anchor={FELT_LETTERING_ANCHOR}
-        sideInset={FELT_LETTERING_SIDE_INSET}
-      />
+      <Animated.View style={[StyleSheet.absoluteFill, surfaceStyle]}>
+        <Image
+          source={TABLE_FELTS[feltKey] ?? TABLE_FELTS['gray-suede']}
+          style={styles.felt}
+          contentFit="cover"
+        />
+        <View style={styles.tint} />
+        <FeltMarkings casinoName={casinoName} anchor={FELT_LETTERING_ANCHOR} sideInset={sideInset} />
+      </Animated.View>
     </View>
   );
 }
