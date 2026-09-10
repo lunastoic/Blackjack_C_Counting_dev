@@ -234,6 +234,8 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   const autoTutorial = !cleared || forceEveryLevel;
   const inPrimer = status === 'idle' && idleStage === 'primer';
   const inSlides = status === 'idle' && idleStage === 'slides';
+  // The brief is up: the table behind it goes a shade darker until Start.
+  const briefUp = status === 'idle' && idleStage === 'spread';
   // After the primer the deck stays gathered under the slides; without it the ribbon stays out.
   const gathered = inSlides && showPrimer;
   const seated = status !== 'idle';
@@ -802,6 +804,15 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
         {renderStage()}
       </TableCamera>
 
+      {briefUp ? (
+        <Animated.View
+          style={styles.briefScrim}
+          pointerEvents="none"
+          entering={FadeIn.duration(200)}
+          exiting={FadeOut.duration(300)}
+        />
+      ) : null}
+
       <View
         style={[
           styles.bottomPanel,
@@ -886,6 +897,14 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   /** Idle: the brief / primer card floats centred in the felt the deck leaves. */
+  briefScrim: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+  },
   bottomPanelIdle: {
     flexGrow: 1,
     justifyContent: 'center',
