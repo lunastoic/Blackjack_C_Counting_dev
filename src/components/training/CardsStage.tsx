@@ -45,7 +45,6 @@ export function CardsStage({ cards, cardWidth, speed, valueTags, serial, caption
 
   return (
     <View style={styles.stage}>
-      {caption ? <Text style={styles.caption}>{caption}</Text> : null}
       <Animated.View key={serial} style={[styles.row, shakeStyle]}>
         {cards.map((card, index) => {
           const value = hiLoValue(card.rank);
@@ -75,6 +74,7 @@ export function CardsStage({ cards, cardWidth, speed, valueTags, serial, caption
           );
         })}
       </Animated.View>
+      {caption ? <Text style={styles.caption}>{caption}</Text> : null}
     </View>
   );
 }
