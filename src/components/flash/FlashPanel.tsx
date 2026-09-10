@@ -9,10 +9,7 @@ interface FlashPanelProps {
   readonly kickerColor?: string;
   /** A small-caps line set directly above the kicker (a slide count). */
   readonly overline?: string;
-  /**
-   * Something to hang at the top right of the kicker line (the star targets
-   * on a brief). The kicker moves to the left edge to make room.
-   */
+  /** Something to hang at the top right, above the kicker (the star targets on a brief). */
   readonly kickerAside?: React.ReactNode;
   readonly children: React.ReactNode;
   readonly style?: StyleProp<ViewStyle>;
@@ -43,17 +40,12 @@ export function FlashPanel({
         {kicker && overline ? (
           <Text style={[styles.kicker, styles.overline, { color: kickerColor }]}>{overline}</Text>
         ) : null}
+        {kickerAside ? <View style={styles.asideRow}>{kickerAside}</View> : null}
         {kicker ? (
           <View style={styles.kickerRow}>
-            {kickerAside ? null : <View style={styles.rule} />}
-            <Text
-              style={[styles.kicker, { color: kickerColor }, kickerAside ? styles.kickerAsideText : null]}
-              numberOfLines={1}
-            >
-              {kicker}
-            </Text>
             <View style={styles.rule} />
-            {kickerAside}
+            <Text style={[styles.kicker, { color: kickerColor }]}>{kicker}</Text>
+            <View style={styles.rule} />
           </View>
         ) : null}
         {children}
@@ -123,8 +115,9 @@ const styles = StyleSheet.create({
     fontWeight: fontWeights.heavy,
     letterSpacing: 3,
   },
-  kickerAsideText: {
-    flexShrink: 1,
+  asideRow: {
+    alignItems: 'flex-end',
+    marginBottom: -spacing.xs,
   },
   overline: {
     textAlign: 'center',

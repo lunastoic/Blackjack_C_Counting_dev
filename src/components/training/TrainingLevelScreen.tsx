@@ -607,7 +607,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
     if (status === 'idle') {
       return (
         <FlashPanel
-          kicker={hasBegun ? `LEVEL ${level} · AGAIN` : `LEVEL ${level}`}
+          kicker={hasBegun ? `LEVEL ${level}  ·  TRY AGAIN` : `LEVEL ${level}`}
           kickerAside={<FlashPanelStarChip label={starTargetsLine(spec, targets)} />}
         >
           <Text style={styles.introTitle}>{spec.title.toUpperCase()}</Text>
