@@ -4,11 +4,17 @@ import { useDojoStore } from './dojoStore';
 import { useProgressionStore } from './progressionStore';
 
 /**
- * DEV-ONLY testing aids for the count training ladder. Nothing here is persisted
- * and every entry point is gated on FLASH_DEBUG_AVAILABLE (__DEV__), so the
- * whole kit falls away in production builds. Remove before release.
+ * Testing aids for the count training ladder. Nothing here is persisted and
+ * every entry point is gated on FLASH_DEBUG_AVAILABLE, so the whole kit falls
+ * away once that is back to __DEV__.
  */
-export const FLASH_DEBUG_AVAILABLE = __DEV__;
+/**
+ * TEMPORARY: the kit ships in release builds so the table can be reached on a
+ * phone before the ladder is played through. Set back to false (→ dev only)
+ * before the store submission.
+ */
+const TESTING_TOOLS_IN_RELEASE = true;
+export const FLASH_DEBUG_AVAILABLE = __DEV__ || TESTING_TOOLS_IN_RELEASE;
 
 interface FlashDebugState {
   /** Treat every level and every casino as unlocked (nothing is marked done). */

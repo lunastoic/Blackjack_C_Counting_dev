@@ -16,6 +16,7 @@ import { FEATURES } from '../constants/features';
 import { CASINO_MAPS } from '../engine/betting/casino';
 import { devResetSave } from '../persistence/hydrate';
 import {
+  debugCompleteMap,
   debugResetLevelsAndMaps,
   FLASH_DEBUG_AVAILABLE,
   useFlashDebugStore,
@@ -75,6 +76,19 @@ export default function SettingsScreen() {
   const setDebugUnlockAll = useFlashDebugStore((state) => state.setUnlockAll);
   const debugTutorialEveryLevel = useFlashDebugStore((state) => state.tutorialEveryLevel);
   const setDebugTutorialEveryLevel = useFlashDebugStore((state) => state.setTutorialEveryLevel);
+
+  // The casino being worked on — the first with an uncleared ladder — so the
+  // button names the next casino up as each one clears.
+  const debugMapId = useDojoStore(
+    (state) =>
+      (CASINO_MAPS.find((map) => state.nextFlashLevel(map.id) !== null) ??
+        CASINO_MAPS[CASINO_MAPS.length - 1]).id,
+  );
+  const debugMapName = CASINO_MAPS.find((map) => map.id === debugMapId)?.name ?? 'this casino';
+
+  function handleDebugClearLadder() {
+    debugCompleteMap(debugMapId);
+  }
 
   function handleDebugResetLevels() {
     Alert.alert('Reset levels & maps?', 'Ladder progress, licenses, and map unlocks reset.', [
@@ -228,6 +242,8 @@ export default function SettingsScreen() {
               onChange={setDebugTutorialEveryLevel}
             />
             <Divider />
+            <Text style={styles.fieldLabel}>Clears every level in the casino, which licenses its table.</Text>
+            <SecondaryButton label={`Unlock table · ${debugMapName}`} onPress={handleDebugClearLadder} />
             <View style={styles.resetSpacer}>
               <SecondaryButton label="Reset levels & maps" onPress={handleDebugResetLevels} />
             </View>

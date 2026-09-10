@@ -83,9 +83,12 @@ export function TrainingMeter({ meter, drainMs }: TrainingMeterProps) {
   );
 }
 
+/** Track plus its top margin: the felt below drops by this much once the meter is out. */
+export const TRAINING_METER_HEIGHT = 14 + spacing.sm;
+
 const styles = StyleSheet.create({
   track: {
-    height: 14,
+    height: TRAINING_METER_HEIGHT - spacing.sm,
     marginHorizontal: layout.screenPaddingH,
     marginTop: spacing.sm,
     borderRadius: 7,

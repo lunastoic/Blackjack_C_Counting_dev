@@ -61,7 +61,7 @@ import { DeckEstimateStage } from './DeckEstimateStage';
 import { LevelTutorialPanel } from './LevelTutorialPanel';
 import { StarBankToast } from './StarBankToast';
 import { TableStage } from './TableStage';
-import { TrainingMeter } from './TrainingMeter';
+import { TRAINING_METER_HEIGHT, TrainingMeter } from './TrainingMeter';
 import { TrueCountStage } from './TrueCountStage';
 import { StatusCell, TrainingStatusStrip } from './TrainingStatusStrip';
 import {
@@ -791,7 +791,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
         // out, so the felt never grew when the primer dealt.
         style={status === 'idle' ? { flex: 0, height: idleStageHeight } : undefined}
       >
-        {status === 'idle' && !inPrimer ? (
+        {inPrimer ? null : (
           <Animated.View
             key={gathered ? 'pile' : 'ribbon'}
             style={StyleSheet.absoluteFill}
@@ -799,12 +799,16 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
             entering={FadeIn.duration(300)}
             exiting={FadeOut.duration(200)}
           >
-            <FeltMarkings casinoName={map.name} align="top" topInset={idleDeckBottom} />
+            {/* The house print is where the spread ribbon left it, run or not: in
+                play the meter pushes the felt down, so the print climbs to match. */}
+            <FeltMarkings
+              casinoName={map.name}
+              align="top"
+              topInset={seated ? SPREAD_DECK_BOTTOM - TRAINING_METER_HEIGHT : idleDeckBottom}
+            />
           </Animated.View>
-        ) : null}
+        )}
         {renderStage()}
-        {/* In play the house print sits mid-felt, over the cards, and stays put for the run. */}
-        {status !== 'idle' ? <FeltMarkings casinoName={map.name} anchor={0.52} /> : null}
       </TableCamera>
 
       {briefUp ? (
