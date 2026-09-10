@@ -10,6 +10,7 @@ import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { useGameSessionStore } from '../../stores/gameSessionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { colors, layers } from '../../theme';
+import { effectiveTrainingAids } from '../../utils/countCoach';
 
 /**
  * Optional training aid: a brief full-screen color flash for every count
@@ -17,7 +18,7 @@ import { colors, layers } from '../../theme';
  * produce no pulse. Disabled automatically under reduced motion.
  */
 export function CountPulse() {
-  const enabled = useSettingsStore((state) => state.trainingAids.countPulse);
+  const enabled = useSettingsStore((state) => effectiveTrainingAids(state.trainingAids).countPulse);
   const runningCount = useGameSessionStore((state) => state.runningCount);
   const reducedMotion = useReducedMotion();
 

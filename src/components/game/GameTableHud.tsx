@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { MAX_LEVEL, XP_PER_LEVEL } from '../../engine/progression/progression';
+import { useDailyGoalStore } from '../../stores/dailyGoalStore';
 import { useEconomyStore } from '../../stores/economyStore';
 import { useProgressionStore } from '../../stores/progressionStore';
 import { colors, fontSizes, fontWeights, layout, radii, spacing } from '../../theme';
@@ -38,6 +39,10 @@ export function GameTableHud({
   const router = useRouter();
   const chips = useEconomyStore((state) => state.chips);
   const isDailyRewardAvailable = useEconomyStore((state) => state.isDailyRewardAvailable);
+  // Subscribing to the fields (not just the getter) re-renders when a hand tips the goal over.
+  useDailyGoalStore((state) => state.progress);
+  useDailyGoalStore((state) => state.lastClaimedDayKey);
+  const isGoalClaimable = useDailyGoalStore((state) => state.isClaimable);
   const level = useProgressionStore((state) => state.level);
   const xpIntoLevel = useProgressionStore((state) => state.xpIntoLevel);
   const atMaxLevel = level >= MAX_LEVEL;
@@ -49,7 +54,7 @@ export function GameTableHud({
     const timer = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(timer);
   }, []);
-  const dailyReady = isDailyRewardAvailable(now);
+  const dailyReady = isDailyRewardAvailable(now) || isGoalClaimable(now);
 
   return (
     <View style={styles.container}>

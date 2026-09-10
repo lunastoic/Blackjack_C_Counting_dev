@@ -191,25 +191,25 @@ describe('true count during dealer reveals (pendingReveals fix)', () => {
   });
 });
 
-describe('Full-coach autoplay drill follows the Training switch', () => {
-  it('refuses to start with Training Mode off, whatever coach level is stored', () => {
-    // FEATURES.countCoachDial is off: Training off runs Learn, and the
-    // Full-coach drill is unreachable there.
-    useSettingsStore.getState().setTrainingMode(false);
-    for (const level of ['off', 'learn', 'full'] as const) {
-      useSettingsStore.getState().setCountCoachLevel(level);
-      expect(session().startSession(1)).toBe(true);
-      expect(session().startAutoplay()).toBe(false);
-      expect(session().autoplay).toBe(false);
-      session().endSession();
+describe('Full-coach autoplay drill follows the coach dial', () => {
+  it('refuses to start under Off or Learn, whatever the Training switch says', () => {
+    for (const trainingMode of [false, true]) {
+      useSettingsStore.getState().setTrainingMode(trainingMode);
+      for (const level of ['off', 'learn'] as const) {
+        useSettingsStore.getState().setCountCoachLevel(level);
+        expect(session().startSession(1)).toBe(true);
+        expect(session().startAutoplay()).toBe(false);
+        expect(session().autoplay).toBe(false);
+        session().endSession();
+      }
     }
     expect(useEconomyStore.getState().chips).toBe(500);
   });
 
-  it('starts with Training Mode on (Full coach), whatever coach level is stored', () => {
-    useSettingsStore.getState().setTrainingMode(true);
-    for (const level of ['off', 'learn', 'full'] as const) {
-      useSettingsStore.getState().setCountCoachLevel(level);
+  it('starts under Full, whatever the Training switch says', () => {
+    for (const trainingMode of [false, true]) {
+      useSettingsStore.getState().setTrainingMode(trainingMode);
+      useSettingsStore.getState().setCountCoachLevel('full');
       expect(session().startSession(1)).toBe(true);
       expect(session().startAutoplay()).toBe(true);
       expect(session().autoplay).toBe(true);
@@ -219,9 +219,10 @@ describe('Full-coach autoplay drill follows the Training switch', () => {
   });
 });
 
-describe('Training Mode on: no count checks, nothing to prove', () => {
+describe('Full coach (the default dial level): no count checks, nothing to prove', () => {
   beforeEach(() => {
     useSettingsStore.getState().setTrainingMode(true);
+    expect(useSettingsStore.getState().countCoachLevel).toBe('full');
     expect(session().startSession(1)).toBe(true);
   });
 
@@ -444,14 +445,14 @@ describe('Learn fog-of-war meter (revealTier, Training Mode off)', () => {
     jest.runAllTimers();
     expect(session().countCheck).toBeNull(); // the coach didn't pop one either
 
-    // …and the stored dial level is irrelevant while the dial is disabled:
-    // Training off runs Learn, so tap-to-reveal keeps working.
+    // …and the dial decides: Full shows live counts, nothing to prove.
     useSettingsStore.getState().setCountCoachLevel('full');
+    expect(session().requestCountCheck()).toBe(false);
+
+    // The legacy Training switch changes nothing under the dial.
+    useSettingsStore.getState().setCountCoachLevel('learn');
+    useSettingsStore.getState().setTrainingMode(true);
     expect(session().requestCountCheck()).toBe(true);
     session().dismissCountCheck();
-
-    // Flip Training on → live counts, nothing to prove.
-    useSettingsStore.getState().setTrainingMode(true);
-    expect(session().requestCountCheck()).toBe(false);
   });
 });

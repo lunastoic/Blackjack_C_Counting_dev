@@ -19,7 +19,7 @@ import { haptics } from '../../services/haptics';
 import { useGameSessionStore } from '../../stores/gameSessionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { colors, radii, spacing } from '../../theme';
-import { countCoachCapabilities, effectiveCountCoachLevel } from '../../utils/countCoach';
+import { countCoachCapabilities, effectiveCountCoachLevel, effectiveTrainingAids } from '../../utils/countCoach';
 import { PressableScale } from '../common/PressableScale';
 
 const ACTIONS: readonly { action: PlayerAction; image: number; label: string }[] = [
@@ -41,7 +41,7 @@ export function ActionBar() {
   const act = useGameSessionStore((state) => state.act);
   const hintsEnabled = useSettingsStore(
     (state) =>
-      state.trainingAids.strategyHints &&
+      effectiveTrainingAids(state.trainingAids).strategyHints &&
       countCoachCapabilities(effectiveCountCoachLevel(state.countCoachLevel, state.trainingMode))
         .allowFullTools,
   );

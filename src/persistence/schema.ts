@@ -6,7 +6,7 @@ import { z } from 'zod';
  * (GameSettings, LifetimeStats, PlayerProgress) rather than duplicating logic.
  */
 
-export const SAVE_SCHEMA_VERSION = 13;
+export const SAVE_SCHEMA_VERSION = 14;
 
 export const MAX_DISPLAY_NAME_LENGTH = 20;
 export const DEFAULT_DISPLAY_NAME = 'Player';
@@ -189,6 +189,64 @@ export const dojoSchema = z.object({
   flashLevels: z.record(z.string(), z.number().int().min(1).max(3)),
   /** One-time "the count carries over" tip after the first correct answer (v10). */
   flashCountTipSeen: z.boolean(),
+  /** Best pace per training level (v14): "mapId:level" → right answers per minute. */
+  flashPace: z.record(z.string(), z.number().int().min(0)),
+});
+
+const rankSchema = z.union([
+  z.literal('A'),
+  z.literal('2'),
+  z.literal('3'),
+  z.literal('4'),
+  z.literal('5'),
+  z.literal('6'),
+  z.literal('7'),
+  z.literal('8'),
+  z.literal('9'),
+  z.literal('10'),
+  z.literal('J'),
+  z.literal('Q'),
+  z.literal('K'),
+]);
+
+const suitSchema = z.union([
+  z.literal('spades'),
+  z.literal('hearts'),
+  z.literal('diamonds'),
+  z.literal('clubs'),
+]);
+
+const playerActionSchema = z.union([
+  z.literal('hit'),
+  z.literal('stand'),
+  z.literal('double'),
+  z.literal('split'),
+]);
+
+/** A hand the player played off-book at the table (v14), newest first. */
+export const weakSpotSchema = z.object({
+  key: z.string().min(1),
+  cards: z.array(z.object({ rank: rankSchema, suit: suitSchema })).min(2),
+  dealerUpRank: rankSchema,
+  canDouble: z.boolean(),
+  canSplit: z.boolean(),
+  chosen: playerActionSchema,
+  book: playerActionSchema,
+  reasonCode: z.string(),
+  times: z.number().int().min(1),
+  lastAt: z.number().int(),
+});
+
+export const weakSpotsSchema = z.object({
+  spots: z.array(weakSpotSchema),
+});
+
+/** Daily goal progress and the day streak (v14). Day keys are local "YYYY-MM-DD". */
+export const dailySchema = z.object({
+  dayKey: z.string(),
+  progress: z.number().int().min(0),
+  streak: z.number().int().min(0),
+  lastClaimedDayKey: z.string().nullable(),
 });
 
 export const saveDataSchema = z.object({
@@ -201,6 +259,8 @@ export const saveDataSchema = z.object({
   modeStats: modeStatsSchema,
   campaign: campaignSchema,
   dojo: dojoSchema,
+  weakSpots: weakSpotsSchema,
+  daily: dailySchema,
 });
 
 /** Loose envelope: version + payload. The payload is validated after migration. */
@@ -216,3 +276,6 @@ export type RegularStats = z.infer<typeof regularStatsSchema>;
 export type QuizStats = z.infer<typeof quizStatsSchema>;
 export type LearnStats = z.infer<typeof learnStatsSchema>;
 export type DojoSave = z.infer<typeof dojoSchema>;
+export type WeakSpotSave = z.infer<typeof weakSpotSchema>;
+export type WeakSpotsSave = z.infer<typeof weakSpotsSchema>;
+export type DailySave = z.infer<typeof dailySchema>;

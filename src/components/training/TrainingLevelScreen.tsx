@@ -145,6 +145,8 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   const question = useTrainingStore((state) => state.question);
   const outcome = useTrainingStore((state) => state.outcome);
   const stars = useTrainingStore((state) => state.stars);
+  const pace = useTrainingStore((state) => state.pace);
+  const paceIsBest = useTrainingStore((state) => state.paceIsBest);
   const targets = useTrainingStore((state) => state.targets);
   const starBank = useTrainingStore((state) => state.starBank);
   const stretch = useTrainingStore((state) => state.stretch);
@@ -827,6 +829,8 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
           stars={stars}
           xpAwarded={outcome?.firstClear ? DOJO_XP.flashLevel : 0}
           chipsAwarded={outcome?.chipsAwarded ?? 0}
+          pace={pace}
+          paceIsBest={paceIsBest}
           title={completeTitle}
           body={completeBody}
           scorecard={isExam ? accuracyRows(tally) : undefined}

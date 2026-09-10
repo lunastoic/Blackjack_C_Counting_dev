@@ -139,26 +139,30 @@ export default function SettingsScreen() {
           />
         </SectionCard>
 
-        <SectionCard title="Decks">
+        <SectionCard title="House rules">
           <Text style={styles.deckInfo}>
-            Every casino deals its own shoe — tables and count sprints alike.
+            Every casino deals its own shoe and its own pace — tables and count sprints alike.
+            Your dealer speed stacks on top of the house pace.
           </Text>
           {CASINO_MAPS.map((map) => (
             <Text key={map.id} style={styles.deckList}>
-              {map.name} — {map.deckCount} {map.deckCount === 1 ? 'deck' : 'decks'}
+              {map.name} — {map.deckCount} {map.deckCount === 1 ? 'deck' : 'decks'} · dealer{' '}
+              {map.dealerPace.toFixed(2)}×
             </Text>
           ))}
         </SectionCard>
 
         {FEATURES.countCoachDial ? (
-          <>
-            <SectionCard title="Count Coach">
-              <CountCoachRow
-                selected={settings.countCoachLevel}
-                onSelect={settings.setCountCoachLevel}
-              />
-            </SectionCard>
+          <SectionCard title="Count Coach">
+            <CountCoachRow
+              selected={settings.countCoachLevel}
+              onSelect={settings.setCountCoachLevel}
+            />
+          </SectionCard>
+        ) : null}
 
+        {FEATURES.trainingAidToggles ? (
+          <>
             <SectionCard title="Full coach tools">
               <ToggleRow
                 label="Card underglow"

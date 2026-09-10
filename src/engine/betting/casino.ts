@@ -20,6 +20,11 @@ export interface CasinoMap {
   readonly quizPaceMultiplier: number;
   /** Decks in this casino's shoe (tables AND quiz): 1 at Luna Luxe up to 8. */
   readonly deckCount: DeckCount;
+  /** Table dealer pace, in the `dealerSpeed` convention (a divisor on the
+   *  animation delays — higher is faster): Luna Luxe deals at 1.0×, each
+   *  casino up the ladder deals quicker. The player's speed setting stacks on
+   *  top of it — see `effectiveDealerSpeed`. */
+  readonly dealerPace: number;
 }
 
 export const STARTING_BANKROLL = 500;
@@ -36,6 +41,7 @@ export const CASINO_MAPS: readonly CasinoMap[] = [
     artKey: 'luna-luxe',
     deckCount: 1,
     quizPaceMultiplier: 1.5,
+    dealerPace: 1.0,
   },
   {
     id: 2,
@@ -48,6 +54,7 @@ export const CASINO_MAPS: readonly CasinoMap[] = [
     artKey: 'inferno',
     deckCount: 2,
     quizPaceMultiplier: 1.4,
+    dealerPace: 1.15,
   },
   {
     id: 3,
@@ -60,6 +67,7 @@ export const CASINO_MAPS: readonly CasinoMap[] = [
     artKey: 'europa',
     deckCount: 4,
     quizPaceMultiplier: 1.3,
+    dealerPace: 1.3,
   },
   {
     id: 4,
@@ -72,6 +80,7 @@ export const CASINO_MAPS: readonly CasinoMap[] = [
     artKey: 'ganymede',
     deckCount: 6,
     quizPaceMultiplier: 1.2,
+    dealerPace: 1.45,
   },
   {
     id: 5,
@@ -84,6 +93,7 @@ export const CASINO_MAPS: readonly CasinoMap[] = [
     artKey: 'titan',
     deckCount: 8,
     quizPaceMultiplier: 1.1,
+    dealerPace: 1.6,
   },
   {
     id: 6,
@@ -96,6 +106,7 @@ export const CASINO_MAPS: readonly CasinoMap[] = [
     artKey: 'kepler',
     deckCount: 8,
     quizPaceMultiplier: 1.0,
+    dealerPace: 1.75,
   },
 ];
 
@@ -103,6 +114,16 @@ export const LUNA_LUXE: CasinoMap = CASINO_MAPS[0];
 
 export function mapById(id: number): CasinoMap | undefined {
   return CASINO_MAPS.find((map) => map.id === id);
+}
+
+/**
+ * The speed the table actually deals at: the casino's own pace with the
+ * player's dealer-speed setting stacked on top (1.0 leaves the house pace
+ * untouched). No map — the autoplay drill, a test bench — means the house
+ * pace is 1.0×.
+ */
+export function effectiveDealerSpeed(map: CasinoMap | null | undefined, dealerSpeed: number): number {
+  return (map?.dealerPace ?? 1) * dealerSpeed;
 }
 
 /**

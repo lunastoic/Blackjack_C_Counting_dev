@@ -1,5 +1,5 @@
 import { FEATURES } from '../constants/features';
-import { CountCoachLevel } from '../engine/types';
+import { CountCoachLevel, TrainingAidSettings } from '../engine/types';
 
 /**
  * Count Coach — the single dial for counting help at the table.
@@ -38,8 +38,16 @@ export const COUNT_COACH_LABELS: Record<CountCoachLevel, string> = {
 export const COUNT_COACH_BLURBS: Record<CountCoachLevel, string> = {
   off: 'Pure casino play — counts stay hidden. Just you and the shoe.',
   learn: 'The count meter rides along fogged ("?"). Tap it or pass the post-round checks to reveal the numbers — a miss fogs them again, a shuffle resets everything.',
-  full: 'Every tool live: running / true count, Hi-Lo card values, glows, strategy hints, and the autoplay counting drill.',
+  full: 'Every tool live: running / true count, Hi-Lo card glows, strategy hints, and the card charts.',
 };
+
+/** The one-and-only cycle order of the felt's coach tab: Off → Learn → Full → Off. */
+export const COUNT_COACH_ORDER: readonly CountCoachLevel[] = ['off', 'learn', 'full'];
+
+export function nextCountCoachLevel(level: CountCoachLevel): CountCoachLevel {
+  const index = COUNT_COACH_ORDER.indexOf(level);
+  return COUNT_COACH_ORDER[(index + 1) % COUNT_COACH_ORDER.length];
+}
 
 export function countCoachCapabilities(level: CountCoachLevel): CountCoachCapabilities {
   const full = level === 'full';
@@ -60,10 +68,11 @@ export function isCountCoachLevel(value: unknown): value is CountCoachLevel {
 }
 
 /**
- * The level the table actually runs. With the coach dial disabled
- * (FEATURES.countCoachDial), the stored dial setting is ignored and the
- * table-side Training Mode switch picks between Full (on: live counts, rail,
- * glows, hints) and Learn (off: the fogged meter with tap-to-reveal).
+ * The level the table actually runs. With the coach dial enabled
+ * (FEATURES.countCoachDial) that is the stored dial setting, full stop. With
+ * it disabled the dial is ignored and the table-side Training Mode switch
+ * picks between Full (on: live counts, rail, glows, hints) and Learn (off:
+ * the fogged meter with tap-to-reveal).
  */
 export function effectiveCountCoachLevel(
   selected: CountCoachLevel,
@@ -73,6 +82,23 @@ export function effectiveCountCoachLevel(
     return selected;
   }
   return trainingMode ? 'full' : 'learn';
+}
+
+/**
+ * The Full-coach aids that are actually on. The per-aid switches are shelved
+ * (FEATURES.trainingAidToggles), so Full means the underglow, strategy hints
+ * and card charts together and the count pulse dark — the stored switches
+ * only count once their UI returns.
+ */
+export const FULL_COACH_AIDS: TrainingAidSettings = {
+  cardUnderglow: true,
+  strategyHints: true,
+  countPulse: false,
+  distributionCharts: true,
+};
+
+export function effectiveTrainingAids(aids: TrainingAidSettings): TrainingAidSettings {
+  return FEATURES.trainingAidToggles ? aids : FULL_COACH_AIDS;
 }
 
 // ---------------------------------------------------------------------------

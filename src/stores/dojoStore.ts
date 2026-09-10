@@ -37,6 +37,13 @@ export interface DojoState {
   /** The one-time "count carries over" tip has been acknowledged. */
   readonly flashCountTipSeen: boolean;
   readonly markFlashCountTipSeen: () => void;
+  /** Best pace per training level: "mapId:level" → right answers per minute. */
+  readonly flashPace: Readonly<Record<string, number>>;
+  /**
+   * Records a clearing run's pace; the best only ever goes up. Returns true
+   * when this run set a new best for the level.
+   */
+  readonly recordTrainingPace: (mapId: number, level: number, pace: number) => boolean;
 
   readonly startOnboarding: () => void;
   readonly finishOnboarding: () => void;
@@ -89,8 +96,20 @@ export const useDojoStore = create<DojoState>()((set, get) => ({
   onboardingDone: false,
   flashLevels: {},
   flashCountTipSeen: false,
+  flashPace: {},
 
   markFlashCountTipSeen: () => set({ flashCountTipSeen: true }),
+
+  recordTrainingPace: (mapId, level, pace) => {
+    const key = flashLevelKey(mapId, level);
+    const rounded = Math.max(0, Math.round(pace));
+    const previous = get().flashPace[key] ?? 0;
+    if (rounded <= previous) {
+      return false;
+    }
+    set({ flashPace: { ...get().flashPace, [key]: rounded } });
+    return true;
+  },
 
   startOnboarding: () => set({ onboardingDone: false }),
   finishOnboarding: () => set({ onboardingDone: true }),
@@ -202,6 +221,7 @@ export const useDojoStore = create<DojoState>()((set, get) => ({
       tableObjectivesCompleted: new Set(),
       flashLevels: {},
       flashCountTipSeen: false,
+      flashPace: {},
     }),
 
   isLessonUnlocked: (lessonId) =>
@@ -263,5 +283,6 @@ export const useDojoStore = create<DojoState>()((set, get) => ({
       onboardingDone: data.onboardingDone,
       flashLevels: { ...data.flashLevels },
       flashCountTipSeen: data.flashCountTipSeen,
+      flashPace: { ...data.flashPace },
     }),
 }));

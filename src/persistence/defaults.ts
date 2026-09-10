@@ -63,6 +63,16 @@ export function createDefaultSave(): SaveData {
       onboardingDone: false,
       flashLevels: {},
       flashCountTipSeen: false,
+      flashPace: {},
+    },
+    weakSpots: {
+      spots: [],
+    },
+    daily: {
+      dayKey: '',
+      progress: 0,
+      streak: 0,
+      lastClaimedDayKey: null,
     },
     modeStats: {
       regular: { handsPlayed: 0, wins: 0, pushes: 0, losses: 0, blackjacks: 0, netChips: 0 },

@@ -8,14 +8,35 @@
  */
 export const FEATURES = {
   /**
-   * The Count Coach dial (Off / Learn / Full) in settings and the ≡ menu.
-   * Disabled: every table runs the Learn experience — the fogged "?" meter
-   * with tap-to-reveal — with no mode choice to explain. Full-coach tools
-   * (live counts, strategy/distribution charts, count pulse, underglow
-   * toggles, the autoplay drill) all hang off this dial and go dormant
-   * with it.
+   * The Count Coach dial (Off / Learn / Full) — the felt tab, settings and
+   * the ≡ menu. Enabled: the dial alone decides what the table shows (Off:
+   * clean table; Learn: the fogged "?" meter with tap-to-reveal; Full: live
+   * counts, glows, strategy hints and card charts).
+   * Disabled: the felt's on/off Training switch decides instead — on is
+   * Full, off is Learn — and the dial UI goes dormant.
    */
-  countCoachDial: false,
+  countCoachDial: true,
+
+  /**
+   * The four per-aid switches (Card underglow, Strategy hints, Count pulse,
+   * Distribution charts) plus the Training on/off switch in settings.
+   * Disabled: the Count Coach dial is the only control — Full turns the
+   * underglow, hints and charts on together and the count pulse stays off.
+   * The stored `trainingAids` still persist untouched for when this returns.
+   */
+  trainingAidToggles: false,
+
+  /**
+   * Full coach swaps in the "training" card faces printed with Hi-Lo values.
+   * Disabled: every table deals the regular faces whatever the dial says.
+   */
+  trainingCardSkin: false,
+
+  /**
+   * The "Start autoplay drill" link on the betting panel under Full coach.
+   * Disabled: the drill and its store logic stay intact, just no entry point.
+   */
+  autoplayDrill: false,
 
   /**
    * Level-based casino unlocks (reach level N, tap to unlock).

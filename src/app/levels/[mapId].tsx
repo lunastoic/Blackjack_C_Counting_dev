@@ -103,6 +103,7 @@ export default function LevelMapScreen() {
   }, [initialIndex]);
 
   const progress = useDojoStore((state) => state.flashLevels);
+  const pace = useDojoStore((state) => state.flashPace);
   const unlockedMapIds = useProgressionStore((state) => state.unlockedMapIds);
   const debugUnlockAll = useFlashDebugStore((state) => FLASH_DEBUG_AVAILABLE && state.unlockAll);
 
@@ -194,6 +195,7 @@ export default function LevelMapScreen() {
             isActive={index === active}
             isLast={index === CASINO_MAPS.length - 1}
             progress={progress}
+            pace={pace}
             unlocked={unlockedMapIds.includes(item.id) || debugUnlockAll}
             unlockAll={debugUnlockAll}
             reveal={item.id === revealing || item.id === pendingReveal}
@@ -255,6 +257,7 @@ interface MapCardProps {
   readonly isActive: boolean;
   readonly isLast: boolean;
   readonly progress: FlashProgress;
+  readonly pace: Readonly<Record<string, number>>;
   readonly unlocked: boolean;
   readonly unlockAll: boolean;
   /** Just unlocked: keep the locked look and play the reveal once centred. */
@@ -272,6 +275,7 @@ function MapCard({
   isActive,
   isLast,
   progress,
+  pace,
   unlocked,
   unlockAll,
   reveal,
@@ -518,6 +522,7 @@ function MapCard({
             <LevelPath
               map={map}
               progress={progress}
+              pace={pace}
               width={pathWidth}
               height={pathHeight}
               onSelect={onSelectLevel}

@@ -1,5 +1,6 @@
 import { useAchievementStore } from '../stores/achievementStore';
 import { useCampaignStore } from '../stores/campaignStore';
+import { useDailyGoalStore } from '../stores/dailyGoalStore';
 import { useDojoStore } from '../stores/dojoStore';
 import { useEconomyStore } from '../stores/economyStore';
 import { useHydrationStore } from '../stores/hydrationStore';
@@ -7,6 +8,7 @@ import { useModeStatsStore } from '../stores/modeStatsStore';
 import { useProfileStore } from '../stores/profileStore';
 import { useProgressionStore } from '../stores/progressionStore';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useWeakSpotsStore } from '../stores/weakSpotsStore';
 import { createDefaultSave } from './defaults';
 import { SaveData } from './schema';
 import { loadSave, resetSave, writeSave } from './storage';
@@ -33,6 +35,8 @@ export function applySaveToStores(save: SaveData): void {
   useModeStatsStore.getState().hydrate(save.modeStats);
   useCampaignStore.getState().hydrate(save.campaign);
   useDojoStore.getState().hydrate(save.dojo);
+  useWeakSpotsStore.getState().hydrate(save.weakSpots);
+  useDailyGoalStore.getState().hydrate(save.daily);
 }
 
 export function collectSaveFromStores(): SaveData {
@@ -41,6 +45,7 @@ export function collectSaveFromStores(): SaveData {
   const progression = useProgressionStore.getState();
   const settings = useSettingsStore.getState();
   const dojo = useDojoStore.getState();
+  const daily = useDailyGoalStore.getState();
 
   return {
     profile: {
@@ -102,6 +107,19 @@ export function collectSaveFromStores(): SaveData {
       onboardingDone: dojo.onboardingDone,
       flashLevels: { ...dojo.flashLevels },
       flashCountTipSeen: dojo.flashCountTipSeen,
+      flashPace: { ...dojo.flashPace },
+    },
+    weakSpots: {
+      spots: useWeakSpotsStore.getState().spots.map((spot) => ({
+        ...spot,
+        cards: spot.cards.map((card) => ({ ...card })),
+      })),
+    },
+    daily: {
+      dayKey: daily.dayKey,
+      progress: daily.progress,
+      streak: daily.streak,
+      lastClaimedDayKey: daily.lastClaimedDayKey,
     },
   };
 }
@@ -136,6 +154,8 @@ function subscribeForPersistence(): void {
     useModeStatsStore,
     useCampaignStore,
     useDojoStore,
+    useWeakSpotsStore,
+    useDailyGoalStore,
   ] as const;
   for (const store of stores) {
     unsubscribers.push(store.subscribe(scheduleSave));

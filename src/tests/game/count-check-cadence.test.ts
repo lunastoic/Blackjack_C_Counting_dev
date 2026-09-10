@@ -139,15 +139,23 @@ describe('Learn coach count checks (Training Mode off)', () => {
     expect(session().answerCountCheck(check.correct)).toBe(false);
   });
 
-  it('checks pop regardless of the stored coach level (dial disabled → Training off is Learn)', () => {
+  it('checks only pop under Learn — Off and Full never interrupt, whatever the Training switch says', () => {
     for (const level of ['off', 'full'] as const) {
-      resetStores();
-      useSettingsStore.getState().setTrainingMode(false);
-      useSettingsStore.getState().setCountCoachLevel(level);
-      expect(session().startSession(1)).toBe(true);
-      playWinningRound();
-      expect(session().countCheck).not.toBeNull();
+      for (const trainingMode of [false, true]) {
+        resetStores();
+        useSettingsStore.getState().setTrainingMode(trainingMode);
+        useSettingsStore.getState().setCountCoachLevel(level);
+        expect(session().startSession(1)).toBe(true);
+        playWinningRound();
+        expect(session().countCheck).toBeNull();
+      }
     }
+    resetStores();
+    useSettingsStore.getState().setTrainingMode(true);
+    useSettingsStore.getState().setCountCoachLevel('learn');
+    expect(session().startSession(1)).toBe(true);
+    playWinningRound();
+    expect(session().countCheck).not.toBeNull();
   });
 });
 

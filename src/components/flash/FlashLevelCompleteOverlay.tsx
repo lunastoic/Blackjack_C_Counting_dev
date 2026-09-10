@@ -18,6 +18,10 @@ interface FlashLevelCompleteOverlayProps {
   readonly xpAwarded: number;
   /** Chips the run's new stars paid. */
   readonly chipsAwarded: number;
+  /** Right answers a minute on this run (only when it cleared the level). */
+  readonly pace?: number | null;
+  /** The run's pace beat the level's previous best. */
+  readonly paceIsBest?: boolean;
   /** Headline for the clear — "21 in a row." / "10 of 10 checks." */
   readonly title: string;
   /** What comes next — "Next up: Card Groups." */
@@ -42,6 +46,8 @@ export function FlashLevelCompleteOverlay({
   stars,
   xpAwarded,
   chipsAwarded,
+  pace = null,
+  paceIsBest = false,
   title,
   body,
   scorecard,
@@ -102,6 +108,14 @@ export function FlashLevelCompleteOverlay({
               <Text style={styles.chips}>+{formatChips(chipsAwarded)} chips</Text>
             ) : null}
             {xpAwarded > 0 ? <Text style={styles.xp}>+{xpAwarded} XP</Text> : null}
+          </View>
+        ) : null}
+        {pace !== null && pace > 0 ? (
+          <View style={styles.paceRow} accessibilityLabel={`Pace ${pace} a minute${paceIsBest ? ', new best' : ''}`}>
+            <Ionicons name="speedometer-outline" size={14} color={paceIsBest ? colors.goldBright : colors.textMuted} />
+            <Text style={[styles.pace, paceIsBest && styles.paceBest]}>
+              {pace}/min{paceIsBest ? ' · new best pace' : ''}
+            </Text>
           </View>
         ) : null}
 
@@ -215,6 +229,20 @@ const styles = StyleSheet.create({
     color: colors.success,
     fontSize: fontSizes.subtitle,
     fontWeight: fontWeights.bold,
+  },
+  paceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  pace: {
+    color: colors.textMuted,
+    fontSize: fontSizes.small,
+    fontWeight: fontWeights.semibold,
+    fontVariant: ['tabular-nums'],
+  },
+  paceBest: {
+    color: colors.goldBright,
   },
   actions: {
     alignSelf: 'stretch',

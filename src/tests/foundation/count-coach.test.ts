@@ -62,12 +62,11 @@ describe('Count Coach levels', () => {
     expect(isCountCoachLevel('quiz')).toBe(false);
   });
 
-  it('Training Mode defaults on and the table switch picks the effective level', () => {
+  it('the dial alone picks the effective level; the legacy Training switch is ignored', () => {
     expect(useSettingsStore.getState().trainingMode).toBe(true);
-    // Dial disabled: the switch alone decides — on is Full, off is Learn.
     for (const level of ['off', 'learn', 'full'] as const) {
-      expect(effectiveCountCoachLevel(level, true)).toBe('full');
-      expect(effectiveCountCoachLevel(level, false)).toBe('learn');
+      expect(effectiveCountCoachLevel(level, true)).toBe(level);
+      expect(effectiveCountCoachLevel(level, false)).toBe(level);
     }
     useSettingsStore.getState().setTrainingMode(false);
     expect(useSettingsStore.getState().trainingMode).toBe(false);
@@ -160,6 +159,6 @@ describe('save migration', () => {
       });
       expect(settingsSchema.parse(migrated.settings).countCoachLevel).toBe(to);
     }
-    expect(SAVE_SCHEMA_VERSION).toBe(13);
+    expect(SAVE_SCHEMA_VERSION).toBe(14);
   });
 });

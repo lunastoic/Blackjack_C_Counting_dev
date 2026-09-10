@@ -300,6 +300,25 @@ function migrateV12toV13(data: unknown): unknown {
   };
 }
 
+/**
+ * v13 → v14: best pace per training level, the weak-spots log of off-book
+ * table plays, and the daily goal with its day streak. All empty to start —
+ * nothing the player earned before is touched.
+ */
+function migrateV13toV14(data: unknown): unknown {
+  const save = (data ?? {}) as Record<string, unknown>;
+  const dojo = (save.dojo ?? {}) as Record<string, unknown>;
+  return {
+    ...save,
+    dojo: {
+      ...dojo,
+      flashPace: {},
+    },
+    weakSpots: { spots: [] },
+    daily: { dayKey: '', progress: 0, streak: 0, lastClaimedDayKey: null },
+  };
+}
+
 export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -313,6 +332,7 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   10: migrateV10toV11,
   11: migrateV11toV12,
   12: migrateV12toV13,
+  13: migrateV13toV14,
 };
 
 export class MigrationError extends Error {

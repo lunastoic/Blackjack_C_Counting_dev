@@ -33,6 +33,7 @@ import {
   DEALER_SPEED_STEP,
   useSettingsStore,
 } from '../../stores/settingsStore';
+import { useWeakSpotsStore } from '../../stores/weakSpotsStore';
 import {
   colors,
   fontSizes,
@@ -234,6 +235,7 @@ function AchievementsTab({ mapId }: { mapId: number }) {
 
 function TrainingTab({ onNavigate }: { onNavigate: (href: Href) => void }) {
   const settings = useSettingsStore();
+  const weakSpotCount = useWeakSpotsStore((state) => state.spots.length);
   return (
     <>
       {FEATURES.countCoachDial ? (
@@ -244,42 +246,50 @@ function TrainingTab({ onNavigate }: { onNavigate: (href: Href) => void }) {
           />
         </View>
       ) : null}
+      {FEATURES.trainingAidToggles ? (
+        <>
+          <View style={styles.card}>
+            <Text style={styles.sectionLabel}>Training mode</Text>
+            <ToggleRow
+              label="Training mode"
+              value={settings.trainingMode}
+              onChange={settings.setTrainingMode}
+            />
+          </View>
+          <View style={styles.card}>
+            <Text style={styles.sectionLabel}>Training aids</Text>
+            <ToggleRow
+              label="Card underglow"
+              value={settings.trainingAids.cardUnderglow}
+              onChange={(v) => settings.setTrainingAid('cardUnderglow', v)}
+            />
+            <Divider />
+            <ToggleRow
+              label="Strategy hints"
+              value={settings.trainingAids.strategyHints}
+              onChange={(v) => settings.setTrainingAid('strategyHints', v)}
+            />
+            <Divider />
+            <ToggleRow
+              label="Count pulse"
+              value={settings.trainingAids.countPulse}
+              onChange={(v) => settings.setTrainingAid('countPulse', v)}
+            />
+            <Divider />
+            <ToggleRow
+              label="Distribution charts"
+              value={settings.trainingAids.distributionCharts}
+              onChange={(v) => settings.setTrainingAid('distributionCharts', v)}
+            />
+          </View>
+        </>
+      ) : null}
       <View style={styles.card}>
-        <Text style={styles.sectionLabel}>Training mode</Text>
-        <ToggleRow
-          label="Training mode"
-          value={settings.trainingMode}
-          onChange={settings.setTrainingMode}
+        <LinkRow
+          label={weakSpotCount > 0 ? `Weak spots (${weakSpotCount})` : 'Weak spots'}
+          icon="fitness-outline"
+          onPress={() => onNavigate('/weak-spots')}
         />
-      </View>
-      <View style={styles.card}>
-        <Text style={styles.sectionLabel}>Training aids</Text>
-        <ToggleRow
-          label="Card underglow"
-          value={settings.trainingAids.cardUnderglow}
-          onChange={(v) => settings.setTrainingAid('cardUnderglow', v)}
-        />
-        <Divider />
-        <ToggleRow
-          label="Strategy hints"
-          value={settings.trainingAids.strategyHints}
-          onChange={(v) => settings.setTrainingAid('strategyHints', v)}
-        />
-        <Divider />
-        <ToggleRow
-          label="Count pulse"
-          value={settings.trainingAids.countPulse}
-          onChange={(v) => settings.setTrainingAid('countPulse', v)}
-        />
-        <Divider />
-        <ToggleRow
-          label="Distribution charts"
-          value={settings.trainingAids.distributionCharts}
-          onChange={(v) => settings.setTrainingAid('distributionCharts', v)}
-        />
-      </View>
-      <View style={styles.card}>
-        <LinkRow label="How to Play" icon="book-outline" onPress={() => onNavigate('/how-to-play')} />
       </View>
     </>
   );
@@ -287,7 +297,9 @@ function TrainingTab({ onNavigate }: { onNavigate: (href: Href) => void }) {
 
 function SettingsTab({ mapId, onNavigate }: { mapId: number; onNavigate: (href: Href) => void }) {
   const settings = useSettingsStore();
-  const deckCount = useGameSessionStore((state) => state.map?.deckCount ?? 6);
+  const map = useGameSessionStore((state) => state.map);
+  const deckCount = map?.deckCount ?? 6;
+  const pace = map?.dealerPace ?? 1;
   return (
     <>
       <View style={styles.card}>
@@ -313,8 +325,9 @@ function SettingsTab({ mapId, onNavigate }: { mapId: number; onNavigate: (href: 
           onChange={settings.setDealerSpeed}
         />
         <Text style={styles.note}>
-          This casino deals a {deckCount}-deck shoe at 88% penetration — decks are set by
-          the house, not the settings.
+          {map?.name ?? 'This casino'} deals at {pace.toFixed(2)}× — your setting stacks on
+          top of the house pace. The shoe is {deckCount} deck{deckCount === 1 ? '' : 's'} at 88%
+          penetration — decks are set by the house, not the settings.
         </Text>
       </View>
       <View style={styles.card}>
@@ -333,6 +346,8 @@ function SettingsTab({ mapId, onNavigate }: { mapId: number; onNavigate: (href: 
           icon="options-outline"
           onPress={() => onNavigate('/settings')}
         />
+        <Divider />
+        <LinkRow label="How to Play" icon="book-outline" onPress={() => onNavigate('/how-to-play')} />
       </View>
       {FLASH_DEBUG_AVAILABLE ? <DebugCard mapId={mapId} /> : null}
     </>

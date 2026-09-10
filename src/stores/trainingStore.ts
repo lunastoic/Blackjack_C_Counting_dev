@@ -37,6 +37,7 @@ import {
 } from '../engine/dojo';
 import { defaultRng, Rng } from '../engine/shoe/rng';
 import { Shoe } from '../engine/shoe/shoe';
+import { useDailyGoalStore } from './dailyGoalStore';
 import { useDojoStore, TrainingLevelOutcome } from './dojoStore';
 
 /**
@@ -170,6 +171,15 @@ export interface TrainingState {
   readonly meterDrainMs: number;
   /** The run failed because the meter ran dry, not on strikes. */
   readonly timedOut: boolean;
+
+  /** Time questions have been open this run (ms) — the pace clock. */
+  readonly openMs: number;
+  /** Right answers this run. */
+  readonly rightAnswers: number;
+  /** Pace at the last star banked: right answers per minute of open time. */
+  readonly pace: number | null;
+  /** That pace set a new best for the level. */
+  readonly paceIsBest: boolean;
 
   /** Point the felt at a level. Clears any run in progress. */
   readonly load: (mapId: number, level: number) => void;
@@ -316,6 +326,10 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
       meter: { fill: 1, at: Date.now(), draining: false },
       meterDrainMs: meterDrainMs(mapId, level),
       timedOut: false,
+      openMs: 0,
+      rightAnswers: 0,
+      pace: null,
+      paceIsBest: false,
     };
   }
 
@@ -333,18 +347,34 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
     meterTimer = schedule(meterEmpty, fill * drainMs);
   }
 
-  /** The question closed: freeze the meter where it is. */
+  /** The question closed: freeze the meter where it is and clock the open time. */
   function holdMeter(): void {
-    const { meter, meterDrainMs: drainMs } = get();
+    const { meter, meterDrainMs: drainMs, openMs } = get();
     cancelMeterTimer();
     const now = Date.now();
-    set({ meter: { fill: meterFillAt(meter, drainMs, now), at: now, draining: false } });
+    set({
+      meter: { fill: meterFillAt(meter, drainMs, now), at: now, draining: false },
+      openMs: openMs + (meter.draining ? Math.max(0, now - meter.at) : 0),
+    });
   }
 
-  /** A right answer tops the (held) meter up, never past full. */
+  /** A right answer tops the (held) meter up, never past full, and counts for the pace. */
   function feedMeter(): void {
-    const { meter } = get();
-    set({ meter: { ...meter, fill: Math.min(1, meter.fill + METER_TOP_UP) } });
+    const { meter, rightAnswers } = get();
+    set({
+      meter: { ...meter, fill: Math.min(1, meter.fill + METER_TOP_UP) },
+      rightAnswers: rightAnswers + 1,
+    });
+    useDailyGoalStore.getState().noteTrainingAnswer();
+  }
+
+  /** Right answers per minute of question-open time so far this run. */
+  function currentPace(): number {
+    const { openMs, rightAnswers } = get();
+    if (openMs <= 0 || rightAnswers <= 0) {
+      return 0;
+    }
+    return Math.round((rightAnswers * 60_000) / openMs);
   }
 
   /** The meter ran dry: the run is over with whatever it banked. */
@@ -367,8 +397,13 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
     const banked = dojo.completeTrainingLevel(mapId, level, stars);
     dojo.touchPractice();
     bankSerial += 1;
+    // A clearing run sets the level's pace; the best on the ladder only rises.
+    const pace = isClearingStars(stars) ? currentPace() : null;
+    const paceIsBest = pace !== null && dojo.recordTrainingPace(mapId, level, pace);
     set({
       stars,
+      pace: pace ?? get().pace,
+      paceIsBest: paceIsBest || get().paceIsBest,
       starBank: { stars, chips: banked.chipsAwarded, serial: bankSerial },
       outcome: {
         stars: banked.stars,

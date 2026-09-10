@@ -6,6 +6,7 @@ import { CHIP_SETS, LEVEL_ART } from '../../assets/registry';
 import { CasinoMap } from '../../engine/betting/casino';
 import {
   FlashProgress,
+  flashLevelKey,
   flashStars,
   isFlashLevelDone,
   isFlashLevelUnlocked,
@@ -45,6 +46,8 @@ export type LevelNodeState = 'done' | 'current' | 'locked';
 interface LevelPathProps {
   readonly map: CasinoMap;
   readonly progress: FlashProgress;
+  /** Best pace per level (right answers a minute), keyed by `flashLevelKey`. */
+  readonly pace?: Readonly<Record<string, number>>;
   readonly width: number;
   /** All six nodes are laid out to fit exactly this height — never scrolls. */
   readonly height: number;
@@ -93,6 +96,7 @@ function nodeState(progress: FlashProgress, mapId: number, level: number): Level
 export function LevelPath({
   map,
   progress,
+  pace = {},
   width,
   height,
   onSelect,
@@ -143,6 +147,7 @@ export function LevelPath({
           }
           isStart={spec.level === nextLevel}
           stars={flashStars(progress, map.id, spec.level)}
+          pace={pace[flashLevelKey(map.id, spec.level)]}
           art={artForLevel(map, spec.level).source}
           artScale={artForLevel(map, spec.level).scale}
           center={centers[index]}
@@ -162,6 +167,8 @@ interface LevelNodeProps {
   readonly state: LevelNodeState;
   readonly isStart: boolean;
   readonly stars: number;
+  /** Best pace on this level, once it has been cleared. */
+  readonly pace?: number;
   readonly art: number;
   readonly artScale: number;
   readonly center: Point;
@@ -177,6 +184,7 @@ function LevelNode({
   state,
   isStart,
   stars,
+  pace,
   art,
   artScale,
   center,
@@ -275,15 +283,21 @@ function LevelNode({
         >
           {level}. {title}
         </Text>
-        <View style={styles.stars} accessibilityLabel={`${stars} of 3 stars`}>
-          {[0, 1, 2].map((index) => (
-            <Ionicons
-              key={index}
-              name={index < stars ? 'star' : 'star-outline'}
-              size={13}
-              color={index < stars ? colors.goldBright : colors.textMuted}
-            />
-          ))}
+        <View
+          style={styles.starsRow}
+          accessibilityLabel={`${stars} of 3 stars${pace ? `, best pace ${pace} a minute` : ''}`}
+        >
+          <View style={styles.stars}>
+            {[0, 1, 2].map((index) => (
+              <Ionicons
+                key={index}
+                name={index < stars ? 'star' : 'star-outline'}
+                size={13}
+                color={index < stars ? colors.goldBright : colors.textMuted}
+              />
+            ))}
+          </View>
+          {pace ? <Text style={styles.pace}>{pace}/min</Text> : null}
         </View>
       </View>
     </View>
@@ -448,9 +462,20 @@ const styles = StyleSheet.create({
   titleLocked: {
     color: colors.textSecondary,
   },
+  starsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   stars: {
     flexDirection: 'row',
     gap: 1,
+  },
+  pace: {
+    color: colors.textMuted,
+    fontSize: fontSizes.caption - 1,
+    fontWeight: fontWeights.semibold,
+    fontVariant: ['tabular-nums'],
   },
   dash: {
     position: 'absolute',

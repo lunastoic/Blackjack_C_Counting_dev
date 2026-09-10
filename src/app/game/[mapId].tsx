@@ -9,8 +9,10 @@ import { BetSpot } from '../../components/game/BetSpot';
 import { BettingPanel } from '../../components/game/BettingPanel';
 import { CountCheckPrompt } from '../../components/game/CountCheckPrompt';
 import { CountPulse } from '../../components/game/CountPulse';
+import { CoachToggle } from '../../components/game/CoachToggle';
 import { CountRail } from '../../components/game/CountRail';
 import { DealerArea } from '../../components/game/DealerArea';
+import { DeviationToast } from '../../components/game/DeviationToast';
 import { DistributionChartModal } from '../../components/game/DistributionChartModal';
 import { FeltBackdrop } from '../../components/game/FeltBackdrop';
 import { GameSettingsSheet } from '../../components/game/GameSettingsSheet';
@@ -31,7 +33,7 @@ import { ObjectivePanel } from '../../components/dojo/ObjectivePanel';
 import { objectivesForMap } from '../../engine/dojo';
 import { SpeedSlider } from '../../components/settings/SettingsRows';
 import { HandResult } from '../../engine/blackjack/resolve';
-import { mapById } from '../../engine/betting/casino';
+import { effectiveDealerSpeed, mapById } from '../../engine/betting/casino';
 import { playSound, warmTableSounds } from '../../services/audio';
 import { initialDealVisibleCounts } from '../../utils/dealSequence';
 import { useDojoStore } from '../../stores/dojoStore';
@@ -49,6 +51,7 @@ import {
   COUNT_COACH_LABELS,
   countCoachCapabilities,
   effectiveCountCoachLevel,
+  effectiveTrainingAids,
 } from '../../utils/countCoach';
 import { FEATURES } from '../../constants/features';
 
@@ -60,11 +63,12 @@ const RESULT_BADGE: Record<HandResult, { text: string; color: string }> = {
 };
 
 /**
- * Blackjack table for every casino. One experience, one switch: Training Mode
- * (the tab on the right rail) turns the live counts, count rail, card
- * underglow and strategy hints on; off is casino-real play with the fogged "?"
- * meter — tap it (or pass post-round checks) to reveal the numbers. The old
- * Count Coach dial (Off/Learn/Full) sits dormant behind FEATURES.countCoachDial.
+ * Blackjack table for every casino. One experience, one dial: the Count
+ * Coach tab on the right rail cycles Off / Learn / Full. Full turns the live
+ * counts, count rail, card underglow, strategy hints and card charts on;
+ * Learn is casino-real play with the fogged "?" meter — tap it (or pass
+ * post-round checks) to reveal the numbers; Off is the bare casino. (The old
+ * on/off Training switch sits behind FEATURES.countCoachDial = false.)
  */
 export default function GameScreen() {
   const router = useRouter();
@@ -87,14 +91,21 @@ export default function GameScreen() {
   const wager = useGameSessionStore((state) => state.wager);
   const dealVisible =
     phase === 'dealing' ? initialDealVisibleCounts(initialDealStep) : null;
-  const underglowEnabled = useSettingsStore((state) => state.trainingAids.cardUnderglow);
-  const chartsEnabled = useSettingsStore((state) => state.trainingAids.distributionCharts);
-  const strategyHintsEnabled = useSettingsStore((state) => state.trainingAids.strategyHints);
-  const pulseEnabled = useSettingsStore((state) => state.trainingAids.countPulse);
-  const dealerSpeed = useSettingsStore((state) => state.dealerSpeed);
+  const trainingAids = useSettingsStore((state) => state.trainingAids);
+  const {
+    cardUnderglow: underglowEnabled,
+    distributionCharts: chartsEnabled,
+    strategyHints: strategyHintsEnabled,
+    countPulse: pulseEnabled,
+  } = effectiveTrainingAids(trainingAids);
+  const dealerSpeedSetting = useSettingsStore((state) => state.dealerSpeed);
+  /** The casino's own pace with the player's setting stacked on top. */
+  const dealerSpeed = effectiveDealerSpeed(map, dealerSpeedSetting);
   const countCoachLevel = useSettingsStore((state) => state.countCoachLevel);
+  const setCountCoachLevel = useSettingsStore((state) => state.setCountCoachLevel);
   const trainingMode = useSettingsStore((state) => state.trainingMode);
   const setTrainingMode = useSettingsStore((state) => state.setTrainingMode);
+  const deviationNotice = useGameSessionStore((state) => state.deviationNotice);
   const coach = countCoachCapabilities(effectiveCountCoachLevel(countCoachLevel, trainingMode));
   const license = useProgressionStore((state) =>
     map ? state.licenseForMap(map.id) : 'none',
@@ -152,10 +163,10 @@ export default function GameScreen() {
     router.replace({ pathname: '/game/[mapId]', params: { mapId: String(mapId) } });
   }
 
-  // Training Mode gates every aid; the ≡ menu toggles refine what "on" shows.
+  // The coach level gates every aid; the per-aid switches (when enabled) refine it.
   const underglow = coach.showCardValueGlow && underglowEnabled;
-  // The training card skin belongs to the dormant dial, not the table switch.
-  const cardSkin = FEATURES.countCoachDial && coach.useTrainingSkin ? 'training' : 'regular';
+  // The Hi-Lo-printed card faces stay shelved (FEATURES.trainingCardSkin).
+  const cardSkin = FEATURES.trainingCardSkin && coach.useTrainingSkin ? 'training' : 'regular';
   const isSplit = (round?.playerHands.length ?? 0) > 1;
   /** Match dealer card size; only shrink further when a split needs two hands. */
   const dealerCardWidth = Math.min((width - 80) / 5.2, 76);
@@ -261,11 +272,16 @@ export default function GameScreen() {
         </View>
 
         {/* The open felt between dealer and player, where the house lettering
-            shows through from the backdrop. The Training Mode tab sits on the
-            right rail of this gap. */}
+            shows through from the backdrop. The Count Coach tab sits on the
+            right rail of this gap; the off-book toast floats in its middle. */}
         <View style={styles.centerFelt}>
+          {coach.level !== 'off' ? <DeviationToast notice={deviationNotice} /> : null}
           <View style={styles.trainingToggle}>
-            <TrainingToggle enabled={trainingMode} onToggle={setTrainingMode} />
+            {FEATURES.countCoachDial ? (
+              <CoachToggle level={countCoachLevel} onSelect={setCountCoachLevel} />
+            ) : (
+              <TrainingToggle enabled={trainingMode} onToggle={setTrainingMode} />
+            )}
           </View>
         </View>
 
@@ -349,7 +365,7 @@ export default function GameScreen() {
             {phase === 'betting' ? (
               <View style={styles.actionSection}>
                 <BettingPanel />
-                {FEATURES.countCoachDial && coach.allowFullTools ? (
+                {FEATURES.autoplayDrill && coach.allowFullTools ? (
                   <Text style={styles.aidLink} onPress={startAutoplay}>
                     Start autoplay drill (no chips at stake)
                   </Text>

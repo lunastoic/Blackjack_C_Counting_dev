@@ -175,6 +175,45 @@ describe('training store — streak drills', () => {
     expect(store().status).toBe('levelComplete');
   });
 
+  it('a clear records the run’s pace — right answers a minute — and keeps the level’s best', () => {
+    store().begin();
+    for (let n = 1; n <= 21; n++) {
+      jest.advanceTimersByTime(1_000);
+      answerCorrectly();
+    }
+    expect(store().status).toBe('cleared');
+    store().stopRun();
+    expect(store().status).toBe('levelComplete');
+    expect(store().pace).toBe(60);
+    expect(store().paceIsBest).toBe(true);
+    expect(useDojoStore.getState().flashPace[flashLevelKey(1, 1)]).toBe(60);
+
+    // A slower run keeps the best on the ladder and says so.
+    store().reset();
+    store().load(1, 1);
+    store().begin();
+    for (let n = 1; n <= 21; n++) {
+      jest.advanceTimersByTime(2_000);
+      answerCorrectly();
+    }
+    store().stopRun();
+    expect(store().pace).toBe(30);
+    expect(store().paceIsBest).toBe(false);
+    expect(useDojoStore.getState().flashPace[flashLevelKey(1, 1)]).toBe(60);
+  });
+
+  it('a failed run records no pace', () => {
+    store().begin();
+    for (let n = 1; n <= 4; n++) {
+      jest.advanceTimersByTime(500);
+      answerWrongly();
+      jest.advanceTimersByTime(5_000);
+    }
+    expect(store().status).toBe('failed');
+    expect(store().pace).toBeNull();
+    expect(useDojoStore.getState().flashPace[flashLevelKey(1, 1)]).toBeUndefined();
+  });
+
   it('a star already paid on a level pays nothing again; a higher one still does', () => {
     const chipsBefore = useEconomyStore.getState().chips;
     store().begin();

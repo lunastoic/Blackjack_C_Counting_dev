@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { GameplayEvent } from '../engine/achievements/events';
-import { CasinoMap, mapById, maxBetForLicense } from '../engine/betting/casino';
+import { CasinoMap, effectiveDealerSpeed, mapById, maxBetForLicense } from '../engine/betting/casino';
 import { isValidBet } from '../engine/betting/bets';
 import { ACTION_COOLDOWN_MS } from '../engine/blackjack/constants';
 import { canDouble, canSplit, PlayerAction } from '../engine/blackjack/rules';
@@ -14,6 +14,7 @@ import {
   startRound,
 } from '../engine/blackjack/round';
 import { resolveRound, RoundResolution } from '../engine/blackjack/resolve';
+import { situationLabel } from '../engine/strategy/describe';
 import { recommendForHand } from '../engine/strategy/recommend';
 import { hiLoValue } from '../engine/cards/card';
 import { trueCount } from '../engine/counting/trueCount';
@@ -43,10 +44,12 @@ import {
   effectiveCountCoachLevel,
   isCountCheckDue,
 } from '../utils/countCoach';
+import { useDailyGoalStore } from './dailyGoalStore';
 import { useEconomyStore } from './economyStore';
 import { useModeStatsStore } from './modeStatsStore';
 import { useProgressionStore } from './progressionStore';
 import { useSettingsStore, clampDealerSpeed } from './settingsStore';
+import { useWeakSpotsStore } from './weakSpotsStore';
 import { awardXpWithRewards, recordGameplayEvent, XpAwardOutcome } from './orchestration';
 
 /**
@@ -55,7 +58,8 @@ import { awardXpWithRewards, recordGameplayEvent, XpAwardOutcome } from './orche
  * dealer pacing) derives from `phase`.
  *
  * TIMING: dealer reveals, resolution pauses, and cleanup all run through
- * `schedule()` timers scaled by the dealer-speed setting (0.5×–2.0×). The
+ * `schedule()` timers scaled by the casino's dealer pace with the player's
+ * dealer-speed setting (0.5×–2.0×) stacked on top. The
  * running count updates ONLY when the store processes a visibility event —
  * never from animation callbacks.
  *
@@ -66,6 +70,20 @@ import { awardXpWithRewards, recordGameplayEvent, XpAwardOutcome } from './orche
 export interface LevelUpNotice {
   readonly level: number;
   readonly chipReward: number;
+}
+
+/**
+ * The player just played off-book. The table never stops for it — the
+ * DeviationToast shows the book play for a beat while the hand goes on.
+ */
+export interface DeviationNotice {
+  readonly chosen: PlayerAction;
+  readonly book: PlayerAction;
+  readonly reasonCode: string;
+  /** "Hard 16 vs 10" — the situation, for the toast's second line. */
+  readonly situation: string;
+  /** Bumps per notice so a repeat shows again. */
+  readonly serial: number;
 }
 
 /**
@@ -108,6 +126,8 @@ interface GameSessionState {
   readonly payout: RoundPayout | null;
   readonly xpAwarded: number;
   readonly levelUpNotice: LevelUpNotice | null;
+  /** The last off-book play this session (null = none yet, or dismissed). */
+  readonly deviationNotice: DeviationNotice | null;
   readonly lastActionAt: number;
   /** Training autoplay drill: bot plays basic strategy with nothing at stake. */
   readonly autoplay: boolean;
@@ -164,6 +184,7 @@ interface GameSessionState {
   /** Cards remaining as the player perceives them (excludes unrevealed dealer draws). */
   getCardsRemainingVisible(): number;
   dismissLevelUp(): void;
+  dismissDeviation(): void;
   /** Learn coach: answer the pending count check. Returns true when correct. */
   answerCountCheck(choice: number): boolean;
   dismissCountCheck(): void;
@@ -207,6 +228,8 @@ const BASE_DELAYS = {
 } as const;
 
 const timers = new Set<ReturnType<typeof setTimeout>>();
+/** Serial for deviation notices — a repeat of the same slip shows again. */
+let deviationSerial = 0;
 
 function clearAllTimers(): void {
   for (const timer of timers) {
@@ -255,10 +278,46 @@ function countDelta(events: readonly RoundEvent[]): number {
 }
 
 export const useGameSessionStore = create<GameSessionState>()((set, get) => {
+  /**
+   * A play the book would not make: post the quiet toast and log the spot
+   * for the Weak Spots drill. Never blocks — the action goes through as is.
+   */
+  function noteDeviation(round: RoundState, action: PlayerAction): void {
+    const hand = round.playerHands[round.activeHandIndex!];
+    const dealerUp = round.dealerHand.cards[1];
+    if (!hand || !dealerUp) {
+      return;
+    }
+    const availability = { canDouble: get().canAct('double'), canSplit: get().canAct('split') };
+    const book = recommendForHand(hand, dealerUp.rank, availability);
+    if (book.preferredAction === action) {
+      return;
+    }
+    deviationSerial += 1;
+    set({
+      deviationNotice: {
+        chosen: action,
+        book: book.preferredAction,
+        reasonCode: book.reasonCode,
+        situation: situationLabel(hand.cards, dealerUp.rank),
+        serial: deviationSerial,
+      },
+    });
+    useWeakSpotsStore.getState().record({
+      cards: hand.cards.map((card) => ({ rank: card.rank, suit: card.suit })),
+      dealerUpRank: dealerUp.rank,
+      ...availability,
+      chosen: action,
+      book: book.preferredAction,
+      reasonCode: book.reasonCode,
+    });
+  }
+
   function scaledDelay(base: number): number {
     const { dealerSpeed, reducedMotion } = useSettingsStore.getState();
-    const { autoplay, isAutoplayRound, autoplaySpeed } = get();
-    const speed = autoplay || isAutoplayRound ? autoplaySpeed : dealerSpeed;
+    const { autoplay, isAutoplayRound, autoplaySpeed, map } = get();
+    const speed =
+      autoplay || isAutoplayRound ? autoplaySpeed : effectiveDealerSpeed(map, dealerSpeed);
     if (reducedMotion) {
       return Math.min(300, base / 2);
     }
@@ -320,6 +379,9 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
         useModeStatsStore
           .getState()
           .recordRegularHand(hand.result, payout.hands[i]?.profit ?? 0);
+        useDailyGoalStore
+          .getState()
+          .noteHand(hand.result === 'win' || hand.result === 'blackjack');
         recordMapEvent({
           type: 'HAND_COMPLETED',
           result: hand.result,
@@ -655,6 +717,7 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
     payout: null,
     xpAwarded: 0,
     levelUpNotice: null,
+    deviationNotice: null,
     lastActionAt: 0,
     autoplay: false,
     isAutoplayRound: false,
@@ -689,6 +752,7 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
         payout: null,
         xpAwarded: 0,
         levelUpNotice: null,
+        deviationNotice: null,
         lastActionAt: 0,
         autoplay: false,
         isAutoplayRound: false,
@@ -786,6 +850,7 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
         payout: null,
         xpAwarded: 0,
         levelUpNotice: null,
+        deviationNotice: null,
         autoplay: false,
         isAutoplayRound: false,
         autoplaySpeed: 1,
@@ -927,6 +992,9 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
       if (!get().canAct(action) || !round || !shoe) {
         return false;
       }
+      if (!get().isAutoplayRound) {
+        noteDeviation(round, action);
+      }
 
       // Double/split stake extra chips before cards move.
       if (action === 'double' || action === 'split') {
@@ -977,6 +1045,8 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
     },
 
     dismissLevelUp: () => set({ levelUpNotice: null }),
+
+    dismissDeviation: () => set({ deviationNotice: null }),
 
     answerCountCheck: (choice) => {
       const check = get().countCheck;
