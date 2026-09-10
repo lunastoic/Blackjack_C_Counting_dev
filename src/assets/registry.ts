@@ -83,7 +83,7 @@ export const appAssets = {
   branding: {
     /** 600×160 title art from the original AppAssets catalog. */
     title: require('../../assets/branding/title.png'),
-    /** 1024×1024 app icon (also wired in app.json); v1 art kept beside it. */
+    /** 1024×1024 app icon (also wired in app.json); v1/v2 art kept beside it. */
     appIcon: require('../../assets/branding/app-icon.png'),
   },
   dealer: {
