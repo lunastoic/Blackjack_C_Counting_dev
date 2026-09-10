@@ -7,8 +7,8 @@ interface FlashPanelProps {
   /** Small-caps headline set between two hairline rules. */
   readonly kicker?: string;
   readonly kickerColor?: string;
-  /** A second small-caps line set directly under the kicker (a slide count). */
-  readonly subKicker?: string;
+  /** A small-caps line set directly above the kicker (a slide count). */
+  readonly overline?: string;
   readonly children: React.ReactNode;
   readonly style?: StyleProp<ViewStyle>;
 }
@@ -18,7 +18,7 @@ interface FlashPanelProps {
  * top edge, and an engraved kicker line. One look for the tutorial beats,
  * the round brief, and anything else that sits on the felt.
  */
-export function FlashPanel({ kicker, kickerColor = colors.gold, subKicker, children, style }: FlashPanelProps) {
+export function FlashPanel({ kicker, kickerColor = colors.gold, overline, children, style }: FlashPanelProps) {
   return (
     <View style={[styles.frame, style]}>
       <LinearGradient
@@ -28,15 +28,15 @@ export function FlashPanel({ kicker, kickerColor = colors.gold, subKicker, child
         style={styles.gradient}
       >
         <View style={styles.sheen} />
+        {kicker && overline ? (
+          <Text style={[styles.kicker, styles.overline, { color: kickerColor }]}>{overline}</Text>
+        ) : null}
         {kicker ? (
           <View style={styles.kickerRow}>
             <View style={styles.rule} />
             <Text style={[styles.kicker, { color: kickerColor }]}>{kicker}</Text>
             <View style={styles.rule} />
           </View>
-        ) : null}
-        {kicker && subKicker ? (
-          <Text style={[styles.kicker, styles.subKicker, { color: kickerColor }]}>{subKicker}</Text>
         ) : null}
         {children}
       </LinearGradient>
@@ -94,9 +94,9 @@ const styles = StyleSheet.create({
     fontWeight: fontWeights.heavy,
     letterSpacing: 3,
   },
-  subKicker: {
+  overline: {
     textAlign: 'center',
-    marginTop: -spacing.xs,
+    marginBottom: -spacing.xs,
   },
   chip: {
     borderRadius: radii.pill,

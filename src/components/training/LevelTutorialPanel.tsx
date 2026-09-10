@@ -18,7 +18,7 @@ export function LevelTutorialPanel({ level, slides, step, onNext, onSkip }: Leve
   const slide = slides[Math.min(Math.max(step, 0), slides.length - 1)];
   const last = step + 1 >= slides.length;
   return (
-    <FlashPanel kicker={`LEVEL ${level}`} subKicker={`${step + 1} OF ${slides.length}`}>
+    <FlashPanel kicker={`LEVEL ${level}`} overline={`${step + 1} OF ${slides.length}`}>
       <Text style={styles.title}>{slide.title}</Text>
       <Text style={styles.body}>{slide.body}</Text>
       <View style={styles.actions}>
