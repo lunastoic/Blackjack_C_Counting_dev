@@ -816,7 +816,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
       <View
         style={[
           styles.bottomPanel,
-          status === 'idle' && styles.bottomPanelIdle,
+          status === 'idle' ? styles.bottomPanelIdle : styles.bottomPanelSeated,
           { paddingBottom: insets.bottom + spacing.md },
         ]}
       >
@@ -895,6 +895,13 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xs,
     minHeight: 200,
     justifyContent: 'flex-end',
+  },
+  /**
+   * In play the question and its answers ride a little above the bottom edge —
+   * lifted in place, so the felt and the cards above keep their layout.
+   */
+  bottomPanelSeated: {
+    transform: [{ translateY: -(spacing.xxl + spacing.md) }],
   },
   /** Idle: the brief / primer card floats centred in the felt the deck leaves. */
   briefScrim: {
