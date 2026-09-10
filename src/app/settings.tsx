@@ -16,14 +16,21 @@ import { FEATURES } from '../constants/features';
 import { CASINO_MAPS } from '../engine/betting/casino';
 import { devResetSave } from '../persistence/hydrate';
 import {
+  DEBUG_CHIP_GRANT,
+  debugAddChips,
+  debugAddPlayerLevel,
   debugCompleteMap,
+  debugResetChips,
   debugResetLevelsAndMaps,
+  debugResetPlayerLevel,
   FLASH_DEBUG_AVAILABLE,
   useFlashDebugStore,
 } from '../stores/flashDebugStore';
 import { MAX_DISPLAY_NAME_LENGTH } from '../persistence/schema';
 import { useDojoStore } from '../stores/dojoStore';
+import { useEconomyStore } from '../stores/economyStore';
 import { useProfileStore } from '../stores/profileStore';
+import { useProgressionStore } from '../stores/progressionStore';
 import {
   DEALER_SPEED_MAX,
   DEALER_SPEED_MIN,
@@ -89,6 +96,9 @@ export default function SettingsScreen() {
   function handleDebugClearLadder() {
     debugCompleteMap(debugMapId);
   }
+
+  const debugChips = useEconomyStore((state) => state.chips);
+  const debugPlayerLevel = useProgressionStore((state) => state.level);
 
   function handleDebugResetLevels() {
     Alert.alert('Reset levels & maps?', 'Ladder progress, licenses, and map unlocks reset.', [
@@ -247,6 +257,22 @@ export default function SettingsScreen() {
             <View style={styles.resetSpacer}>
               <SecondaryButton label="Reset levels & maps" onPress={handleDebugResetLevels} />
             </View>
+            <Divider />
+            <Text style={styles.fieldLabel}>Chips · {debugChips.toLocaleString()}</Text>
+            <View style={styles.debugPair}>
+              <SecondaryButton
+                label={`+${DEBUG_CHIP_GRANT.toLocaleString()} chips`}
+                onPress={() => debugAddChips()}
+                style={styles.debugPairButton}
+              />
+              <SecondaryButton label="Reset chips" onPress={debugResetChips} style={styles.debugPairButton} />
+            </View>
+            <Text style={[styles.fieldLabel, styles.resetSpacer]}>Player level · {debugPlayerLevel}</Text>
+            <View style={styles.debugPair}>
+              <SecondaryButton label="+1 level" onPress={debugAddPlayerLevel} style={styles.debugPairButton} />
+              <SecondaryButton label="Reset level" onPress={debugResetPlayerLevel} style={styles.debugPairButton} />
+            </View>
+            <Divider />
             <View style={styles.resetSpacer}>
               <SecondaryButton label="Reset save data" onPress={handleDevReset} />
             </View>
@@ -291,6 +317,13 @@ const styles = StyleSheet.create({
   },
   resetSpacer: {
     marginTop: spacing.md,
+  },
+  debugPair: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  debugPairButton: {
+    flex: 1,
   },
   linkGrid: {
     gap: spacing.sm,

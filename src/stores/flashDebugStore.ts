@@ -1,6 +1,8 @@
 import { create } from 'zustand';
-import { CASINO_MAPS } from '../engine/betting/casino';
+import { CASINO_MAPS, STARTING_BANKROLL } from '../engine/betting/casino';
+import { INITIAL_PROGRESS, MAX_LEVEL } from '../engine/progression/progression';
 import { useDojoStore } from './dojoStore';
+import { useEconomyStore } from './economyStore';
 import { useProgressionStore } from './progressionStore';
 
 /**
@@ -104,4 +106,39 @@ export function debugResetLevelsAndMaps(): void {
   }
   useDojoStore.setState({ flashLevels: {} });
   useProgressionStore.setState({ unlockedMapIds: [1], licenses: {} });
+}
+
+export const DEBUG_CHIP_GRANT = 1_000;
+
+/** Drops a stack on the bankroll, saved like a real credit. */
+export function debugAddChips(amount = DEBUG_CHIP_GRANT): void {
+  if (!FLASH_DEBUG_AVAILABLE) {
+    return;
+  }
+  useEconomyStore.getState().creditChips(amount);
+}
+
+/** Back to the fresh-install bankroll. */
+export function debugResetChips(): void {
+  if (!FLASH_DEBUG_AVAILABLE) {
+    return;
+  }
+  useEconomyStore.setState({ chips: STARTING_BANKROLL });
+}
+
+/** One player level up (XP into the level cleared), capped at the max. */
+export function debugAddPlayerLevel(): void {
+  if (!FLASH_DEBUG_AVAILABLE) {
+    return;
+  }
+  const { level } = useProgressionStore.getState();
+  useProgressionStore.setState({ level: Math.min(MAX_LEVEL, level + 1), xpIntoLevel: 0 });
+}
+
+/** Player level and XP back to a fresh install; maps and licenses stay. */
+export function debugResetPlayerLevel(): void {
+  if (!FLASH_DEBUG_AVAILABLE) {
+    return;
+  }
+  useProgressionStore.setState({ level: INITIAL_PROGRESS.level, xpIntoLevel: INITIAL_PROGRESS.xpIntoLevel });
 }
