@@ -31,7 +31,7 @@ export const TUTORIAL_STEPS = 5;
 
 /** One half-breathe of the card glow. Calm, not a strobe. */
 const PULSE_HALF_MS = 750;
-const SPREAD_CARD_WIDTH = 34;
+const SPREAD_CARD_WIDTH = 32;
 /** Hairline around the spread and pile cards; the art keeps its aspect inside it. */
 const SPREAD_RING = 1;
 /** Glow ring around a pulled card. */
@@ -71,7 +71,7 @@ export const SPREAD_DECK_BOTTOM = Math.ceil(RIBBON_MID_Y + SPREAD_CARD_WIDTH / C
 
 /** Pile and pulled cards read at one size: five across with room to spare. */
 function beatCardWidth(width: number): number {
-  return Math.min((width - 72) / 5 - 4, 66);
+  return Math.min((width - 72) / 5 - 4, 62);
 }
 
 /** Foot of the gathered pile; lettering prints below it while the deck rests. */

@@ -86,7 +86,7 @@ interface TrainingLevelScreenProps {
 const EMPTY_TABLE: TableFrame = { seats: [], dealer: null };
 
 /** Card width on the value drills; groups deal the same card until the row can't fit. */
-const SINGLE_CARD_WIDTH = 96;
+const SINGLE_CARD_WIDTH = 90;
 
 /** Exact-entry bounds, matching the four-choice ranges in the store. */
 const ENTRY_BOUNDS: Record<QuestionKind, { min: number; max: number }> = {
@@ -443,14 +443,14 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
           <CountStreamStage
             frame={frame}
             totalCards={totalCards}
-            cardWidth={96}
+            cardWidth={SINGLE_CARD_WIDTH}
             speed={speed.animation}
             showScale={spec.showDeckScale}
             showProgress={!asksDecks}
           />
         );
       case 'tableCount': {
-        const perSeat = [74, 64, 52, 46][Math.min(spec.seats, 4) - 1];
+        const perSeat = [70, 60, 49, 43][Math.min(spec.seats, 4) - 1];
         const cardWidth = Math.max(40, Math.min(perSeat, Math.floor((width - 120) / spec.seats / 1.7)));
         return (
           <TableStage
@@ -790,10 +790,11 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
       {seated ? <TrainingMeter meter={meter} drainMs={meterDrainMs} /> : null}
 
       <TableCamera
-        // Training never sits down: the pull-up-a-chair move belongs to the
-        // game table's Deal. The stage holds the standing frame throughout,
-        // which is the frame the spread ribbon and its lettering are cut for.
-        seated={false}
+        // Training never pulls up a chair: that move belongs to the game
+        // table's Deal. The stage holds the seated (1×) frame throughout —
+        // the standing pull-back is a scale transform, which resamples every
+        // card face on the felt and reads as a soft print at drill size.
+        seated
         // A fixed height, not a flex basis: Yoga kept the first basis it laid
         // out, so the felt never grew when the primer dealt.
         style={status === 'idle' ? { flex: 0, height: idleStageHeight } : undefined}
