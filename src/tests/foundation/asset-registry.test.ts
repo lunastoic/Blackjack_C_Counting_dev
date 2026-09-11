@@ -23,8 +23,8 @@ describe('asset registry', () => {
     expect(Object.keys(appAssets).sort()).toEqual(['branding', 'buttons', 'dealer', 'icons', 'shoeDeck']);
   });
 
-  it('resolves all 52 regular and 52 training card faces plus the card back', () => {
-    for (const skin of ['regular', 'training'] as const) {
+  it('resolves all 52 faces of every deck plus the card back', () => {
+    for (const skin of ['regular', 'luna', 'training'] as const) {
       for (const suit of SUITS) {
         for (const rank of RANKS) {
           expect(CARD_FACES[skin][suit][rank]).toBeDefined();

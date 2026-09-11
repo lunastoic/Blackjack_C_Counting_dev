@@ -15,7 +15,8 @@ Status: **inventory only — nothing has been copied yet** (awaiting review, per
 
 ```
 assets/
-  cards/            52 faces + deck-cover.png        (from Cards/)
+  cards/            52 faces (The Public Domain Deck, CC0 — default) + deck-cover.png
+  luna-cards/       52 faces, the original house deck  (from Cards/)
   training-cards/   52 faces, t_ prefix dropped      (from TrainingCards/)
   chips/
     default/        chip-1,5,10,25,50,100            (from Chips/Chip_*)
