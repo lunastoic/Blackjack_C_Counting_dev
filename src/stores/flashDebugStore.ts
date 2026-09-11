@@ -11,11 +11,10 @@ import { useProgressionStore } from './progressionStore';
  * away once that is back to __DEV__.
  */
 /**
- * TEMPORARY: the kit ships in release builds so the table can be reached on a
- * phone before the ladder is played through. Set back to false (→ dev only)
- * before the store submission.
+ * Flip to true only for a phone build that needs the table before the ladder
+ * is played through; store builds ship with it false (→ dev only).
  */
-const TESTING_TOOLS_IN_RELEASE = true;
+const TESTING_TOOLS_IN_RELEASE = false;
 export const FLASH_DEBUG_AVAILABLE = __DEV__ || TESTING_TOOLS_IN_RELEASE;
 
 interface FlashDebugState {
