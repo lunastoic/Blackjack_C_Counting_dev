@@ -7,6 +7,7 @@ import { SecondaryButton } from '../../components/common/SecondaryButton';
 import { ActionBar } from '../../components/game/ActionBar';
 import { BetSpot } from '../../components/game/BetSpot';
 import { BettingPanel } from '../../components/game/BettingPanel';
+import { DEALT_CARD_WIDTH } from '../../components/game/PlayingCard';
 import { CountCheckPrompt } from '../../components/game/CountCheckPrompt';
 import { CountPulse } from '../../components/game/CountPulse';
 import { CoachToggle } from '../../components/game/CoachToggle';
@@ -76,7 +77,7 @@ const CARD_GAP = spacing.xs;
 export default function GameScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const { mapId } = useLocalSearchParams<{ mapId: string }>();
   const parsed = Number(mapId);
   const map = Number.isInteger(parsed) ? mapById(parsed) : undefined;
@@ -171,11 +172,6 @@ export default function GameScreen() {
   // The Hi-Lo-printed card faces stay shelved (FEATURES.trainingCardSkin).
   const cardSkin = FEATURES.trainingCardSkin && coach.useTrainingSkin ? 'training' : 'regular';
   const isSplit = (round?.playerHands.length ?? 0) > 1;
-  /** Match dealer card size; only shrink further when a split needs two hands. */
-  const dealerCardWidth = Math.min((width - 80) / 5.2, 76);
-  const playerCardWidth = isSplit
-    ? Math.min((width - 120) / 6, dealerCardWidth)
-    : dealerCardWidth;
   // Cards sit a little apart; a long hand tucks in only once it would run
   // out of felt. The dealer has the row inside the screen padding; split
   // hands share it, each inside its own slot padding.
@@ -183,6 +179,15 @@ export default function GameScreen() {
   const playerRowWidth = isSplit
     ? (dealerRowWidth - spacing.sm) / 2 - spacing.sm * 2
     : dealerRowWidth;
+  /**
+   * The drills' card size, dealer and player alike; a split deals smaller so
+   * two hands fit. Short screens scale it down so both hands, the felt
+   * between them and the action bar still share the height.
+   */
+  const dealerCardWidth = Math.min(DEALT_CARD_WIDTH, dealerRowWidth / 3, Math.round(height / 9.4));
+  const playerCardWidth = isSplit
+    ? Math.min(Math.round(dealerCardWidth * 0.8), (playerRowWidth - CARD_GAP) / 2)
+    : dealerCardWidth;
   const modeLabel = FEATURES.countCoachDial
     ? `Count Coach · ${COUNT_COACH_LABELS[countCoachLevel]}`
     : 'Hi-Lo Trainer';
@@ -560,7 +565,8 @@ const styles = StyleSheet.create({
   handSlot: {
     alignItems: 'center',
     gap: spacing.xs,
-    padding: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingBottom: spacing.sm,
   },
   resultBadge: {
     fontSize: fontSizes.small,

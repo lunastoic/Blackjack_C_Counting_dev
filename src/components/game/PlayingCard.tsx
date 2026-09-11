@@ -18,6 +18,9 @@ import { colors, durations, radii } from '../../theme';
 /** Aspect ratio of the migrated card art (500×700). */
 export const CARD_ASPECT = 500 / 700;
 
+/** One card size wherever a hand is dealt to be read: the table and the drills. */
+export const DEALT_CARD_WIDTH = 90;
+
 /** Underglow ring drawn around the face; the face sits fully inside it. */
 const RING_WIDTH = 2;
 

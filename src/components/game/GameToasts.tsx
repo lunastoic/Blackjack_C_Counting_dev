@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { playSound } from '../../services/audio';
 import { haptics } from '../../services/haptics';
@@ -27,6 +28,7 @@ export function GameToasts({ levelUpNotice, onDismissLevelUp }: GameToastsProps 
   const pendingUnlocks = useAchievementStore((state) => state.pendingUnlocks);
   const dismissUnlock = useAchievementStore((state) => state.dismissUnlock);
   const reducedMotion = useReducedMotion();
+  const insets = useSafeAreaInsets();
 
   const unlock = pendingUnlocks[0] ?? null;
 
@@ -55,7 +57,7 @@ export function GameToasts({ levelUpNotice, onDismissLevelUp }: GameToastsProps 
   }
 
   return (
-    <View style={styles.stack} pointerEvents="box-none">
+    <View style={[styles.stack, { top: insets.top + spacing.sm }]} pointerEvents="box-none">
       {levelUp ? (
         <Animated.View
           entering={reducedMotion ? undefined : FadeInUp.duration(250)}
@@ -87,9 +89,9 @@ export function GameToasts({ levelUpNotice, onDismissLevelUp }: GameToastsProps 
 }
 
 const styles = StyleSheet.create({
+  /** Below the status bar and notch — the host is the whole screen, not its safe area. */
   stack: {
     position: 'absolute',
-    top: spacing.sm,
     left: spacing.lg,
     right: spacing.lg,
     gap: spacing.sm,

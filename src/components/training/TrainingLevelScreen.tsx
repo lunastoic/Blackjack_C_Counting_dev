@@ -49,6 +49,7 @@ import {
   tutorialStageHeight,
 } from '../flash/FlashTutorial';
 import { FeltMarkings, feltLetteringHeight } from '../game/FeltMarkings';
+import { DEALT_CARD_WIDTH } from '../game/PlayingCard';
 import { GameSettingsSheet } from '../game/GameSettingsSheet';
 import { GameTableHud } from '../game/GameTableHud';
 import { TableCamera } from '../game/TableCamera';
@@ -86,7 +87,7 @@ interface TrainingLevelScreenProps {
 const EMPTY_TABLE: TableFrame = { seats: [], dealer: null };
 
 /** Card width on the value drills; groups deal the same card until the row can't fit. */
-const SINGLE_CARD_WIDTH = 90;
+const SINGLE_CARD_WIDTH = DEALT_CARD_WIDTH;
 
 /** Exact-entry bounds, matching the four-choice ranges in the store. */
 const ENTRY_BOUNDS: Record<QuestionKind, { min: number; max: number }> = {
