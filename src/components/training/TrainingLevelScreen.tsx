@@ -85,6 +85,9 @@ interface TrainingLevelScreenProps {
 
 const EMPTY_TABLE: TableFrame = { seats: [], dealer: null };
 
+/** Card width on the value drills; groups deal the same card until the row can't fit. */
+const SINGLE_CARD_WIDTH = 96;
+
 /** Exact-entry bounds, matching the four-choice ranges in the store. */
 const ENTRY_BOUNDS: Record<QuestionKind, { min: number; max: number }> = {
   runningCount: { min: -40, max: 40 },
@@ -402,10 +405,12 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
       case 'cardGroup': {
         const cards = item?.kind === 'cards' ? item.cards : [];
         const count = Math.max(1, cards.length);
-        const cardWidth =
-          count === 1
-            ? 96
-            : Math.min(74, Math.floor((width - layout.screenPaddingH * 2 - spacing.sm * (count - 1)) / count));
+        // Every group deals the single-card size; only a row too wide for the
+        // screen shrinks, and then just enough to fit.
+        const cardWidth = Math.min(
+          SINGLE_CARD_WIDTH,
+          Math.floor((width - layout.screenPaddingH * 2 - spacing.sm * (count - 1)) / count),
+        );
         return (
           <CardsStage
             cards={cards}
