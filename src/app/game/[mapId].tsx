@@ -114,6 +114,7 @@ export default function GameScreen() {
   const trainingMode = useSettingsStore((state) => state.trainingMode);
   const setTrainingMode = useSettingsStore((state) => state.setTrainingMode);
   const deviationNotice = useGameSessionStore((state) => state.deviationNotice);
+  const dismissDeviation = useGameSessionStore((state) => state.dismissDeviation);
   const runningCount = useGameSessionStore((state) => state.runningCount);
   const trueCount = useGameSessionStore((state) => state.getTrueCount());
   const revealTier = useGameSessionStore((state) => state.revealTier);
@@ -324,9 +325,8 @@ export default function GameScreen() {
 
         {/* The open felt between dealer and player, where the house lettering
             shows through from the backdrop. The Count Coach tab sits on the
-            right rail of this gap; the off-book toast floats in its middle. */}
+            right rail of this gap. */}
         <View style={styles.centerFelt}>
-          {coach.level !== 'off' ? <DeviationToast notice={deviationNotice} /> : null}
           <View style={styles.trainingToggle}>
             {FEATURES.countCoachDial ? (
               <CoachToggle level={countCoachLevel} onSelect={setCountCoachLevel} />
@@ -390,6 +390,10 @@ export default function GameScreen() {
       {/* Bottom panel — betting keeps a taller slot for the tray; in-round
           uses a compact slot so the hand sits closer to Hit/Stand. */}
       <View style={[styles.bottomPanel, { paddingBottom: insets.bottom + spacing.md }]}>
+        {/* The off-book toast hangs above the buttons the play came from. */}
+        {coach.level !== 'off' ? (
+          <DeviationToast notice={deviationNotice} onDismiss={dismissDeviation} />
+        ) : null}
         {autoplay || isAutoplayRound ? (
           <View style={styles.autoplayRow}>
             <Text style={styles.autoplayText}>
