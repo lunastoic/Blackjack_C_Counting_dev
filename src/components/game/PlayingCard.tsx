@@ -18,6 +18,26 @@ import { colors, durations, radii } from '../../theme';
 /** Aspect ratio of the migrated card art (500×700). */
 export const CARD_ASPECT = 500 / 700;
 
+/** Underglow ring drawn around the face; the face sits fully inside it. */
+const RING_WIDTH = 2;
+
+/**
+ * Corner radius that tracks the art instead of a fixed 8pt: the faces keep
+ * their indices ~4% of the width from the edge, so a fixed radius on a small
+ * card (drill rows run down to 26pt) would clip the corner of the index.
+ */
+export function cardCornerRadius(width: number): number {
+  return Math.min(radii.sm, Math.round(width / 12));
+}
+
+/**
+ * Outer height of a card frame whose art sits inside a `ring`-wide border:
+ * the box inside the ring keeps the exact art aspect, so `cover` never crops.
+ */
+export function cardFrameHeight(width: number, ring: number): number {
+  return (width - ring * 2) / CARD_ASPECT + ring * 2;
+}
+
 interface PlayingCardProps {
   readonly card: Card;
   /**
@@ -142,7 +162,12 @@ export function PlayingCard({
     }).duration(durations.slow / speed);
   }, [reducedMotion, speed]);
 
-  const height = width / CARD_ASPECT;
+  // The face inside the ring keeps the art's exact aspect, so `cover` never
+  // crops a sliver off the edges.
+  const faceWidth = width - RING_WIDTH * 2;
+  const faceHeight = faceWidth / CARD_ASPECT;
+  const height = cardFrameHeight(width, RING_WIDTH);
+  const radius = cardCornerRadius(width);
   const showGlow = underglow && faceUp;
   const glow = showGlow ? glowColor(card) : 'transparent';
 
@@ -153,7 +178,7 @@ export function PlayingCard({
       accessibilityLabel={faceUp ? cardLabel(card) : 'Face-down card'}
       style={[
         styles.container,
-        { width, height },
+        { width, height, borderRadius: radius },
         showGlow && { borderColor: glow },
         showGlow &&
           glowHalo && {
@@ -165,26 +190,21 @@ export function PlayingCard({
           },
       ]}
     >
-      <Animated.View style={[styles.face, backStyle]}>
+      <Animated.View style={[styles.face, { borderRadius: radius }, backStyle]}>
         <Image source={CARD_BACK} style={styles.image} contentFit="cover" />
       </Animated.View>
-      <Animated.View style={[styles.face, faceStyle]}>
-        <Image
-          source={face}
-          style={styles.image}
-          contentFit="cover"
-        />
+      <Animated.View style={[styles.face, { borderRadius: radius }, faceStyle]}>
+        <Image source={face} style={styles.image} contentFit="cover" />
       </Animated.View>
       {/* Reserve layout size even while both faces are absolutely positioned. */}
-      <View style={{ width, height }} />
+      <View style={{ width: faceWidth, height: faceHeight }} />
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: radii.sm,
-    borderWidth: 2,
+    borderWidth: RING_WIDTH,
     borderColor: 'transparent',
   },
   face: {
@@ -193,7 +213,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderRadius: radii.sm,
     overflow: 'hidden',
     backfaceVisibility: 'hidden',
   },

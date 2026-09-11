@@ -12,7 +12,7 @@ import { colors, fontSizes, fontWeights, layout, radii, spacing } from '../../th
 import { COUNT_COACH_BLURBS, COUNT_COACH_LABELS } from '../../utils/countCoach';
 import { IconButton } from '../common/IconButton';
 import { PressableScale } from '../common/PressableScale';
-import { CARD_ASPECT } from '../game/PlayingCard';
+import { CARD_ASPECT, cardCornerRadius } from '../game/PlayingCard';
 
 /** Shared, store-agnostic settings controls used by the Settings screen and the in-game sheet. */
 
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
   deckPreview: {
     width: DECK_PREVIEW_WIDTH,
     height: DECK_PREVIEW_WIDTH / CARD_ASPECT,
-    borderRadius: radii.sm / 2,
+    borderRadius: cardCornerRadius(DECK_PREVIEW_WIDTH),
     backgroundColor: colors.surface,
   },
   deckOptionText: {

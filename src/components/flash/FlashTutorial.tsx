@@ -15,7 +15,7 @@ import { CARD_BACK, CARD_FACES } from '../../assets/cards.generated';
 import { hiLoValue, Rank, RANKS, Suit, SUITS } from '../../engine/cards/card';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { CARD_ASPECT } from '../game/PlayingCard';
+import { CARD_ASPECT, cardCornerRadius, cardFrameHeight } from '../game/PlayingCard';
 import { colors, fontSizes, fontWeights, radii, spacing } from '../../theme';
 import { PrimaryButton } from '../common/PrimaryButton';
 import { FlashPanel } from './FlashPanel';
@@ -32,6 +32,10 @@ export const TUTORIAL_STEPS = 5;
 /** One half-breathe of the card glow. Calm, not a strobe. */
 const PULSE_HALF_MS = 750;
 const SPREAD_CARD_WIDTH = 34;
+/** Hairline around the spread and pile cards; the art keeps its aspect inside it. */
+const SPREAD_RING = 1;
+/** Glow ring around a pulled card. */
+const BEAT_RING = 2;
 const COLLECT_MS = 420;
 const PULL_MS = 420;
 /** Beat cards wait for the pile to gather before they slide out. */
@@ -170,7 +174,7 @@ function RibbonSpread({ width, pile }: { width: number; pile: Point }) {
     () => SUITS.flatMap((suit) => RANKS.map((rank) => ({ suit, rank }))),
     [],
   );
-  const cardHeight = SPREAD_CARD_WIDTH / CARD_ASPECT;
+  const cardHeight = cardFrameHeight(SPREAD_CARD_WIDTH, SPREAD_RING);
 
   return (
     <>
@@ -218,7 +222,12 @@ function RibbonSpread({ width, pile }: { width: number; pile: Point }) {
               },
             ]}
           >
-            <View style={[styles.spreadCard, { transform: [{ rotate }] }]}>
+            <View
+              style={[
+                styles.spreadCard,
+                { borderRadius: cardCornerRadius(SPREAD_CARD_WIDTH), transform: [{ rotate }] },
+              ]}
+            >
               <Image source={faces[suit][rank]} style={styles.cardImage} contentFit="cover" />
             </View>
           </Animated.View>
@@ -231,7 +240,7 @@ function RibbonSpread({ width, pile }: { width: number; pile: Point }) {
 /** The gathered deck at the dealer spot — three offset backs reading as a pile. */
 function DeckPile({ pile, cardWidth }: { pile: Point; cardWidth: number }) {
   const reducedMotion = useReducedMotion();
-  const cardHeight = cardWidth / CARD_ASPECT;
+  const cardHeight = cardFrameHeight(cardWidth, SPREAD_RING);
   return (
     <Animated.View
       entering={reducedMotion ? undefined : FadeIn.duration(200)}
@@ -248,7 +257,13 @@ function DeckPile({ pile, cardWidth }: { pile: Point; cardWidth: number }) {
           style={[
             styles.cardImage,
             styles.pileCard,
-            { width: cardWidth, height: cardHeight, top: -offset * 2, left: -offset * 1.5 },
+            {
+              width: cardWidth,
+              height: cardHeight,
+              borderRadius: cardCornerRadius(cardWidth),
+              top: -offset * 2,
+              left: -offset * 1.5,
+            },
           ]}
           contentFit="cover"
         />
@@ -263,7 +278,7 @@ function BeatCards({ beat, width, pile }: { beat: number; width: number; pile: P
   const faces = CARD_FACES[useSettingsStore((state) => state.cardDeck)];
   const spec = tutorialBeat(beat);
   const cardWidth = beatCardWidth(width);
-  const cardHeight = cardWidth / CARD_ASPECT;
+  const cardHeight = cardFrameHeight(cardWidth, BEAT_RING);
   // A strip of open felt under the pile, whatever the stage height.
   const fanY = pile.y + cardHeight + FAN_GAP;
   const stepX = cardWidth - 6;
@@ -328,7 +343,17 @@ function BeatCards({ beat, width, pile }: { beat: number; width: number; pile: P
             ]}
           >
             <Animated.View style={[styles.bloom, { shadowColor: spec.color }, bloomStyle]}>
-              <View style={[styles.beatCard, { width: cardWidth, height: cardHeight, borderColor: glow }]}>
+              <View
+                style={[
+                  styles.beatCard,
+                  {
+                    width: cardWidth,
+                    height: cardHeight,
+                    borderRadius: cardCornerRadius(cardWidth),
+                    borderColor: glow,
+                  },
+                ]}
+              >
                 <Image
                   source={faces[suit][rank]}
                   style={styles.cardImage}
@@ -404,8 +429,7 @@ const styles = StyleSheet.create({
   spreadCard: {
     width: '100%',
     height: '100%',
-    borderRadius: 4,
-    borderWidth: 1,
+    borderWidth: SPREAD_RING,
     borderColor: colors.borderSubtle,
     overflow: 'hidden',
     backgroundColor: colors.textPrimary,
@@ -419,8 +443,7 @@ const styles = StyleSheet.create({
   },
   pileCard: {
     position: 'absolute',
-    borderRadius: 5,
-    borderWidth: 1,
+    borderWidth: SPREAD_RING,
     borderColor: colors.borderSubtle,
     overflow: 'hidden',
   },
@@ -432,8 +455,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
   },
   beatCard: {
-    borderRadius: radii.sm,
-    borderWidth: 2,
+    borderWidth: BEAT_RING,
     overflow: 'hidden',
     backgroundColor: colors.textPrimary,
   },
