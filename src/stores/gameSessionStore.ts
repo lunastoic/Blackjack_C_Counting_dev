@@ -41,6 +41,7 @@ import {
   buildCountChoices,
   CountCheckKind,
   countCheckKind,
+  countCoachCapabilities,
   effectiveCountCoachLevel,
   isCountCheckDue,
 } from '../utils/countCoach';
@@ -429,8 +430,8 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
   }
 
   /**
-   * Learn coach: one round just finished — decide whether to pop a count
-   * check. Runs before any shuffle so the question snapshots the real count.
+   * The coach's own check: one round just finished — decide whether to pop a
+   * count check. Runs before any shuffle so the question snapshots the real count.
    * Dormant while `FEATURES.autoCountChecks` is off: the player asks for
    * checks by tapping the meter (`requestCountCheck`) instead.
    */
@@ -438,7 +439,7 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
     if (!FEATURES.autoCountChecks || get().isAutoplayRound) {
       return;
     }
-    if (activeCoachLevel() !== 'learn') {
+    if (!countCoachCapabilities(activeCoachLevel()).showCountCheck) {
       return;
     }
     const rounds = get().roundsSinceCountCheck + 1;
@@ -1098,7 +1099,7 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
       if (!sessionActive || phase !== 'betting' || countCheck || autoplay) {
         return false;
       }
-      if (activeCoachLevel() !== 'learn') {
+      if (!countCoachCapabilities(activeCoachLevel()).showCountCheck) {
         return false;
       }
       const runningCount = get().runningCount;

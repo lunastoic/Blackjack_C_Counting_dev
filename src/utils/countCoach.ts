@@ -1,27 +1,33 @@
 import { FEATURES } from '../constants/features';
 import { CountCoachLevel, TrainingAidSettings } from '../engine/types';
+import { formatChips } from './format';
 
 /**
  * Count Coach — the single dial for counting help at the table.
  *
  * Off   → pure casino play, no aids.
- * Learn → play normally while the coach silently tracks the Hi-Lo count and
- *         pops a "what's the count?" check after rounds (see the learn
- *         helpers below). This is where players actually learn to count.
- * Full  → the old Training Mode kit: live running/true counts, the vertical
- *         count rail, training card skin, underglow, hints, drills, charts.
+ * Full  → the coach in one piece. The count meter and rail ride along fogged
+ *         ("?") until the player proves the count with a check — one answer
+ *         lights the running count, a second the true count, a miss fogs a
+ *         tier back — and around them the old Training Mode kit: Hi-Lo card
+ *         underglow, strategy hints, card charts, and, once the count shows,
+ *         the bet tip beside the rail (see the bet advice below).
+ * Learn → the fogged meter and its checks on their own, without the Full kit.
+ *         Folded into Full in schema v16 and off the dial; the level stays
+ *         wired so the flag-less Training switch (and any old code path) can
+ *         still run it.
  */
 export interface CountCoachCapabilities {
   readonly level: CountCoachLevel;
-  /** Live running / true count + cards left, plus the vertical count rail (Full). */
+  /** The count strip's running / true count and the vertical count rail (Full). */
   readonly showLiveCounts: boolean;
   /** Hi-Lo underglow on dealt cards (Full, with the underglow toggle). */
   readonly showCardValueGlow: boolean;
   /** Card faces printed with their Hi-Lo values (Full). */
   readonly useTrainingSkin: boolean;
-  /** Post-round multiple-choice count checks (Learn). */
+  /** Multiple-choice count checks: tap-to-prove, and post-round behind its flag (Learn, Full). */
   readonly showCountCheck: boolean;
-  /** Fogged count meter: "?" until a check is answered correctly (Learn). */
+  /** Fogged count meter: "?" until a check is answered correctly (Learn, Full). */
   readonly showMaskedCounts: boolean;
   /** Strategy chart/hints, distribution charts, count pulse, autoplay drill (Full). */
   readonly allowFullTools: boolean;
@@ -38,26 +44,28 @@ export const COUNT_COACH_LABELS: Record<CountCoachLevel, string> = {
 export const COUNT_COACH_BLURBS: Record<CountCoachLevel, string> = {
   off: 'Pure casino play — counts stay hidden. Just you and the shoe.',
   learn: 'The count meter rides along fogged ("?"). Tap it or pass the post-round checks to reveal the numbers — a miss fogs them again, a shuffle resets everything.',
-  full: 'Every tool live: running / true count, Hi-Lo card glows, strategy hints, and the card charts.',
+  full: 'The coach rides along. The count meter starts fogged ("?") — tap it between hands to prove your count and light it up. Hi-Lo card glows, strategy hints, the card charts, and bet tips off the meter once the count shows.',
 };
 
-/** The one-and-only cycle order of the felt's coach tab: Off → Learn → Full → Off. */
-export const COUNT_COACH_ORDER: readonly CountCoachLevel[] = ['off', 'learn', 'full'];
+/** The one-and-only cycle order of the felt's coach tab: Off → Full → Off. */
+export const COUNT_COACH_ORDER: readonly CountCoachLevel[] = ['off', 'full'];
 
+/** A level off the dial (legacy Learn) steps onto it at Full. */
 export function nextCountCoachLevel(level: CountCoachLevel): CountCoachLevel {
   const index = COUNT_COACH_ORDER.indexOf(level);
-  return COUNT_COACH_ORDER[(index + 1) % COUNT_COACH_ORDER.length];
+  return index < 0 ? 'full' : COUNT_COACH_ORDER[(index + 1) % COUNT_COACH_ORDER.length];
 }
 
 export function countCoachCapabilities(level: CountCoachLevel): CountCoachCapabilities {
   const full = level === 'full';
+  const fogged = full || level === 'learn';
   return {
     level,
     showLiveCounts: full,
     showCardValueGlow: full,
     useTrainingSkin: full,
-    showCountCheck: level === 'learn',
-    showMaskedCounts: level === 'learn',
+    showCountCheck: fogged,
+    showMaskedCounts: fogged,
     allowFullTools: full,
     showShoeProgress: true,
   };
@@ -163,4 +171,103 @@ export function buildCountChoices(
 /** +3 / 0 / −1.5 — counts always render with an explicit sign. */
 export function formatCount(value: number): string {
   return value > 0 ? `+${value}` : `${value}`;
+}
+
+// ---------------------------------------------------------------------------
+// Full coach — the bet tip beside the count rail
+// ---------------------------------------------------------------------------
+
+export type BetAdviceTone = 'cold' | 'flat' | 'hot';
+
+export interface BetAdvice {
+  readonly tone: BetAdviceTone;
+  /** "Count is −6" — the number on the rail the tip points at. */
+  readonly headline: string;
+  readonly detail: string;
+}
+
+/** True count at or below this and the shoe is against you. */
+export const COLD_TRUE_COUNT = -1;
+/** True count at or above this and the shoe is yours. */
+export const HOT_TRUE_COUNT = 2;
+/** A flat shoe draws a nudge only once this many units are out. */
+const FLAT_NUDGE_UNITS = 3;
+
+/**
+ * One betting unit: 1% of the bankroll, in whole chips of the tray's
+ * smallest denomination and never less than one of them.
+ */
+export function betUnit(bankroll: number, smallestChip: number): number {
+  const chip = Math.max(1, smallestChip);
+  return Math.max(chip, Math.floor(bankroll / 100 / chip) * chip);
+}
+
+/** Units to have out on a hot shoe — the classic "true count minus one". */
+export function betUnitsForTrueCount(trueCount: number): number {
+  return Math.max(1, Math.round(trueCount) - 1);
+}
+
+export interface BetAdviceInput {
+  readonly runningCount: number;
+  readonly trueCount: number;
+  /** Chips staged in the bet circle. */
+  readonly wager: number;
+  /** Chips in hand plus the staged wager. */
+  readonly bankroll: number;
+  readonly smallestChip: number;
+  readonly maxBet: number;
+  /**
+   * The true count is proven, so the tip may quote a size. Fogged, it says
+   * hot or cold and no more — the number is the player's to work out.
+   */
+  readonly showSize: boolean;
+}
+
+/**
+ * What the coach says about the bet on the table, keyed to the true count
+ * (the number that sizes bets) but headed by the running count the rail
+ * shows. Cold: bet the minimum, and say so louder when more is out. Hot:
+ * press the bet, to a size once the true count is proven. Flat: nothing,
+ * unless the player is ramping without an edge. Null means stay quiet.
+ */
+export function betAdviceForCount(input: BetAdviceInput): BetAdvice | null {
+  const { runningCount, trueCount, wager, bankroll, smallestChip, maxBet, showSize } = input;
+  const unit = betUnit(bankroll, smallestChip);
+  const headline = `Count is ${formatCount(runningCount)}`;
+
+  if (trueCount <= COLD_TRUE_COUNT) {
+    return {
+      tone: 'cold',
+      headline,
+      detail:
+        wager > unit
+          ? "Cold shoe — that's too much out there. Bet the minimum."
+          : 'Cold shoe — keep it at the minimum.',
+    };
+  }
+
+  if (trueCount >= HOT_TRUE_COUNT) {
+    if (!showSize) {
+      return {
+        tone: 'hot',
+        headline,
+        detail: wager > unit ? 'Hot shoe — good, keep pressing.' : 'Hot shoe — press your bet.',
+      };
+    }
+    const units = betUnitsForTrueCount(trueCount);
+    const target = Math.min(maxBet, units * unit);
+    return {
+      tone: 'hot',
+      headline,
+      detail:
+        wager >= target
+          ? `Hot shoe — ${units} unit${units === 1 ? '' : 's'} out, that's the bet.`
+          : `Hot shoe — press to ${units} unit${units === 1 ? '' : 's'} (${formatChips(target)} chips).`,
+    };
+  }
+
+  if (wager >= FLAT_NUDGE_UNITS * unit) {
+    return { tone: 'flat', headline, detail: 'No edge yet — keep the bet flat.' };
+  }
+  return null;
 }

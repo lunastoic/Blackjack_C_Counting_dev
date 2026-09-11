@@ -329,6 +329,23 @@ function migrateV14toV15(data: unknown): unknown {
   };
 }
 
+/**
+ * v16: Learn folds into Full — the dial is Off / Full and Full opens with the
+ * fogged meter Learn had. A save on Learn keeps what it was doing, now under
+ * the Full coach; nothing else moves.
+ */
+function migrateV15toV16(data: unknown): unknown {
+  const save = (data ?? {}) as Record<string, unknown>;
+  const settings = (save.settings ?? {}) as Record<string, unknown>;
+  return {
+    ...save,
+    settings: {
+      ...settings,
+      countCoachLevel: settings.countCoachLevel === 'learn' ? 'full' : settings.countCoachLevel,
+    },
+  };
+}
+
 export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -344,6 +361,7 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   12: migrateV12toV13,
   13: migrateV13toV14,
   14: migrateV14toV15,
+  15: migrateV15toV16,
 };
 
 export class MigrationError extends Error {

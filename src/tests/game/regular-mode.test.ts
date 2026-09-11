@@ -219,17 +219,29 @@ describe('Full-coach autoplay drill follows the coach dial', () => {
   });
 });
 
-describe('Full coach (the default dial level): no count checks, nothing to prove', () => {
+describe('Full coach (the default dial level): the fogged meter, proven by tap', () => {
   beforeEach(() => {
     useSettingsStore.getState().setTrainingMode(true);
     expect(useSettingsStore.getState().countCoachLevel).toBe('full');
     expect(session().startSession(1)).toBe(true);
   });
 
-  it('never pops a post-round check and refuses tap-to-prove', () => {
+  it('never pops a post-round check on its own; tap-to-prove lifts the fog a tier at a time', () => {
     playWinningRound();
     expect(session().countCheck).toBeNull();
+    expect(session().revealTier).toBe(0);
+
+    expect(session().requestCountCheck()).toBe(true);
+    expect(session().countCheck!.kind).toBe('running');
+    session().answerCountCheck(session().countCheck!.correct);
+    session().dismissCountCheck();
+    expect(session().revealTier).toBe(1);
+  });
+
+  it('Off refuses tap-to-prove', () => {
+    useSettingsStore.getState().setCountCoachLevel('off');
     expect(session().requestCountCheck()).toBe(false);
+    expect(session().countCheck).toBeNull();
   });
 });
 
@@ -424,7 +436,7 @@ describe('Learn fog-of-war meter (revealTier, Training Mode off)', () => {
     expect(session().runningCount).toBe(0);
   });
 
-  it('tap-to-reveal asks for the tier being unlocked, only between hands in Learn', () => {
+  it('tap-to-reveal asks for the tier being unlocked, only between hands, under a fogged coach', () => {
     expect(session().requestCountCheck()).toBe(true);
     expect(session().countCheck!.kind).toBe('running'); // tier 0 → running
     session().answerCountCheck(session().countCheck!.correct);
@@ -445,8 +457,11 @@ describe('Learn fog-of-war meter (revealTier, Training Mode off)', () => {
     jest.runAllTimers();
     expect(session().countCheck).toBeNull(); // the coach didn't pop one either
 
-    // …and the dial decides: Full shows live counts, nothing to prove.
+    // …and the dial decides: Full carries the same fogged meter; Off has nothing to prove.
     useSettingsStore.getState().setCountCoachLevel('full');
+    expect(session().requestCountCheck()).toBe(true);
+    session().dismissCountCheck();
+    useSettingsStore.getState().setCountCoachLevel('off');
     expect(session().requestCountCheck()).toBe(false);
 
     // The legacy Training switch changes nothing under the dial.

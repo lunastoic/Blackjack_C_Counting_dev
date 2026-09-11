@@ -30,7 +30,8 @@ describe('v11 → v12 migration', () => {
     const parsed = saveDataSchema.parse(runMigrations(original, 11));
 
     expect(parsed.settings.trainingMode).toBe(true);
-    expect(parsed.settings.countCoachLevel).toBe('learn');
+    // The ladder runs on to v16, where Learn folds into Full.
+    expect(parsed.settings.countCoachLevel).toBe('full');
     expect(parsed.settings.trainingAids.cardUnderglow).toBe(false);
     expect(parsed.economy).toEqual(original.economy);
     expect(parsed.progression).toEqual(original.progression);

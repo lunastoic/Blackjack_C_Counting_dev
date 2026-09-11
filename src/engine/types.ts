@@ -20,8 +20,10 @@ export interface TrainingAidSettings {
 
 /**
  * Count Coach — how much counting help the player gets at the table.
- * Off = pure casino play. Learn = play normally, get quizzed on the count.
- * Full = every live aid the old Training Mode had.
+ * Off = pure casino play. Full = the coach rides along: the fogged meter
+ * you prove to reveal, then every live aid the old Training Mode had.
+ * Learn (the fogged meter alone) folded into Full in schema v16; the value
+ * stays valid so old saves still parse — the migration maps it to Full.
  */
 export const COUNT_COACH_LEVELS = ['off', 'learn', 'full'] as const;
 export type CountCoachLevel = (typeof COUNT_COACH_LEVELS)[number];

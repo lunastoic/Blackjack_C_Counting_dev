@@ -9,6 +9,8 @@ import Animated, {
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { useGameSessionStore } from '../../stores/gameSessionStore';
 import { colors, durations, fontSizes, fontWeights, layout, radii, spacing } from '../../theme';
+import { BetAdvice } from '../../utils/countCoach';
+import { BetCallout } from './BetCallout';
 
 /** Visual meter clamps to ±10; stored count is never clamped. */
 const METER_RANGE = 10;
@@ -77,9 +79,11 @@ function formatCountLabel(runningCount: number): string {
 function VerticalCountMeter({
   runningCount,
   railHeight,
+  advice,
 }: {
   runningCount: number;
   railHeight: number;
+  advice: BetAdvice | null;
 }) {
   const reducedMotion = useReducedMotion();
   const trackHeight = useSharedValue(railHeight);
@@ -128,20 +132,30 @@ function VerticalCountMeter({
         <View style={[styles.valueTag, { borderColor: `${meterColor}AA` }]}>
           <Text style={[styles.valueText, { color: meterColor }]}>{label}</Text>
         </View>
+        {/* The coach's bet tip hangs off the tag and rides with it. */}
+        {advice ? (
+          <BetCallout
+            advice={advice}
+            left={RAIL_WIDTH + spacing.xxs}
+            centerY={INDICATOR_HEIGHT / 2}
+          />
+        ) : null}
       </Animated.View>
     </View>
   );
 }
 
 interface CountRailProps {
-  /** Fog of war (Learn coach): the meter tracks the count but shows "?". */
+  /** Fog of war: the meter tracks the count but shows "?" until it is proven. */
   readonly masked?: boolean;
   /** Tapping the fogged meter challenges the player to reveal it. */
   readonly onPressMasked?: () => void;
+  /** The coach's bet tip to hang off the indicator (live meter only). */
+  readonly advice?: BetAdvice | null;
 }
 
 /** Vertical running-count meter, centered along the left edge of the table. */
-export function CountRail({ masked = false, onPressMasked }: CountRailProps) {
+export function CountRail({ masked = false, onPressMasked, advice = null }: CountRailProps) {
   const runningCount = useGameSessionStore((state) => state.runningCount);
   const { height: windowHeight } = useWindowDimensions();
   const railHeight = Math.min(MAX_RAIL_HEIGHT, Math.max(MIN_RAIL_HEIGHT, windowHeight * 0.36));
@@ -183,7 +197,7 @@ export function CountRail({ masked = false, onPressMasked }: CountRailProps) {
 
   return (
     <View style={styles.rail} pointerEvents="none">
-      <VerticalCountMeter runningCount={runningCount} railHeight={railHeight} />
+      <VerticalCountMeter runningCount={runningCount} railHeight={railHeight} advice={advice} />
     </View>
   );
 }

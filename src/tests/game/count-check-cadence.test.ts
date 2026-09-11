@@ -65,9 +65,10 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-describe('Training Mode on: no count checks', () => {
+describe('Coach off: no count checks', () => {
   it('never pops a post-round check', () => {
     useSettingsStore.getState().setTrainingMode(true);
+    useSettingsStore.getState().setCountCoachLevel('off');
     expect(session().startSession(1)).toBe(true);
     playWinningRound();
     expect(session().countCheck).toBeNull();
@@ -139,23 +140,23 @@ describe('Learn coach count checks (Training Mode off)', () => {
     expect(session().answerCountCheck(check.correct)).toBe(false);
   });
 
-  it('checks only pop under Learn — Off and Full never interrupt, whatever the Training switch says', () => {
-    for (const level of ['off', 'full'] as const) {
-      for (const trainingMode of [false, true]) {
-        resetStores();
-        useSettingsStore.getState().setTrainingMode(trainingMode);
-        useSettingsStore.getState().setCountCoachLevel(level);
-        expect(session().startSession(1)).toBe(true);
-        playWinningRound();
-        expect(session().countCheck).toBeNull();
-      }
+  it('checks pop under the fogged coach (Learn, Full) — Off never interrupts, whatever the Training switch says', () => {
+    for (const trainingMode of [false, true]) {
+      resetStores();
+      useSettingsStore.getState().setTrainingMode(trainingMode);
+      useSettingsStore.getState().setCountCoachLevel('off');
+      expect(session().startSession(1)).toBe(true);
+      playWinningRound();
+      expect(session().countCheck).toBeNull();
     }
-    resetStores();
-    useSettingsStore.getState().setTrainingMode(true);
-    useSettingsStore.getState().setCountCoachLevel('learn');
-    expect(session().startSession(1)).toBe(true);
-    playWinningRound();
-    expect(session().countCheck).not.toBeNull();
+    for (const level of ['learn', 'full'] as const) {
+      resetStores();
+      useSettingsStore.getState().setTrainingMode(true);
+      useSettingsStore.getState().setCountCoachLevel(level);
+      expect(session().startSession(1)).toBe(true);
+      playWinningRound();
+      expect(session().countCheck).not.toBeNull();
+    }
   });
 });
 

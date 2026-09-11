@@ -5,11 +5,11 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import { CARD_FACES } from '../../assets/cards.generated';
 import { GameMode } from '../../engine/blackjack/rules';
-import { CARD_DECKS, CardDeck, COUNT_COACH_LEVELS, CountCoachLevel } from '../../engine/types';
+import { CARD_DECKS, CardDeck, CountCoachLevel } from '../../engine/types';
 import { DECK_COUNTS } from '../../engine/shoe/shoe';
 import { clampDealerSpeed } from '../../stores/settingsStore';
 import { colors, fontSizes, fontWeights, layout, radii, spacing } from '../../theme';
-import { COUNT_COACH_BLURBS, COUNT_COACH_LABELS } from '../../utils/countCoach';
+import { COUNT_COACH_BLURBS, COUNT_COACH_LABELS, COUNT_COACH_ORDER } from '../../utils/countCoach';
 import { IconButton } from '../common/IconButton';
 import { PressableScale } from '../common/PressableScale';
 import { CARD_ASPECT, cardCornerRadius } from '../game/PlayingCard';
@@ -187,7 +187,7 @@ export function DeckCountRow({
   );
 }
 
-/** Count Coach: Off / Learn / Full. */
+/** Count Coach: Off / Full (the dial's order; legacy Learn is off it). */
 export function CountCoachRow({
   selected,
   onSelect,
@@ -199,7 +199,7 @@ export function CountCoachRow({
     <View style={styles.deckRow}>
       <Text style={styles.toggleLabel}>Count Coach</Text>
       <View style={styles.deckOptions}>
-        {COUNT_COACH_LEVELS.map((level) => {
+        {COUNT_COACH_ORDER.map((level) => {
           const active = selected === level;
           return (
             <PressableScale

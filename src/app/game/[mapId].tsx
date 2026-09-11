@@ -38,6 +38,7 @@ import { effectiveDealerSpeed, mapById } from '../../engine/betting/casino';
 import { playSound, warmTableSounds } from '../../services/audio';
 import { initialDealVisibleCounts } from '../../utils/dealSequence';
 import { useDojoStore } from '../../stores/dojoStore';
+import { useEconomyStore } from '../../stores/economyStore';
 import { FLASH_DEBUG_AVAILABLE, useFlashDebugStore } from '../../stores/flashDebugStore';
 import { useGameSessionStore } from '../../stores/gameSessionStore';
 import { useProgressionStore } from '../../stores/progressionStore';
@@ -49,6 +50,7 @@ import {
 } from '../../stores/settingsStore';
 import { colors, fontSizes, fontWeights, layout, radii, spacing } from '../../theme';
 import {
+  betAdviceForCount,
   COUNT_COACH_LABELS,
   countCoachCapabilities,
   effectiveCountCoachLevel,
@@ -68,11 +70,13 @@ const CARD_GAP = spacing.xs;
 
 /**
  * Blackjack table for every casino. One experience, one dial: the Count
- * Coach tab on the right rail cycles Off / Learn / Full. Full turns the live
- * counts, count rail, card underglow, strategy hints and card charts on;
- * Learn is casino-real play with the fogged "?" meter — tap it (or pass
- * post-round checks) to reveal the numbers; Off is the bare casino. (The old
- * on/off Training switch sits behind FEATURES.countCoachDial = false.)
+ * Coach tab on the right rail flips Off / Full. Full is the coach in one
+ * piece — the count rail and meter ride along fogged ("?") until the player
+ * taps them between hands and proves the count, then light up live; around
+ * them the card underglow, strategy hints, card charts, and the bet tip that
+ * hangs off the rail once the count shows. Off is the bare casino. (Legacy
+ * Learn — the fogged meter alone — and the old on/off Training switch sit
+ * behind FEATURES.countCoachDial = false.)
  */
 export default function GameScreen() {
   const router = useRouter();
@@ -110,6 +114,11 @@ export default function GameScreen() {
   const trainingMode = useSettingsStore((state) => state.trainingMode);
   const setTrainingMode = useSettingsStore((state) => state.setTrainingMode);
   const deviationNotice = useGameSessionStore((state) => state.deviationNotice);
+  const runningCount = useGameSessionStore((state) => state.runningCount);
+  const trueCount = useGameSessionStore((state) => state.getTrueCount());
+  const revealTier = useGameSessionStore((state) => state.revealTier);
+  const requestCountCheck = useGameSessionStore((state) => state.requestCountCheck);
+  const chips = useEconomyStore((state) => state.chips);
   const coach = countCoachCapabilities(effectiveCountCoachLevel(countCoachLevel, trainingMode));
   const license = useProgressionStore((state) =>
     map ? state.licenseForMap(map.id) : 'none',
@@ -206,6 +215,25 @@ export default function GameScreen() {
   /** Deal sits you at the rail; betting pulls the camera back behind the chair. */
   const cameraSeated = phase !== 'betting' || isAutoplayRound;
 
+  // Fog of war: the rail shows "?" until the running count is proven (tier
+  // 1); the strip's true count needs tier 2. A live meter (no fog) is the
+  // legacy Training switch's Full.
+  const railMasked = coach.showMaskedCounts && revealTier < 1;
+  const trueCountShown = !coach.showMaskedCounts || revealTier >= 2;
+  /** The coach's bet tip: only while sizing a bet, off a count the player can see. */
+  const betAdvice =
+    coach.allowFullTools && phase === 'betting' && !isAutoplayRound && !railMasked
+      ? betAdviceForCount({
+          runningCount,
+          trueCount,
+          wager,
+          bankroll: chips + wager,
+          smallestChip: map.chipDenominations[0],
+          maxBet: map.maxBet,
+          showSize: trueCountShown,
+        })
+      : null;
+
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       {/* Felt and house lettering: fixed to the screen, outside the table
@@ -241,13 +269,19 @@ export default function GameScreen() {
       <TableCamera seated={cameraSeated}>
         {coach.showLiveCounts || coach.showMaskedCounts ? (
           <>
-            {/* The rail is a training aid: it leaves with Training Mode. The
-                strip stays put and only fogs its numbers, so the toggle never
-                shifts the layout. */}
-            {coach.showLiveCounts ? <CountRail /> : null}
+            {/* The rail is a Full-coach aid and leaves with it. The strip
+                stays put and only fogs its numbers, so the dial never shifts
+                the layout. */}
+            {coach.showLiveCounts ? (
+              <CountRail
+                masked={railMasked}
+                onPressMasked={() => requestCountCheck()}
+                advice={betAdvice}
+              />
+            ) : null}
             <View style={styles.countSection}>
               <TablePilesRow
-                center={<LearnCountBar live={coach.showLiveCounts} />}
+                center={<LearnCountBar live={coach.showLiveCounts && !coach.showMaskedCounts} />}
                 round={round}
                 shoe={shoe}
                 phase={phase}
