@@ -62,6 +62,9 @@ const RESULT_BADGE: Record<HandResult, { text: string; color: string }> = {
   loss: { text: 'LOSS', color: colors.error },
 };
 
+/** Felt showing between the cards of a hand (each card adds its own 2pt ring). */
+const CARD_GAP = spacing.xs;
+
 /**
  * Blackjack table for every casino. One experience, one dial: the Count
  * Coach tab on the right rail cycles Off / Learn / Full. Full turns the live
@@ -173,6 +176,13 @@ export default function GameScreen() {
   const playerCardWidth = isSplit
     ? Math.min((width - 120) / 6, dealerCardWidth)
     : dealerCardWidth;
+  // Cards sit a little apart; a long hand tucks in only once it would run
+  // out of felt. The dealer has the row inside the screen padding; split
+  // hands share it, each inside its own slot padding.
+  const dealerRowWidth = width - layout.screenPaddingH * 2;
+  const playerRowWidth = isSplit
+    ? (dealerRowWidth - spacing.sm) / 2 - spacing.sm * 2
+    : dealerRowWidth;
   const modeLabel = FEATURES.countCoachDial
     ? `Count Coach · ${COUNT_COACH_LABELS[countCoachLevel]}`
     : 'Hi-Lo Trainer';
@@ -268,6 +278,8 @@ export default function GameScreen() {
             speed={dealerSpeed}
             maxVisibleCards={dealVisible?.dealer}
             areaLabel={`DEALER${dealerSpeed !== 1 ? ` · ${dealerSpeed.toFixed(2)}×` : ''}`}
+            cardGap={CARD_GAP}
+            maxWidth={dealerRowWidth}
           />
         </View>
 
@@ -306,6 +318,8 @@ export default function GameScreen() {
                       underglow={underglow}
                       speed={dealerSpeed}
                       maxVisibleCards={index === 0 ? dealVisible?.player : undefined}
+                      cardGap={CARD_GAP}
+                      maxWidth={playerRowWidth}
                     />
                     {isAutoplayRound ? (
                       <Text style={styles.handBet}>Drill{hand.isDoubled ? ' · doubled' : ''}</Text>

@@ -53,3 +53,25 @@ export function cardFanOverlap(cardWidth: number, cardCount: number): number {
   }
   return Math.round(cardWidth * 0.38);
 }
+
+/**
+ * Left-edge step between cards laid side by side `gap` apart. A row that
+ * would run past `maxWidth` tucks the cards in just enough to fit, never so
+ * far that a covered card loses its index (a quarter of it stays clear).
+ */
+export function cardRowStep(
+  cardWidth: number,
+  cardCount: number,
+  gap: number,
+  maxWidth?: number,
+): number {
+  const spaced = cardWidth + gap;
+  if (cardCount <= 1 || maxWidth === undefined) {
+    return spaced;
+  }
+  const rowWidth = cardWidth + spaced * (cardCount - 1);
+  if (rowWidth <= maxWidth) {
+    return spaced;
+  }
+  return Math.max((maxWidth - cardWidth) / (cardCount - 1), cardWidth * 0.25);
+}

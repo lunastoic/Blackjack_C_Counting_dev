@@ -19,6 +19,9 @@ interface DealerAreaProps {
   readonly valueTags?: boolean;
   /** Side-by-side with a small gap instead of the overlapping fan. */
   readonly spacedCards?: boolean;
+  /** Side-by-side this far apart; see HandView. */
+  readonly cardGap?: number;
+  readonly maxWidth?: number;
 }
 
 /** Centered dealer hand below the piles / stats row. */
@@ -33,6 +36,8 @@ export function DealerArea({
   emptyLabel = 'Place your bet',
   valueTags = false,
   spacedCards = false,
+  cardGap,
+  maxWidth,
 }: DealerAreaProps) {
   return (
     <View style={styles.area}>
@@ -48,6 +53,8 @@ export function DealerArea({
           maxVisibleCards={maxVisibleCards}
           valueTags={valueTags}
           spacedCards={spacedCards}
+          cardGap={cardGap}
+          maxWidth={maxWidth}
         />
       ) : (
         <View style={styles.emptyHand}>

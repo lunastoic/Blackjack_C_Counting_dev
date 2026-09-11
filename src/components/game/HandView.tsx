@@ -4,7 +4,7 @@ import { evaluateCards } from '../../engine/hand/evaluate';
 import { Hand } from '../../engine/hand/hand';
 import { hiLoValue, isFaceUp } from '../../engine/cards/card';
 import { CardSkin } from '../../assets/cards.generated';
-import { cardFanOverlap } from '../../utils/dealSequence';
+import { cardFanOverlap, cardRowStep } from '../../utils/dealSequence';
 import { colors, fontSizes, fontWeights, radii, spacing } from '../../theme';
 import { formatCount } from '../../utils/countCoach';
 import { PlayingCard } from './PlayingCard';
@@ -25,11 +25,18 @@ interface HandViewProps {
   readonly valueTags?: boolean;
   /** Side-by-side with a small gap instead of the overlapping fan. */
   readonly spacedCards?: boolean;
+  /**
+   * Side-by-side this far apart, and never a fan: the row only tucks in when
+   * it would run past `maxWidth`, and then just enough to fit.
+   */
+  readonly cardGap?: number;
+  /** Room the row has before it must tuck in (only read with `cardGap`). */
+  readonly maxWidth?: number;
   /** Passed to each card: false = border glow only, no radiating halo. */
   readonly glowHalo?: boolean;
 }
 
-/** Overlapping card fan with an automatic total badge. */
+/** A hand of cards — a gapped row or an overlapping fan — with an automatic total badge. */
 export function HandView({
   hand,
   skin,
@@ -41,6 +48,8 @@ export function HandView({
   maxVisibleCards,
   valueTags = false,
   spacedCards = false,
+  cardGap,
+  maxWidth,
   glowHalo = true,
 }: HandViewProps) {
   const displayedCards =
@@ -52,9 +61,15 @@ export function HandView({
     ? displayedCards.filter((card) => isFaceUp(card))
     : displayedCards;
   const { total } = evaluateCards(visibleCards);
+  const count = displayedCards.length;
   // A spread hand collapses back to the fan once hits arrive, or it overflows.
-  const useSpread = spacedCards && displayedCards.length <= 3;
-  const overlap = useSpread ? -spacing.md : cardFanOverlap(cardWidth, displayedCards.length);
+  const useSpread = spacedCards && count <= 3;
+  const step =
+    cardGap !== undefined
+      ? cardRowStep(cardWidth, count, cardGap, maxWidth)
+      : useSpread
+        ? cardWidth + spacing.md
+        : cardWidth - cardFanOverlap(cardWidth, count);
 
   return (
     <View style={styles.container}>
@@ -66,7 +81,7 @@ export function HandView({
           return (
             <View
               key={card.id}
-              style={[styles.column, index > 0 ? { marginLeft: -overlap } : null]}
+              style={[styles.column, index > 0 ? { marginLeft: step - cardWidth } : null]}
             >
               <PlayingCard
                 card={card}
