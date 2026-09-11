@@ -29,6 +29,12 @@ export const colors = {
   trainingNeutral: '#9AA0A6', // 0 gray
   strategyHint: '#F5D547', // strategy yellow glow
 
+  // Answer meter rail (training): empty end → full end
+  meterLow: '#FF3F3F',
+  meterMid: '#FF9A1F',
+  meterHigh: '#FFD23F',
+  meterFull: '#3BE477',
+
   // Status
   success: '#3DBB6E',
   warning: '#E8A33D',

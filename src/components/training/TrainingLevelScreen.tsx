@@ -340,7 +340,8 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
     cells.push({
       label: 'CHECKS',
       value: `${tally.asked}`,
-      dim: `/${nextTarget} ${nextStars}`,
+      dim: `/${nextTarget}`,
+      stars: nextStars,
       accessibilityLabel: `${tally.asked} of ${nextTarget} checks toward ${nextStars.length} stars`,
     });
     cells.push({
@@ -361,7 +362,8 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
     cells.push({
       label: 'RIGHT',
       value: `${streak}`,
-      dim: `/${nextTarget} ${nextStars}`,
+      dim: `/${nextTarget}`,
+      stars: nextStars,
       accessibilityLabel: `${streak} of ${nextTarget} right toward ${nextStars.length} stars`,
     });
     cells.push(
