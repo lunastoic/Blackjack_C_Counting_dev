@@ -14,6 +14,7 @@ import Animated, {
 import { CARD_BACK, CARD_FACES } from '../../assets/cards.generated';
 import { hiLoValue, Rank, RANKS, Suit, SUITS } from '../../engine/cards/card';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { CARD_ASPECT } from '../game/PlayingCard';
 import { colors, fontSizes, fontWeights, radii, spacing } from '../../theme';
 import { PrimaryButton } from '../common/PrimaryButton';
@@ -164,6 +165,7 @@ export function FlashTutorialDeck({ beat, gathered = false, width }: FlashTutori
 /** All 52 cards face up in a gentle ribbon, fanned out of / collected into the pile. */
 function RibbonSpread({ width, pile }: { width: number; pile: Point }) {
   const reducedMotion = useReducedMotion();
+  const faces = CARD_FACES[useSettingsStore((state) => state.cardDeck)];
   const cards = useMemo(
     () => SUITS.flatMap((suit) => RANKS.map((rank) => ({ suit, rank }))),
     [],
@@ -217,7 +219,7 @@ function RibbonSpread({ width, pile }: { width: number; pile: Point }) {
             ]}
           >
             <View style={[styles.spreadCard, { transform: [{ rotate }] }]}>
-              <Image source={CARD_FACES.regular[suit][rank]} style={styles.cardImage} contentFit="cover" />
+              <Image source={faces[suit][rank]} style={styles.cardImage} contentFit="cover" />
             </View>
           </Animated.View>
         );
@@ -258,6 +260,7 @@ function DeckPile({ pile, cardWidth }: { pile: Point; cardWidth: number }) {
 /** One beat's cards pulled from the pile, glow breathing, returned on unmount. */
 function BeatCards({ beat, width, pile }: { beat: number; width: number; pile: Point }) {
   const reducedMotion = useReducedMotion();
+  const faces = CARD_FACES[useSettingsStore((state) => state.cardDeck)];
   const spec = tutorialBeat(beat);
   const cardWidth = beatCardWidth(width);
   const cardHeight = cardWidth / CARD_ASPECT;
@@ -327,7 +330,7 @@ function BeatCards({ beat, width, pile }: { beat: number; width: number; pile: P
             <Animated.View style={[styles.bloom, { shadowColor: spec.color }, bloomStyle]}>
               <View style={[styles.beatCard, { width: cardWidth, height: cardHeight, borderColor: glow }]}>
                 <Image
-                  source={CARD_FACES.regular[suit][rank]}
+                  source={faces[suit][rank]}
                   style={styles.cardImage}
                   contentFit="cover"
                 />

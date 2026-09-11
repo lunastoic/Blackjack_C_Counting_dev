@@ -8,6 +8,7 @@ import { SecondaryButton } from '../components/common/SecondaryButton';
 import { SectionCard } from '../components/common/SectionCard';
 import { ProgressionHeader } from '../components/progression/ProgressionHeader';
 import {
+  CardDeckRow,
   CountCoachRow,
   DealerSpeedStepper,
   ToggleRow,
@@ -151,6 +152,10 @@ export default function SettingsScreen() {
             value={settings.reducedMotion}
             onChange={settings.setReducedMotion}
           />
+        </SectionCard>
+
+        <SectionCard title="Cards">
+          <CardDeckRow selected={settings.cardDeck} onSelect={settings.setCardDeck} />
         </SectionCard>
 
         <SectionCard title="Dealer speed">

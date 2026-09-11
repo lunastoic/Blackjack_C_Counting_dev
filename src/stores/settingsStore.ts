@@ -2,8 +2,10 @@ import { create } from 'zustand';
 import { GameMode } from '../engine/blackjack/rules';
 import { DECK_COUNTS, DeckCount } from '../engine/shoe/shoe';
 import {
+  CardDeck,
   CountCoachLevel,
   DEFAULT_SETTINGS,
+  isCardDeck,
   TrainingAidSettings,
 } from '../engine/types';
 import { SaveData } from '../persistence/schema';
@@ -16,6 +18,8 @@ export const DEALER_SPEED_STEP = 0.25;
 interface SettingsState {
   readonly soundEnabled: boolean;
   readonly hapticsEnabled: boolean;
+  /** Plain deck art dealt wherever a card is not coach-annotated. */
+  readonly cardDeck: CardDeck;
   readonly dealerSpeed: number;
   readonly deckCounts: Readonly<Record<GameMode, DeckCount>>;
   readonly trainingAids: TrainingAidSettings;
@@ -26,6 +30,8 @@ interface SettingsState {
   readonly reducedMotion: boolean;
   setSoundEnabled(enabled: boolean): void;
   setHapticsEnabled(enabled: boolean): void;
+  /** Ignored unless the deck is a known skin. */
+  setCardDeck(deck: CardDeck): void;
   /** Clamped to 0.5×–2.0×. */
   setDealerSpeed(speed: number): void;
   /** Ignored unless the count is one of 1/2/4/6/8. */
@@ -51,6 +57,7 @@ export function isValidDeckCount(count: number): count is DeckCount {
 export const useSettingsStore = create<SettingsState>()((set) => ({
   soundEnabled: DEFAULT_SETTINGS.soundEnabled,
   hapticsEnabled: DEFAULT_SETTINGS.hapticsEnabled,
+  cardDeck: DEFAULT_SETTINGS.cardDeck,
   dealerSpeed: DEFAULT_SETTINGS.dealerSpeed,
   deckCounts: { ...DEFAULT_SETTINGS.deckCounts },
   trainingAids: { ...DEFAULT_SETTINGS.trainingAids },
@@ -60,6 +67,7 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
 
   setSoundEnabled: (enabled) => set({ soundEnabled: enabled }),
   setHapticsEnabled: (enabled) => set({ hapticsEnabled: enabled }),
+  setCardDeck: (deck) => set((state) => (isCardDeck(deck) ? { cardDeck: deck } : state)),
   setDealerSpeed: (speed) => set({ dealerSpeed: clampDealerSpeed(speed) }),
   setDeckCount: (mode, count) =>
     set((state) =>
@@ -76,6 +84,7 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
     set({
       soundEnabled: data.soundEnabled,
       hapticsEnabled: data.hapticsEnabled,
+      cardDeck: isCardDeck(data.cardDeck) ? data.cardDeck : DEFAULT_SETTINGS.cardDeck,
       dealerSpeed: clampDealerSpeed(data.dealerSpeed),
       deckCounts: { ...data.deckCounts },
       trainingAids: { ...data.trainingAids },

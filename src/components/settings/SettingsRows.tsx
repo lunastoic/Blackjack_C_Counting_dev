@@ -1,15 +1,18 @@
+import { Image } from 'expo-image';
 import React, { useCallback, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Switch, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
+import { CARD_FACES } from '../../assets/cards.generated';
 import { GameMode } from '../../engine/blackjack/rules';
-import { COUNT_COACH_LEVELS, CountCoachLevel } from '../../engine/types';
+import { CARD_DECKS, CardDeck, COUNT_COACH_LEVELS, CountCoachLevel } from '../../engine/types';
 import { DECK_COUNTS } from '../../engine/shoe/shoe';
 import { clampDealerSpeed } from '../../stores/settingsStore';
 import { colors, fontSizes, fontWeights, layout, radii, spacing } from '../../theme';
 import { COUNT_COACH_BLURBS, COUNT_COACH_LABELS } from '../../utils/countCoach';
 import { IconButton } from '../common/IconButton';
 import { PressableScale } from '../common/PressableScale';
+import { CARD_ASPECT } from '../game/PlayingCard';
 
 /** Shared, store-agnostic settings controls used by the Settings screen and the in-game sheet. */
 
@@ -218,6 +221,55 @@ export function CountCoachRow({
   );
 }
 
+export const CARD_DECK_LABELS: Readonly<Record<CardDeck, string>> = {
+  regular: 'Classic',
+  luna: 'Luna',
+};
+
+const DECK_PREVIEW_WIDTH = 56;
+
+/** Card deck: Classic (Public Domain Deck) / Luna (the original art), each with its ace of spades. */
+export function CardDeckRow({
+  selected,
+  onSelect,
+}: {
+  selected: CardDeck;
+  onSelect: (deck: CardDeck) => void;
+}) {
+  return (
+    <View style={styles.deckRow}>
+      <Text style={styles.toggleLabel}>Card deck</Text>
+      <View style={styles.deckOptions}>
+        {CARD_DECKS.map((deck) => {
+          const active = selected === deck;
+          return (
+            <PressableScale
+              key={deck}
+              onPress={() => onSelect(deck)}
+              accessibilityLabel={`Card deck: ${CARD_DECK_LABELS[deck]}`}
+              accessibilityState={{ selected: active }}
+              style={[styles.deckOption, styles.deckPreviewOption, active && styles.deckOptionActive]}
+            >
+              <Image
+                source={CARD_FACES[deck].spades.A}
+                style={styles.deckPreview}
+                contentFit="cover"
+                accessibilityIgnoresInvertColors
+              />
+              <Text style={[styles.coachOptionText, active && styles.deckOptionTextActive]}>
+                {CARD_DECK_LABELS[deck]}
+              </Text>
+            </PressableScale>
+          );
+        })}
+      </View>
+      <Text style={styles.coachBlurb}>
+        Dealt at every table and drill. Coach-annotated training cards stay as they are.
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   toggleRow: {
     minHeight: layout.touchTarget,
@@ -310,6 +362,16 @@ const styles = StyleSheet.create({
   deckOptionActive: {
     backgroundColor: colors.burgundy,
     borderColor: colors.gold,
+  },
+  deckPreviewOption: {
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
+  },
+  deckPreview: {
+    width: DECK_PREVIEW_WIDTH,
+    height: DECK_PREVIEW_WIDTH / CARD_ASPECT,
+    borderRadius: radii.sm / 2,
+    backgroundColor: colors.surface,
   },
   deckOptionText: {
     color: colors.textSecondary,

@@ -26,9 +26,23 @@ export interface TrainingAidSettings {
 export const COUNT_COACH_LEVELS = ['off', 'learn', 'full'] as const;
 export type CountCoachLevel = (typeof COUNT_COACH_LEVELS)[number];
 
+/**
+ * Plain (un-annotated) card art the player deals with. `regular` is the
+ * Public Domain Deck; `luna` is the app's original hand-drawn deck. The
+ * training skin is separate — the coach picks it, not the player.
+ */
+export const CARD_DECKS = ['regular', 'luna'] as const;
+export type CardDeck = (typeof CARD_DECKS)[number];
+
+export function isCardDeck(value: unknown): value is CardDeck {
+  return (CARD_DECKS as readonly unknown[]).includes(value);
+}
+
 export interface GameSettings {
   readonly soundEnabled: boolean;
   readonly hapticsEnabled: boolean;
+  /** Which plain deck every "regular" card shows (default the Public Domain Deck). */
+  readonly cardDeck: CardDeck;
   /** Multiplier applied to all deal/flip/dealer timings: 0.5–2.0 (default 1.0). */
   readonly dealerSpeed: number;
   /** Decks per mode, user-selectable in in-game settings (default 6). */
@@ -50,6 +64,7 @@ export interface GameSettings {
 export const DEFAULT_SETTINGS: GameSettings = {
   soundEnabled: true,
   hapticsEnabled: true,
+  cardDeck: 'regular',
   dealerSpeed: 1.0,
   deckCounts: { regular: 6, quiz: 6 },
   trainingAids: {

@@ -319,6 +319,16 @@ function migrateV13toV14(data: unknown): unknown {
   };
 }
 
+/** v15: the plain card deck becomes a setting; existing saves keep the default. */
+function migrateV14toV15(data: unknown): unknown {
+  const save = (data ?? {}) as Record<string, unknown>;
+  const settings = (save.settings ?? {}) as Record<string, unknown>;
+  return {
+    ...save,
+    settings: { ...settings, cardDeck: 'regular' },
+  };
+}
+
 export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -333,6 +343,7 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   11: migrateV11toV12,
   12: migrateV12toV13,
   13: migrateV13toV14,
+  14: migrateV14toV15,
 };
 
 export class MigrationError extends Error {

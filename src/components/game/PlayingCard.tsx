@@ -12,6 +12,7 @@ import { Card, hiLoValue, cardLabel, isFaceUp } from '../../engine/cards/card';
 import { CARD_BACK, CARD_FACES, CardSkin } from '../../assets/cards.generated';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { playSound } from '../../services/audio';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { colors, durations, radii } from '../../theme';
 
 /** Aspect ratio of the migrated card art (500×700). */
@@ -19,6 +20,10 @@ export const CARD_ASPECT = 500 / 700;
 
 interface PlayingCardProps {
   readonly card: Card;
+  /**
+   * `regular` means "the player's plain deck" and follows the Card deck
+   * setting; `training` (coach-annotated faces) and an explicit `luna` do not.
+   */
   readonly skin: CardSkin;
   readonly width: number;
   /** Training-mode Hi-Lo underglow (green +1 / gray 0 / red −1) on face-up cards. */
@@ -57,6 +62,8 @@ export function PlayingCard({
   glowHalo = true,
 }: PlayingCardProps) {
   const reducedMotion = useReducedMotion();
+  const cardDeck = useSettingsStore((state) => state.cardDeck);
+  const face = CARD_FACES[skin === 'regular' ? cardDeck : skin][card.suit][card.rank];
   const faceUp = isFaceUp(card);
   // 0 = back showing, 1 = face showing.
   const flip = useSharedValue(faceUp ? 1 : 0);
@@ -163,7 +170,7 @@ export function PlayingCard({
       </Animated.View>
       <Animated.View style={[styles.face, faceStyle]}>
         <Image
-          source={CARD_FACES[skin][card.suit][card.rank]}
+          source={face}
           style={styles.image}
           contentFit="cover"
         />
