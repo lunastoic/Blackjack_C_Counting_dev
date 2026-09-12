@@ -38,7 +38,7 @@ export interface CountCoachCapabilities {
 export const COUNT_COACH_LABELS: Record<CountCoachLevel, string> = {
   off: 'Off',
   learn: 'Learn',
-  full: 'Full',
+  full: 'On',
 };
 
 export const COUNT_COACH_BLURBS: Record<CountCoachLevel, string> = {

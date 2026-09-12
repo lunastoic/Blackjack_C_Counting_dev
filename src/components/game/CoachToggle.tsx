@@ -21,11 +21,11 @@ const ICONS: Record<CountCoachLevel, React.ComponentProps<typeof Ionicons>['name
 };
 
 /**
- * Table-side Count Coach dial — the same upright tab on the felt's right
- * rail the Training switch used, flipping Off ↔ Full on each tap. Full is
- * gold and lit (the fogged meter to prove, then the rail, glows, hints,
- * charts and bet tips); Off is the bare casino. Legacy Learn still draws
- * (dimmer) should a save carry it before the migration runs.
+ * Table-side Count Coach switch — the same upright tab on the felt's right
+ * rail the Training switch used, flipping Off ↔ On on each tap, live at any
+ * point in the hand. On is gold and lit (the fogged meter to prove, then the
+ * rail, glows, hints, charts and bet tips); Off is the bare casino. Legacy
+ * Learn still draws (dimmer) should a save carry it before the migration runs.
  */
 export function CoachToggle({ level, onSelect }: CoachToggleProps) {
   const lit = level !== 'off';
@@ -40,6 +40,7 @@ export function CoachToggle({ level, onSelect }: CoachToggleProps) {
         accessibilityRole="button"
         accessibilityLabel={`Count Coach: ${COUNT_COACH_LABELS[level]}`}
         accessibilityHint={`Switches to ${COUNT_COACH_LABELS[next]}`}
+        hitSlop={spacing.sm}
         style={styles.modernTab}
       >
         <ArcadeBevel

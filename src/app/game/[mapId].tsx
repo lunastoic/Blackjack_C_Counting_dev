@@ -360,7 +360,9 @@ export default function GameScreen() {
 
         {/* The open felt between dealer and player, where the house lettering
             shows through from the backdrop. The Count Coach tab sits on the
-            right rail of this gap. */}
+            right rail of this gap — and is taller than the gap on a crowded
+            table, so the felt is stacked over the hand: a tap on the tab's
+            foot must reach the tab, not the player's row underneath. */}
         <View style={styles.centerFelt}>
           <View style={styles.trainingToggle}>
             {FEATURES.countCoachDial ? (
@@ -679,6 +681,7 @@ const styles = StyleSheet.create({
     minHeight: 0,
     position: 'relative',
     justifyContent: 'center',
+    zIndex: 1,
   },
   trainingToggle: {
     position: 'absolute',
