@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'flex-end',
     gap: spacing.xs,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.xs,
     paddingBottom: spacing.xxs,
   },
   /** The pool of shadow the fan sits in. */
@@ -89,8 +89,8 @@ const styles = StyleSheet.create({
   },
   value: {
     fontFamily: fonts.display,
-    fontSize: 28,
-    lineHeight: 28,
+    fontSize: 24,
+    lineHeight: 24,
     textShadowColor: colors.chipShadow,
     textShadowOffset: { width: 1, height: 2 },
     textShadowRadius: 0,

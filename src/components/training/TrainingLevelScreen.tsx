@@ -971,7 +971,9 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     paddingHorizontal: layout.screenPaddingH,
-    paddingTop: spacing.xs,
+    // The panel starts just above the house print, where the spread ribbon
+    // ends — the ribbon shows in full above it, as the cards do in play.
+    paddingTop: SPREAD_DECK_BOTTOM - spacing.xs,
   },
   /**
    * In play the question and its answers ride a little above the bottom edge —

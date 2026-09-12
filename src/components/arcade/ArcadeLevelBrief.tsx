@@ -64,16 +64,22 @@ export function ArcadeLevelBrief({
 }: ArcadeLevelBriefProps) {
   // Both measures come from layout, which ignores the scale transform, so
   // shrinking the panel never re-measures it.
-  const [room, setRoom] = useState(0);
+  const [room, setRoom] = useState({ width: 0, height: 0 });
   const [natural, setNatural] = useState(0);
   const measureRoom = useCallback((event: LayoutChangeEvent) => {
-    setRoom(event.nativeEvent.layout.height);
+    const { width, height } = event.nativeEvent.layout;
+    setRoom({ width, height });
   }, []);
+  // The panel's height is taken once, at the room's width. A shrunk panel is
+  // laid out wider (room ÷ scale) so it still spans the room after the
+  // transform; that re-wraps the copy shorter, and re-deriving the scale
+  // from the new height would only chase it round.
   const measurePanel = useCallback((event: LayoutChangeEvent) => {
-    setNatural(event.nativeEvent.layout.height);
+    const { height } = event.nativeEvent.layout;
+    setNatural((first) => first || height);
   }, []);
-  const measured = room > 0 && natural > 0;
-  const scale = fit && measured ? Math.min(1, room / natural) : 1;
+  const measured = room.height > 0 && natural > 0;
+  const scale = fit && measured ? Math.min(1, room.height / natural) : 1;
 
   const panel = (
     <ArcadePanel
@@ -81,6 +87,7 @@ export function ArcadeLevelBrief({
         styles.panel,
         // Hidden until both measures are in, so it never flashes at full size.
         fit && { transform: [{ scale }], opacity: measured ? 1 : 0 },
+        fit && scale < 1 && { alignSelf: 'center', width: room.width / scale },
         style,
       ]}
       onLayout={fit ? measurePanel : undefined}
@@ -90,7 +97,7 @@ export function ArcadeLevelBrief({
         title={title}
         footer={difficulty ? <ArcadePill label={difficulty} tone="mint" /> : undefined}
       />
-      {showCards ? <ExampleCards /> : <View style={styles.cardsGap} />}
+      {showCards ? <ExampleCards cardWidth={54} /> : <View style={styles.cardsGap} />}
       <ArcadeInfoBox>{body}</ArcadeInfoBox>
       {starTargets ? <StarGoals targets={starTargets} unit={starUnit} /> : null}
       {rules.length > 0 ? (
@@ -140,7 +147,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   panel: {
-    gap: spacing.xs + spacing.xxs,
+    gap: spacing.xs,
     paddingTop: spacing.xs,
     paddingBottom: spacing.sm + spacing.xxs,
   },

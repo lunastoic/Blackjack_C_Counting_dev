@@ -52,9 +52,9 @@ export function ArcadePlaque({ kicker, title, footer, style }: ArcadePlaqueProps
         <Text style={styles.plaqueKicker}>{kicker.toUpperCase()}</Text>
       </View>
       <View style={styles.plaque}>
-        {/* Wraps rather than shrinks: adjustsFontSizeToFit with a fixed lineHeight
-            leaves a tall empty box and a microscopic title on iOS. */}
-        <Text style={styles.plaqueTitle} numberOfLines={2}>
+        {/* One line, shrunk to fit. No lineHeight here: with one set, iOS's
+            fit loop leaves a tall empty box and a microscopic title. */}
+        <Text style={styles.plaqueTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
           {title.toUpperCase()}
         </Text>
       </View>
@@ -176,7 +176,6 @@ const styles = StyleSheet.create({
   plaqueTitle: {
     fontFamily: fonts.display,
     fontSize: 40,
-    lineHeight: 40,
     letterSpacing: 1,
     color: colors.arcadeGold,
     textAlign: 'center',
