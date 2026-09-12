@@ -203,9 +203,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   /* Modern */
+  /** No foot: the dealer's label sits right under the pile counts. */
   bandModern: {
     minHeight: 102,
     gap: spacing.sm - 2,
+    paddingBottom: 0,
   },
   centerModern: {
     paddingHorizontal: 0,

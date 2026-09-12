@@ -315,7 +315,7 @@ export default function GameScreen() {
                 advice={betAdvice}
               />
             ) : null}
-            <View style={styles.countSection}>
+            <View style={[styles.countSection, modern && styles.pilesSectionModern]}>
               <TablePilesRow
                 center={<LearnCountBar live={coach.showLiveCounts && !coach.showMaskedCounts} />}
                 round={round}
@@ -330,7 +330,7 @@ export default function GameScreen() {
             </View>
           </>
         ) : (
-          <View style={styles.regularInfoSection}>
+          <View style={[styles.regularInfoSection, modern && styles.pilesSectionModern]}>
             <TablePilesRow
               center={<RegularInfoBar />}
               round={round}
@@ -772,9 +772,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   /* Modern */
+  /** Tight under the piles: the dealer sits high so the open felt runs deeper. */
+  pilesSectionModern: {
+    paddingBottom: 0,
+  },
   dealerAreaModern: {
-    paddingTop: spacing.xs,
-    gap: spacing.sm,
+    paddingTop: 0,
   },
   resultBadgeModern: {
     fontFamily: fonts.display,

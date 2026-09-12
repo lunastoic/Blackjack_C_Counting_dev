@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { evaluateCards } from '../../engine/hand/evaluate';
 import { Hand } from '../../engine/hand/hand';
-import { hiLoValue, isFaceUp } from '../../engine/cards/card';
+import { Card, hiLoValue, isFaceUp } from '../../engine/cards/card';
 import { CardSkin } from '../../assets/cards.generated';
 import { useModernUi } from '../../hooks/useModernUi';
 import { cardFanOverlap, cardRowStep } from '../../utils/dealSequence';
@@ -36,6 +36,29 @@ interface HandViewProps {
   readonly maxWidth?: number;
   /** Passed to each card: false = border glow only, no radiating halo. */
   readonly glowHalo?: boolean;
+  /** Print the total under the cards; off when the caller shows it elsewhere. */
+  readonly showTotal?: boolean;
+}
+
+/** The cards on the felt right now: the opening deal lays them down one at a time. */
+export function dealtCards(hand: Hand, maxVisibleCards?: number): readonly Card[] {
+  return maxVisibleCards !== undefined
+    ? hand.cards.slice(0, Math.max(0, maxVisibleCards))
+    : hand.cards;
+}
+
+/**
+ * The total the table shows for a hand — of every dealt card, or of the
+ * face-up ones only (the dealer with a hole card shows the upcard's value).
+ * Null while no card counts.
+ */
+export function shownTotal(
+  hand: Hand,
+  { hideDownCards = false, maxVisibleCards }: { hideDownCards?: boolean; maxVisibleCards?: number },
+): number | null {
+  const cards = dealtCards(hand, maxVisibleCards);
+  const counted = hideDownCards ? cards.filter((card) => isFaceUp(card)) : cards;
+  return counted.length > 0 ? evaluateCards(counted).total : null;
 }
 
 /** A hand of cards — a gapped row or an overlapping fan — with an automatic total badge. */
@@ -53,17 +76,13 @@ export function HandView({
   cardGap,
   maxWidth,
   glowHalo = true,
+  showTotal = true,
 }: HandViewProps) {
   const modern = useModernUi();
-  const displayedCards =
-    maxVisibleCards !== undefined
-      ? hand.cards.slice(0, Math.max(0, maxVisibleCards))
-      : hand.cards;
-
-  const visibleCards = hideDownCardsFromTotal
-    ? displayedCards.filter((card) => isFaceUp(card))
-    : displayedCards;
-  const { total } = evaluateCards(visibleCards);
+  const displayedCards = dealtCards(hand, maxVisibleCards);
+  const total = showTotal
+    ? shownTotal(hand, { hideDownCards: hideDownCardsFromTotal, maxVisibleCards })
+    : null;
   const count = displayedCards.length;
   // A spread hand collapses back to the fan once hits arrive, or it overflows.
   const useSpread = spacedCards && count <= 3;
@@ -121,7 +140,7 @@ export function HandView({
           );
         })}
       </View>
-      {visibleCards.length > 0 ? (
+      {total !== null ? (
         modern ? (
           <ArcadeTag label={String(total)} />
         ) : (

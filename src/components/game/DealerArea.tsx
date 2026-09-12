@@ -4,8 +4,8 @@ import { RoundState } from '../../engine/blackjack/round';
 import { CardSkin } from '../../assets/cards.generated';
 import { useModernUi } from '../../hooks/useModernUi';
 import { colors, fonts, fontSizes, fontWeights, spacing } from '../../theme';
-import { arcadeShadow } from '../arcade';
-import { HandView } from './HandView';
+import { ArcadeTag, arcadeShadow } from '../arcade';
+import { HandView, shownTotal } from './HandView';
 
 interface DealerAreaProps {
   readonly round: Pick<RoundState, 'dealerHand'> | null;
@@ -26,7 +26,16 @@ interface DealerAreaProps {
   readonly maxWidth?: number;
 }
 
-/** Centered dealer hand below the piles / stats row. */
+/** The Modern label's line height; the total tag is centred on it. */
+const MODERN_LABEL_LINE = 19;
+/** The tag's full height, bevel drop included: it overhangs the label line top and bottom. */
+const MODERN_TAG_HEIGHT = 33;
+
+/**
+ * Centered dealer hand below the piles / stats row. In Modern the dealer's
+ * total hangs off the right of the DEALER label instead of under the cards,
+ * so the hand sits higher and the open felt beneath it runs deeper.
+ */
 export function DealerArea({
   round,
   dealerCardWidth,
@@ -42,11 +51,26 @@ export function DealerArea({
   maxWidth,
 }: DealerAreaProps) {
   const modern = useModernUi();
+  const labelTotal =
+    modern && round
+      ? shownTotal(round.dealerHand, { hideDownCards: true, maxVisibleCards })
+      : null;
   return (
-    <View style={styles.area}>
-      <Text style={[styles.areaLabel, modern && styles.areaLabelModern]}>
-        {modern ? areaLabel.toUpperCase() : areaLabel}
-      </Text>
+    <View style={[styles.area, modern && styles.areaModern]}>
+      {modern ? (
+        <View style={styles.labelLineModern}>
+          <Text style={[styles.areaLabel, styles.areaLabelModern]}>{areaLabel.toUpperCase()}</Text>
+          {/* A widthless slot after the label: the tag hangs out of it, so the
+              label stays centred on the table's axis. */}
+          <View style={styles.labelTagSlotModern}>
+            {labelTotal !== null ? (
+              <ArcadeTag label={String(labelTotal)} style={styles.labelTagModern} />
+            ) : null}
+          </View>
+        </View>
+      ) : (
+        <Text style={styles.areaLabel}>{areaLabel}</Text>
+      )}
       {round ? (
         <HandView
           hand={round.dealerHand}
@@ -54,6 +78,7 @@ export function DealerArea({
           cardWidth={dealerCardWidth}
           underglow={underglow}
           hideDownCardsFromTotal
+          showTotal={!modern}
           speed={speed}
           maxVisibleCards={maxVisibleCards}
           valueTags={valueTags}
@@ -94,11 +119,31 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   /* Modern */
+  /** Right under the piles; the gap clears the tag's overhang above the cards. */
+  areaModern: {
+    paddingTop: 0,
+    gap: spacing.md,
+  },
+  /** The label centred on the table's axis; the total hangs off its right and never shifts it. */
+  labelLineModern: {
+    flexDirection: 'row',
+    height: MODERN_LABEL_LINE,
+    alignItems: 'center',
+  },
+  labelTagSlotModern: {
+    width: 0,
+    height: MODERN_LABEL_LINE,
+  },
+  labelTagModern: {
+    position: 'absolute',
+    top: (MODERN_LABEL_LINE - MODERN_TAG_HEIGHT) / 2,
+    left: spacing.sm,
+  },
   areaLabelModern: {
     fontFamily: fonts.display,
     fontWeight: undefined,
     fontSize: 18,
-    lineHeight: 19,
+    lineHeight: MODERN_LABEL_LINE,
     letterSpacing: 3,
     color: colors.arcadeCream,
     opacity: 0.8,
