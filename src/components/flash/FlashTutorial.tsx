@@ -45,11 +45,12 @@ const PULL_START_DELAY_MS = 350;
 
 /**
  * Deck geometry, top-down in points so the deck is the same size on any felt:
- * the pile sits just under the dealer's rail, the fan an open strip of felt
- * below it, and the count flag hangs under the fan on the betting beats.
+ * the pile sits just under the dealer's rail and each beat's cards are dealt
+ * out of it sideways, along the same band — the house print below stays in
+ * the open the whole time. The count flag hangs under the print on the
+ * betting beats.
  */
 const PILE_TOP = spacing.md;
-const FAN_GAP = 28;
 /** Flag height plus its margins. */
 const FLAG_ROOM = spacing.md + 32 + spacing.sm;
 /** The ribbon's end cards lean this far. */
@@ -76,15 +77,14 @@ function beatCardWidth(width: number): number {
   return Math.min((width - 72) / 5 - 4, 62);
 }
 
-/** Foot of the gathered pile; lettering prints below it while the deck rests. */
-export function pileBottom(width: number): number {
-  return Math.ceil(PILE_TOP + beatCardWidth(width) / CARD_ASPECT);
+/** Where the count flag hangs: just under the house print. */
+function flagTop(letteringHeight: number): number {
+  return SPREAD_DECK_BOTTOM + letteringHeight + spacing.md;
 }
 
-/** Felt the pile-and-fan deck wants: pile, gap, fan, flag. */
-export function tutorialStageHeight(width: number): number {
-  const cardHeight = beatCardWidth(width) / CARD_ASPECT;
-  return Math.round(PILE_TOP + cardHeight + FAN_GAP + cardHeight + FLAG_ROOM);
+/** Felt the primer wants: the deck's band, the house print under it, the flag under that. */
+export function tutorialStageHeight(letteringHeight: number): number {
+  return SPREAD_DECK_BOTTOM + letteringHeight + FLAG_ROOM;
 }
 
 interface TutorialBeat {
@@ -92,7 +92,7 @@ interface TutorialBeat {
   readonly title: string;
   readonly body: string;
   readonly color: string;
-  /** Big count flag shown above the fan ("+7" / "−7"). */
+  /** Big count flag hung under the house print ("+7" / "−7"). */
   readonly badge?: string;
 }
 
@@ -150,10 +150,17 @@ interface FlashTutorialDeckProps {
   /** With no beat out, keep the deck gathered in its pile instead of spreading it. */
   readonly gathered?: boolean;
   readonly width: number;
+  /** Felt the house print takes under the deck; the count flag hangs below it. */
+  readonly letteringHeight: number;
 }
 
 /** The felt during idle and the tutorial: ribbon spread, pile, pulled beats. */
-export function FlashTutorialDeck({ beat, gathered = false, width }: FlashTutorialDeckProps) {
+export function FlashTutorialDeck({
+  beat,
+  gathered = false,
+  width,
+  letteringHeight,
+}: FlashTutorialDeckProps) {
   // The gathered deck reads at the same size as the cards pulled from it.
   const pileCardWidth = beatCardWidth(width);
   const pile: Point = { x: width / 2, y: PILE_TOP + pileCardWidth / CARD_ASPECT / 2 };
@@ -163,7 +170,15 @@ export function FlashTutorialDeck({ beat, gathered = false, width }: FlashTutori
     <View style={styles.area}>
       {spread ? null : <DeckPile pile={pile} cardWidth={pileCardWidth} />}
       {spread ? <RibbonSpread width={width} pile={pile} /> : null}
-      {beat !== null ? <BeatCards key={beat} beat={beat} width={width} pile={pile} /> : null}
+      {beat !== null ? (
+        <BeatCards
+          key={beat}
+          beat={beat}
+          width={width}
+          pile={pile}
+          flagTop={flagTop(letteringHeight)}
+        />
+      ) : null}
     </View>
   );
 }
@@ -275,14 +290,25 @@ function DeckPile({ pile, cardWidth }: { pile: Point; cardWidth: number }) {
 }
 
 /** One beat's cards pulled from the pile, glow breathing, returned on unmount. */
-function BeatCards({ beat, width, pile }: { beat: number; width: number; pile: Point }) {
+function BeatCards({
+  beat,
+  width,
+  pile,
+  flagTop: flagY,
+}: {
+  beat: number;
+  width: number;
+  pile: Point;
+  flagTop: number;
+}) {
   const reducedMotion = useReducedMotion();
   const faces = CARD_FACES[useSettingsStore((state) => state.cardDeck)];
   const spec = tutorialBeat(beat);
   const cardWidth = beatCardWidth(width);
   const cardHeight = cardFrameHeight(cardWidth, BEAT_RING);
-  // A strip of open felt under the pile, whatever the stage height.
-  const fanY = pile.y + cardHeight + FAN_GAP;
+  // Dealt sideways along the pile's own band: the middle card lands on the
+  // pile and the rest fan out beside it, leaving the felt below untouched.
+  const fanY = pile.y;
   const stepX = cardWidth - 6;
 
   // One shared pulse so the whole fan breathes together.
@@ -370,7 +396,7 @@ function BeatCards({ beat, width, pile }: { beat: number; width: number; pile: P
       {spec.badge ? (
         <Animated.View
           entering={reducedMotion ? undefined : FadeIn.delay(PULL_START_DELAY_MS + 300)}
-          style={[styles.badge, { borderColor: spec.color, top: fanY + cardHeight / 2 + spacing.md }]}
+          style={[styles.badge, { borderColor: spec.color, top: flagY }]}
         >
           <Text style={[styles.badgeText, { color: spec.color }]}>{spec.badge}</Text>
         </Animated.View>

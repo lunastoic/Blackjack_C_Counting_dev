@@ -45,7 +45,6 @@ import { FlashPanel, FlashPanelChip, FlashPanelStarChip } from '../flash/FlashPa
 import {
   FlashTutorialDeck,
   FlashTutorialPanel,
-  pileBottom,
   SPREAD_DECK_BOTTOM,
   TUTORIAL_STEPS,
   tutorialStageHeight,
@@ -242,27 +241,24 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   const inSlides = status === 'idle' && idleStage === 'slides';
   // The brief is up: the table behind it goes a shade darker until Start.
   const briefUp = status === 'idle' && idleStage === 'spread';
-  // After the primer the deck stays gathered under the slides; without it the
-  // ribbon stays out. The stage is reset to spread only on the way back to
-  // idle, so this holds through the run: the print stays under the deck it
-  // was dealt from.
-  const gathered = idleStage === 'slides' && showPrimer;
+  // After the primer the deck stays gathered under the slides; without it the ribbon stays out.
+  const gathered = inSlides && showPrimer;
   const seated = status !== 'idle';
   // While the table idles the brief and the tutorial are cards on the felt,
   // not a keyboard: the stage keeps only the felt the deck asks for and the
   // card floats centred in the rest instead of hugging the bottom edge. The
-  // house lettering is printed under the deck — below the ribbon, or below
-  // the gathered pile — and stays off the felt while the primer's beats need
-  // the whole strip.
+  // house lettering is printed just below the deck's band — ribbon, pile or
+  // the primer's dealt beats — and stays in the open through primer, slides
+  // and run; the primer adds room under it for the count flag.
   const letteringHeight = feltLetteringHeight(map.name, width);
-  const idleStageHeight =
-    inPrimer || gathered ? tutorialStageHeight(width) : SPREAD_DECK_BOTTOM + letteringHeight;
-  const deckBottom = gathered ? pileBottom(width) : SPREAD_DECK_BOTTOM;
+  const idleStageHeight = inPrimer
+    ? tutorialStageHeight(letteringHeight)
+    : SPREAD_DECK_BOTTOM + letteringHeight;
   // Sitting down pushes the felt under the meter — and, in Modern, under the
   // status strip the brief kept hidden. The print climbs by the same amount
   // so it never moves on screen.
   const seatedDrop = TRAINING_METER_HEIGHT + (modern ? TRAINING_STRIP_HEIGHT : 0);
-  const letteringInset = seated ? deckBottom - seatedDrop : deckBottom;
+  const letteringInset = SPREAD_DECK_BOTTOM - (seated ? seatedDrop : 0);
 
   function startTutorial() {
     setTutorialStep(0);
@@ -410,7 +406,12 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   function renderStage() {
     if (status === 'idle') {
       return (
-        <FlashTutorialDeck beat={inPrimer ? tutorialStep : null} gathered={gathered} width={width} />
+        <FlashTutorialDeck
+          beat={inPrimer ? tutorialStep : null}
+          gathered={gathered}
+          width={width}
+          letteringHeight={letteringHeight}
+        />
       );
     }
     switch (spec.mode) {
@@ -826,19 +827,13 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
           // out, so the felt never grew when the primer dealt.
           style={status === 'idle' ? { flex: 0, height: idleStageHeight } : undefined}
         >
-          {inPrimer ? null : (
-            <Animated.View
-              key={gathered ? 'pile' : 'ribbon'}
-              style={StyleSheet.absoluteFill}
-              pointerEvents="none"
-              entering={FadeIn.duration(300)}
-              exiting={FadeOut.duration(200)}
-            >
-              {/* The house print is where the deck left it, run or not: in play
-                  the dashboard pushes the felt down, so the print climbs to match. */}
-              <FeltMarkings casinoName={map.name} align="top" topInset={letteringInset} />
-            </Animated.View>
-          )}
+          {/* The house print is part of the felt, like on the game table: it
+              sits under the deck's band and never moves — the dealt cards
+              land on top of it. In play the dashboard pushes the felt down,
+              so the print climbs to match. */}
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <FeltMarkings casinoName={map.name} align="top" topInset={letteringInset} />
+          </View>
           {renderStage()}
         </TableCamera>
 
