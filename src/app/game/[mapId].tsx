@@ -400,6 +400,7 @@ export default function GameScreen() {
                       maxVisibleCards={index === 0 ? dealVisible?.player : undefined}
                       cardGap={CARD_GAP}
                       maxWidth={playerRowWidth}
+                      totalAbove={modern}
                     />
                     {isAutoplayRound ? (
                       <Text style={[styles.handBet, modern && styles.handBetModern]}>

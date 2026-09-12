@@ -38,6 +38,8 @@ interface HandViewProps {
   readonly glowHalo?: boolean;
   /** Print the total under the cards; off when the caller shows it elsewhere. */
   readonly showTotal?: boolean;
+  /** Print the total over the cards instead — the hand then sits lower, where the total was. */
+  readonly totalAbove?: boolean;
 }
 
 /** The cards on the felt right now: the opening deal lays them down one at a time. */
@@ -77,6 +79,7 @@ export function HandView({
   maxWidth,
   glowHalo = true,
   showTotal = true,
+  totalAbove = false,
 }: HandViewProps) {
   const modern = useModernUi();
   const displayedCards = dealtCards(hand, maxVisibleCards);
@@ -93,8 +96,20 @@ export function HandView({
         ? cardWidth + spacing.md
         : cardWidth - cardFanOverlap(cardWidth, count);
 
+  const totalBadge =
+    total !== null ? (
+      modern ? (
+        <ArcadeTag label={String(total)} />
+      ) : (
+        <View style={styles.totalBadge}>
+          <Text style={styles.totalText}>{total}</Text>
+        </View>
+      )
+    ) : null;
+
   return (
     <View style={[styles.container, modern && styles.containerModern]}>
+      {totalAbove ? totalBadge : null}
       <View style={styles.cards}>
         {displayedCards.map((card, index) => {
           const value = hiLoValue(card.rank);
@@ -140,15 +155,7 @@ export function HandView({
           );
         })}
       </View>
-      {total !== null ? (
-        modern ? (
-          <ArcadeTag label={String(total)} />
-        ) : (
-          <View style={styles.totalBadge}>
-            <Text style={styles.totalText}>{total}</Text>
-          </View>
-        )
-      ) : null}
+      {totalAbove ? null : totalBadge}
     </View>
   );
 }
