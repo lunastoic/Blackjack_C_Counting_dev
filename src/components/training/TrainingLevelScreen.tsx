@@ -250,7 +250,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   // house lettering is printed just below the deck — ribbon or pile — and
   // stays in the open through primer, slides and run; the primer deals its
   // beats onto the felt under the print, so it asks for that strip too.
-  const letteringHeight = feltLetteringHeight(map.name, width);
+  const letteringHeight = feltLetteringHeight(map.name, width, modern);
   const idleStageHeight = inPrimer
     ? tutorialStageHeight(letteringHeight, width)
     : SPREAD_DECK_BOTTOM + letteringHeight;
@@ -832,7 +832,12 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
               land on top of it. In play the dashboard pushes the felt down,
               so the print climbs to match. */}
           <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            <FeltMarkings casinoName={map.name} align="top" topInset={letteringInset} />
+            <FeltMarkings
+              casinoName={map.name}
+              align="top"
+              topInset={letteringInset}
+              modern={modern}
+            />
           </View>
           {renderStage()}
         </TableCamera>

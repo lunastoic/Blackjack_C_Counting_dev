@@ -73,28 +73,37 @@ const RADIUS_RATIO = 0.72;
 
 const RULE_TEXT = 'Blackjack pays 3 to 2';
 const FINE_TEXT = 'Dealer must stand on soft 17';
+/** Extra advance per glyph, per line, in the Modern look's tracked mono face. */
+const TITLE_TRACKING = 4;
+const RULE_TRACKING = 3;
+const FINE_TRACKING = 1.8;
 
-/** Half the angle an arc of `chars` glyphs of `size` sweeps on `radius`. */
-function halfSpan(chars: number, size: number, radius: number): number {
-  return (((chars - 1) / 2) * size * GLYPH_ADVANCE) / radius;
+/** Centre-to-centre distance between neighbouring glyphs on a line. */
+function glyphAdvance(size: number, tracking: number, scale: number, modern: boolean): number {
+  return modern ? size * MONO_ADVANCE + tracking * scale : size * GLYPH_ADVANCE;
+}
+
+/** Half the angle an arc of `chars` glyphs `advance` apart sweeps on `radius`. */
+function halfSpan(chars: number, advance: number, radius: number): number {
+  return (((chars - 1) / 2) * advance) / radius;
 }
 
 /** How far the ends of an arc rise above its centre. */
-function arcRise(chars: number, size: number, radius: number): number {
-  return radius * (1 - Math.cos(halfSpan(chars, size, radius)));
+function arcRise(chars: number, advance: number, radius: number): number {
+  return radius * (1 - Math.cos(halfSpan(chars, advance, radius)));
 }
 
 /** Width of an arc from the outer edge of its first glyph to its last. */
-function arcExtent(chars: number, size: number, radius: number): number {
-  return 2 * radius * Math.sin(halfSpan(chars, size, radius)) + size;
+function arcExtent(chars: number, size: number, advance: number, radius: number): number {
+  return 2 * radius * Math.sin(halfSpan(chars, advance, radius)) + size;
 }
 
 /** Height of the three-line block from the title's raised ends to the last line's foot. */
-function blockHeight(nameChars: number, radius: number, scale: number): number {
+function blockHeight(nameChars: number, radius: number, scale: number, modern: boolean): number {
   const title = TITLE_SIZE * scale;
   const fine = FINE_SIZE * scale;
   return (
-    arcRise(nameChars, title, radius) +
+    arcRise(nameChars, glyphAdvance(title, TITLE_TRACKING, scale, modern), radius) +
     title * GLYPH_RISE +
     2 * LINE_GAP * scale +
     fine * (GLYPH_BOX - GLYPH_RISE)
@@ -103,18 +112,34 @@ function blockHeight(nameChars: number, radius: number, scale: number): number {
 
 /**
  * Felt the full-size block asks for under a deck, margins included — what a
- * stage of `width` should add below the cards to print the lettering at full size.
+ * stage of `width` should add below the cards to print the lettering at full
+ * size. The Modern face is tracked wider, so its title arc climbs higher.
  */
-export function feltLetteringHeight(casinoName: string, width: number): number {
-  return Math.ceil(blockHeight(casinoName.length, width * RADIUS_RATIO, 1) + BLOCK_MARGIN * 2);
+export function feltLetteringHeight(casinoName: string, width: number, modern = false): number {
+  return Math.ceil(
+    blockHeight(casinoName.length, width * RADIUS_RATIO, 1, modern) + BLOCK_MARGIN * 2,
+  );
 }
 
 /** Widest of the three arcs at this scale. */
-function blockWidth(nameChars: number, radius: number, scale: number): number {
+function blockWidth(nameChars: number, radius: number, scale: number, modern: boolean): number {
+  const title = TITLE_SIZE * scale;
+  const rule = RULE_SIZE * scale;
+  const fine = FINE_SIZE * scale;
   return Math.max(
-    arcExtent(nameChars, TITLE_SIZE * scale, radius),
-    arcExtent(RULE_TEXT.length, RULE_SIZE * scale, radius + LINE_GAP * scale),
-    arcExtent(FINE_TEXT.length, FINE_SIZE * scale, radius + 2 * LINE_GAP * scale),
+    arcExtent(nameChars, title, glyphAdvance(title, TITLE_TRACKING, scale, modern), radius),
+    arcExtent(
+      RULE_TEXT.length,
+      rule,
+      glyphAdvance(rule, RULE_TRACKING, scale, modern),
+      radius + LINE_GAP * scale,
+    ),
+    arcExtent(
+      FINE_TEXT.length,
+      fine,
+      glyphAdvance(fine, FINE_TRACKING, scale, modern),
+      radius + 2 * LINE_GAP * scale,
+    ),
   );
 }
 
@@ -122,10 +147,17 @@ function blockWidth(nameChars: number, radius: number, scale: number): number {
  * Largest scale (≤ 1) whose block fits the box; 0 when even MIN_SCALE won't.
  * An infinite height fits the width alone (anchored lettering).
  */
-function fitScale(nameChars: number, radius: number, width: number, height: number): number {
+function fitScale(
+  nameChars: number,
+  radius: number,
+  width: number,
+  height: number,
+  modern: boolean,
+): number {
   const room = height - BLOCK_MARGIN * 2;
   const fits = (scale: number) =>
-    blockHeight(nameChars, radius, scale) <= room && blockWidth(nameChars, radius, scale) <= width;
+    blockHeight(nameChars, radius, scale, modern) <= room &&
+    blockWidth(nameChars, radius, scale, modern) <= width;
   if (room <= 0 || !fits(MIN_SCALE)) {
     return 0;
   }
@@ -173,12 +205,19 @@ export function FeltMarkings({
           baseRadius,
           size.width - 2 * sideInset,
           anchor !== undefined ? Number.POSITIVE_INFINITY : room,
+          modern,
         );
 
   const lines: ArcLine[] = [
-    { text: casinoName, size: TITLE_SIZE * scale, weight: '800', opacity: 0.4, tracking: 4 },
-    { text: RULE_TEXT, size: RULE_SIZE * scale, weight: '600', opacity: 0.34, tracking: 3 },
-    { text: FINE_TEXT, size: FINE_SIZE * scale, weight: '600', opacity: 0.3, tracking: 1.8 },
+    {
+      text: casinoName,
+      size: TITLE_SIZE * scale,
+      weight: '800',
+      opacity: 0.4,
+      tracking: TITLE_TRACKING,
+    },
+    { text: RULE_TEXT, size: RULE_SIZE * scale, weight: '600', opacity: 0.34, tracking: RULE_TRACKING },
+    { text: FINE_TEXT, size: FINE_SIZE * scale, weight: '600', opacity: 0.3, tracking: FINE_TRACKING },
   ];
 
   const cx = size.width / 2;
@@ -187,12 +226,18 @@ export function FeltMarkings({
   // hanging above the arc.
   const blockTop =
     topInset +
-    (align === 'top' ? BLOCK_MARGIN : (room - blockHeight(nameChars, baseRadius, scale)) / 2);
+    (align === 'top'
+      ? BLOCK_MARGIN
+      : (room - blockHeight(nameChars, baseRadius, scale, modern)) / 2);
   const titleY =
     anchor !== undefined
       ? size.height * anchor
       : blockTop +
-        arcRise(nameChars, TITLE_SIZE * scale, baseRadius) +
+        arcRise(
+          nameChars,
+          glyphAdvance(TITLE_SIZE * scale, TITLE_TRACKING, scale, modern),
+          baseRadius,
+        ) +
         TITLE_SIZE * scale * GLYPH_RISE;
   // Shared circle centre above the felt: every line curves around the dealer.
   const centerY = titleY - baseRadius;
@@ -203,10 +248,7 @@ export function FeltMarkings({
         ? lines.map((line, lineIndex) => {
             const radius = baseRadius + lineIndex * LINE_GAP * scale;
             const chars = (modern ? line.text.toUpperCase() : line.text).split('');
-            const advance = modern
-              ? line.size * MONO_ADVANCE + line.tracking * scale
-              : line.size * GLYPH_ADVANCE;
-            const anglePerChar = advance / radius;
+            const anglePerChar = glyphAdvance(line.size, line.tracking, scale, modern) / radius;
             return chars.map((char, charIndex) => {
               if (char === ' ') {
                 return null;
