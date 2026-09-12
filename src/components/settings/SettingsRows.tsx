@@ -5,7 +5,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import { CARD_FACES } from '../../assets/cards.generated';
 import { GameMode } from '../../engine/blackjack/rules';
-import { CARD_DECKS, CardDeck, CountCoachLevel } from '../../engine/types';
+import { CARD_DECKS, CardDeck, CountCoachLevel, UI_STYLES, UiStyle } from '../../engine/types';
 import { DECK_COUNTS } from '../../engine/shoe/shoe';
 import { clampDealerSpeed } from '../../stores/settingsStore';
 import { colors, fontSizes, fontWeights, layout, radii, spacing } from '../../theme';
@@ -217,6 +217,50 @@ export function CountCoachRow({
         })}
       </View>
       <Text style={styles.coachBlurb}>{COUNT_COACH_BLURBS[selected]}</Text>
+    </View>
+  );
+}
+
+export const UI_STYLE_LABELS: Readonly<Record<UiStyle, string>> = {
+  modern: 'Modern',
+  classic: 'Classic',
+};
+
+const UI_STYLE_BLURBS: Readonly<Record<UiStyle, string>> = {
+  modern: 'Arcade intros and bevelled buttons, drawn fresh. Switches everywhere at once.',
+  classic: 'The original button art and burgundy intros.',
+};
+
+/** UI style: Modern (arcade look) / Classic (original assets). */
+export function UiStyleRow({
+  selected,
+  onSelect,
+}: {
+  selected: UiStyle;
+  onSelect: (style: UiStyle) => void;
+}) {
+  return (
+    <View style={styles.deckRow}>
+      <Text style={styles.toggleLabel}>Look</Text>
+      <View style={styles.deckOptions}>
+        {UI_STYLES.map((style) => {
+          const active = selected === style;
+          return (
+            <PressableScale
+              key={style}
+              onPress={() => onSelect(style)}
+              accessibilityLabel={`Look: ${UI_STYLE_LABELS[style]}`}
+              accessibilityState={{ selected: active }}
+              style={[styles.deckOption, active && styles.deckOptionActive]}
+            >
+              <Text style={[styles.coachOptionText, active && styles.deckOptionTextActive]}>
+                {UI_STYLE_LABELS[style]}
+              </Text>
+            </PressableScale>
+          );
+        })}
+      </View>
+      <Text style={styles.coachBlurb}>{UI_STYLE_BLURBS[selected]}</Text>
     </View>
   );
 }

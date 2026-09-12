@@ -13,10 +13,12 @@ import Animated, {
 } from 'react-native-reanimated';
 import { CARD_BACK, CARD_FACES } from '../../assets/cards.generated';
 import { hiLoValue, Rank, RANKS, Suit, SUITS } from '../../engine/cards/card';
+import { useModernUi } from '../../hooks/useModernUi';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { CARD_ASPECT, cardCornerRadius, cardFrameHeight } from '../game/PlayingCard';
 import { colors, fontSizes, fontWeights, radii, spacing } from '../../theme';
+import { ArcadeTutorialPanel } from '../arcade/ArcadeTutorialPanel';
 import { PrimaryButton } from '../common/PrimaryButton';
 import { FlashPanel } from './FlashPanel';
 
@@ -403,13 +405,29 @@ export function FlashTutorialPanel({
   onNext,
   onSkip,
 }: FlashTutorialPanelProps) {
+  const modern = useModernUi();
   const beat = tutorialBeat(step);
+  const nextLabel = step + 1 === TUTORIAL_STEPS ? lastLabel : 'Next';
+  if (modern) {
+    return (
+      <ArcadeTutorialPanel
+        kicker="Hi-Lo"
+        progress={`${step + 1} of ${TUTORIAL_STEPS}`}
+        title={beat.title}
+        titleColor={beat.color}
+        body={beat.body}
+        nextLabel={nextLabel}
+        onNext={onNext}
+        onSkip={onSkip}
+      />
+    );
+  }
   return (
     <FlashPanel kicker={`HI-LO  ·  ${step + 1} OF ${TUTORIAL_STEPS}`}>
       <Text style={[styles.title, { color: beat.color }]}>{beat.title}</Text>
       <Text style={styles.body}>{beat.body}</Text>
       <View style={styles.actions}>
-        <PrimaryButton label={step + 1 === TUTORIAL_STEPS ? lastLabel : 'Next'} onPress={onNext} />
+        <PrimaryButton label={nextLabel} onPress={onNext} />
         <Text style={styles.skip} onPress={onSkip} accessibilityRole="button">
           Skip
         </Text>

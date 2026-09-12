@@ -22,6 +22,17 @@ export const fontWeights = {
   heavy: '800',
 } as const satisfies Record<string, TextStyle['fontWeight']>;
 
+/**
+ * The Modern look's faces, loaded by the root layout before anything renders.
+ * `display` is the arcade pixel face for plaques and buttons; `mono` sets the
+ * intro descriptions. Keys match the names `useFonts` registers them under.
+ */
+export const fonts = {
+  display: 'Jersey20_400Regular',
+  mono: 'IBMPlexMono_400Regular',
+  monoMedium: 'IBMPlexMono_500Medium',
+} as const;
+
 export const lineHeights = {
   caption: 16,
   small: 20,

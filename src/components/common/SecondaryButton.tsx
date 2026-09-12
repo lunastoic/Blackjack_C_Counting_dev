@@ -1,6 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, ViewStyle, StyleProp } from 'react-native';
+import { useModernUi } from '../../hooks/useModernUi';
 import { colors, fontSizes, fontWeights, layout, radii, spacing } from '../../theme';
+import { ArcadeButton } from '../arcade/ArcadeButton';
 import { PressableScale } from './PressableScale';
 
 interface SecondaryButtonProps {
@@ -11,7 +13,10 @@ interface SecondaryButtonProps {
   readonly style?: StyleProp<ViewStyle>;
 }
 
-/** Burgundy outline button for secondary actions. */
+/**
+ * Burgundy outline button for secondary actions. The Modern look draws it as
+ * the neutral arcade bevel, a step quieter than the gold Primary.
+ */
 export function SecondaryButton({
   label,
   onPress,
@@ -19,6 +24,20 @@ export function SecondaryButton({
   accessibilityHint,
   style,
 }: SecondaryButtonProps) {
+  const modern = useModernUi();
+  if (modern) {
+    return (
+      <ArcadeButton
+        label={label}
+        onPress={onPress}
+        disabled={disabled}
+        accessibilityHint={accessibilityHint}
+        variant="neutral"
+        size="medium"
+        style={style}
+      />
+    );
+  }
   return (
     <PressableScale
       onPress={onPress}

@@ -1,10 +1,19 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useModernUi } from '../../hooks/useModernUi';
 import { colors, fontSizes, fontWeights, radii, spacing } from '../../theme';
+import { ArcadeButton, ArcadeButtonVariant } from '../arcade/ArcadeButton';
 import { PressableScale } from '../common/PressableScale';
 
 export type FlashChoiceState = 'idle' | 'correct' | 'wrong';
+
+/** Modern reveal: the right answer goes green, a wrong pick red. */
+const ARCADE_VARIANTS: Readonly<Record<FlashChoiceState, ArcadeButtonVariant>> = {
+  idle: 'neutral',
+  correct: 'green',
+  wrong: 'red',
+};
 
 interface FlashChoiceButtonProps {
   readonly label: string;
@@ -19,7 +28,7 @@ interface FlashChoiceButtonProps {
 /**
  * Count choice on the drill's card stock: burgundy gradient, hairline gold
  * frame, a sheen along the top edge. Reveals green for the right answer and
- * red for a wrong pick.
+ * red for a wrong pick. The Modern look draws it as an arcade bevel instead.
  */
 export function FlashChoiceButton({
   label,
@@ -29,8 +38,23 @@ export function FlashChoiceButton({
   onPress,
   accessibilityLabel,
 }: FlashChoiceButtonProps) {
+  const modern = useModernUi();
   const isCorrect = state === 'correct';
   const isWrong = state === 'wrong';
+  if (modern) {
+    return (
+      <ArcadeButton
+        label={label}
+        onPress={onPress}
+        disabled={disabled}
+        dimDisabled={false}
+        accessibilityLabel={accessibilityLabel}
+        variant={ARCADE_VARIANTS[state]}
+        size={compact ? 'small' : 'medium'}
+        style={isWrong && styles.arcadeWrong}
+      />
+    );
+  }
   return (
     <PressableScale
       onPress={onPress}
@@ -114,5 +138,8 @@ const styles = StyleSheet.create({
   },
   labelWrong: {
     color: colors.error,
+  },
+  arcadeWrong: {
+    opacity: 0.75,
   },
 });

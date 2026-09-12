@@ -5,6 +5,11 @@ import { useHydrationStore } from '../../stores/hydrationStore';
 
 interface LoadingGateProps {
   readonly children: React.ReactNode;
+  /**
+   * Anything else the first screen needs — the root layout passes the custom
+   * fonts here, so the Modern look never paints in a fallback face.
+   */
+  readonly ready?: boolean;
 }
 
 /**
@@ -12,10 +17,10 @@ interface LoadingGateProps {
  * flash default chips/XP. Hydration errors already fell back to defaults in
  * the persistence layer, so the app still renders; the error is only logged.
  */
-export function LoadingGate({ children }: LoadingGateProps) {
+export function LoadingGate({ children, ready = true }: LoadingGateProps) {
   const hasHydrated = useHydrationStore((state) => state.hasHydrated);
 
-  if (!hasHydrated) {
+  if (!hasHydrated || !ready) {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" color={colors.gold} />

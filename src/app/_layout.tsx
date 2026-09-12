@@ -1,3 +1,5 @@
+import { IBMPlexMono_400Regular, IBMPlexMono_500Medium } from '@expo-google-fonts/ibm-plex-mono';
+import { Jersey20_400Regular, useFonts } from '@expo-google-fonts/jersey-20';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -20,6 +22,15 @@ void SplashScreen.preventAutoHideAsync().catch(() => {
 
 export default function RootLayout() {
   const hasHydrated = useHydrationStore((state) => state.hasHydrated);
+  // The Modern look's faces. A load error still opens the app — text falls
+  // back to the system face rather than the table never appearing.
+  const [fontsLoaded, fontError] = useFonts({
+    Jersey20_400Regular,
+    IBMPlexMono_400Regular,
+    IBMPlexMono_500Medium,
+  });
+  const fontsReady = fontsLoaded || fontError !== null;
+  const ready = hasHydrated && fontsReady;
 
   useEffect(() => {
     async function bootstrap() {
@@ -32,16 +43,16 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    if (hasHydrated) {
+    if (ready) {
       void SplashScreen.hideAsync().catch(() => {});
     }
-  }, [hasHydrated]);
+  }, [ready]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <StatusBar style="light" />
-        <LoadingGate>
+        <LoadingGate ready={fontsReady}>
           <Stack
             screenOptions={{
               headerShown: false,

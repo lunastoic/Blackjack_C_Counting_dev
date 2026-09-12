@@ -6,7 +6,7 @@ import { z } from 'zod';
  * (GameSettings, LifetimeStats, PlayerProgress) rather than duplicating logic.
  */
 
-export const SAVE_SCHEMA_VERSION = 16;
+export const SAVE_SCHEMA_VERSION = 17;
 
 export const MAX_DISPLAY_NAME_LENGTH = 20;
 export const DEFAULT_DISPLAY_NAME = 'Player';
@@ -53,10 +53,14 @@ const countCoachLevelSchema = z.union([
 /** Player-selectable plain deck, added in schema v15. */
 const cardDeckSchema = z.union([z.literal('regular'), z.literal('luna')]);
 
+/** Modern (arcade) or Classic (original assets) look, added in schema v17. */
+const uiStyleSchema = z.union([z.literal('modern'), z.literal('classic')]);
+
 export const settingsSchema = z.object({
   soundEnabled: z.boolean(),
   hapticsEnabled: z.boolean(),
   cardDeck: cardDeckSchema,
+  uiStyle: uiStyleSchema,
   dealerSpeed: z.number().min(0.5).max(2),
   deckCounts: z.object({
     regular: deckCountSchema,

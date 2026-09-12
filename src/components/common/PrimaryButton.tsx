@@ -1,6 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, ViewStyle, StyleProp } from 'react-native';
+import { useModernUi } from '../../hooks/useModernUi';
 import { colors, fontSizes, fontWeights, layout, radii, shadows, spacing } from '../../theme';
+import { ArcadeButton } from '../arcade/ArcadeButton';
 import { PressableScale } from './PressableScale';
 
 interface PrimaryButtonProps {
@@ -11,7 +13,10 @@ interface PrimaryButtonProps {
   readonly style?: StyleProp<ViewStyle>;
 }
 
-/** Gold call-to-action button (Start, Claim, Deal…). */
+/**
+ * Gold call-to-action button (Start, Claim, Deal…). The Modern look draws
+ * it as the gold arcade bevel; Classic keeps the flat gold plate.
+ */
 export function PrimaryButton({
   label,
   onPress,
@@ -19,6 +24,20 @@ export function PrimaryButton({
   accessibilityHint,
   style,
 }: PrimaryButtonProps) {
+  const modern = useModernUi();
+  if (modern) {
+    return (
+      <ArcadeButton
+        label={label}
+        onPress={onPress}
+        disabled={disabled}
+        accessibilityHint={accessibilityHint}
+        variant="gold"
+        size="medium"
+        style={style}
+      />
+    );
+  }
   return (
     <PressableScale
       onPress={onPress}

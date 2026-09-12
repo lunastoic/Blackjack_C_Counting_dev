@@ -51,6 +51,7 @@ import { ProgressBar } from '../common/ProgressBar';
 import {
   CountCoachRow,
   DealerSpeedStepper,
+  UiStyleRow,
   ToggleRow,
 } from '../settings/SettingsRows';
 
@@ -314,6 +315,9 @@ function SettingsTab({ mapId, onNavigate }: { mapId: number; onNavigate: (href: 
           value={settings.hapticsEnabled}
           onChange={settings.setHapticsEnabled}
         />
+      </View>
+      <View style={styles.card}>
+        <UiStyleRow selected={settings.uiStyle} onSelect={settings.setUiStyle} />
       </View>
       <View style={styles.card}>
         <Text style={styles.sectionLabel}>Dealer speed</Text>

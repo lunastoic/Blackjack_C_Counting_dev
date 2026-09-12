@@ -38,6 +38,7 @@ export function createDefaultSave(): SaveData {
       soundEnabled: DEFAULT_SETTINGS.soundEnabled,
       hapticsEnabled: DEFAULT_SETTINGS.hapticsEnabled,
       cardDeck: DEFAULT_SETTINGS.cardDeck,
+      uiStyle: DEFAULT_SETTINGS.uiStyle,
       dealerSpeed: DEFAULT_SETTINGS.dealerSpeed,
       deckCounts: { ...DEFAULT_SETTINGS.deckCounts },
       trainingAids: { ...DEFAULT_SETTINGS.trainingAids },

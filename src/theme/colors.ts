@@ -52,6 +52,34 @@ export const colors = {
   // Locked / disabled
   disabled: '#5A4F44',
   lockedTint: '#00000080',
+
+  // Modern (arcade) look — intro panels and bevelled buttons
+  arcadeFelt: '#1C5238',
+  arcadeFeltDeep: '#0E3423',
+  arcadeFeltEdge: '#2A6A4A',
+  arcadePlaque: '#5A1F2A',
+  arcadePlaqueEdge: '#7A2E3B',
+  arcadeInk: '#2B1D05', // the dark outline and bottom edge of every bevel
+  arcadeCream: '#F3ECD9',
+  arcadeMint: '#6FD693',
+  arcadeMuted: '#A8B8AC',
+  arcadeInfoFill: '#0000006B', // 42% black — the description box
+  arcadeInfoEdge: '#FFFFFF14',
+  arcadeTileFill: '#00000052',
+  // Button faces and the deeper band under each — today's action colours
+  arcadeGold: '#F2C445',
+  arcadeGoldDeep: '#C9971F',
+  arcadeGreen: '#3E9A4E',
+  arcadeGreenDeep: '#24672F',
+  arcadeRed: '#C9342E',
+  arcadeRedDeep: '#8A1F1B',
+  arcadeOrange: '#E6862A',
+  arcadeOrangeDeep: '#B05E14',
+  arcadeBlue: '#3576C9',
+  arcadeBlueDeep: '#214F8C',
+  arcadeNeutral: '#4A3F3A',
+  arcadeNeutralDeep: '#2C2421',
+  arcadeInkOnLight: '#1E1607',
 } as const;
 
 export type ColorToken = keyof typeof colors;

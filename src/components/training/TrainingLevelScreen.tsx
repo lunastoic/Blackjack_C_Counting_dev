@@ -27,6 +27,7 @@ import {
   trainingLevelsForMap,
   TrainingLevelSpec,
 } from '../../engine/dojo';
+import { useModernUi } from '../../hooks/useModernUi';
 import { playSound } from '../../services/audio';
 import { haptics } from '../../services/haptics';
 import { useDojoStore } from '../../stores/dojoStore';
@@ -35,6 +36,7 @@ import { StreakItem, TrainingQuestion, useTrainingStore } from '../../stores/tra
 import { colors, fontSizes, fontWeights, layout, spacing } from '../../theme';
 import { formatCount } from '../../utils/countCoach';
 import { formatChips } from '../../utils/format';
+import { ArcadeLevelBrief } from '../arcade/ArcadeLevelBrief';
 import { PrimaryButton } from '../common/PrimaryButton';
 import { SecondaryButton } from '../common/SecondaryButton';
 import { FlashCountReview } from '../flash/FlashCountReview';
@@ -163,6 +165,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   const cleared = useDojoStore((state) => isFlashLevelDone(state.flashLevels, mapId, level));
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const modern = useModernUi();
   const tutorialEveryLevel = useFlashDebugStore((state) => state.tutorialEveryLevel);
   // Idle felt: the ribbon spread, the Hi-Lo primer beats, or the level's own slides.
   const [idleStage, setIdleStage] = useState<'spread' | 'primer' | 'slides'>('spread');
@@ -615,6 +618,10 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
     }
 
     if (status === 'idle') {
+      // Modern: the brief is the arcade card over the felt (see below).
+      if (modern) {
+        return null;
+      }
       return (
         <FlashPanel
           kicker={hasBegun ? `LEVEL ${level}  ·  TRY AGAIN` : `LEVEL ${level}`}
@@ -790,54 +797,89 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
       <TrainingStatusStrip cells={cells} />
       {seated ? <TrainingMeter meter={meter} drainMs={meterDrainMs} /> : null}
 
-      <TableCamera
-        // Training never pulls up a chair: that move belongs to the game
-        // table's Deal. The stage holds the seated (1×) frame throughout —
-        // the standing pull-back is a scale transform, which resamples every
-        // card face on the felt and reads as a soft print at drill size.
-        seated
-        // A fixed height, not a flex basis: Yoga kept the first basis it laid
-        // out, so the felt never grew when the primer dealt.
-        style={status === 'idle' ? { flex: 0, height: idleStageHeight } : undefined}
-      >
-        {inPrimer ? null : (
+      {/* The felt and the panel share one box so the Modern brief can lie
+          over both — the deck stays dealt underneath, ready for the primer. */}
+      <View style={styles.body}>
+        <TableCamera
+          // Training never pulls up a chair: that move belongs to the game
+          // table's Deal. The stage holds the seated (1×) frame throughout —
+          // the standing pull-back is a scale transform, which resamples every
+          // card face on the felt and reads as a soft print at drill size.
+          seated
+          // A fixed height, not a flex basis: Yoga kept the first basis it laid
+          // out, so the felt never grew when the primer dealt.
+          style={status === 'idle' ? { flex: 0, height: idleStageHeight } : undefined}
+        >
+          {inPrimer ? null : (
+            <Animated.View
+              key={gathered ? 'pile' : 'ribbon'}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+              entering={FadeIn.duration(300)}
+              exiting={FadeOut.duration(200)}
+            >
+              {/* The house print is where the spread ribbon left it, run or not: in
+                  play the meter pushes the felt down, so the print climbs to match. */}
+              <FeltMarkings
+                casinoName={map.name}
+                align="top"
+                topInset={seated ? SPREAD_DECK_BOTTOM - TRAINING_METER_HEIGHT : idleDeckBottom}
+              />
+            </Animated.View>
+          )}
+          {renderStage()}
+        </TableCamera>
+
+        {briefUp ? (
           <Animated.View
-            key={gathered ? 'pile' : 'ribbon'}
-            style={StyleSheet.absoluteFill}
+            style={styles.briefScrim}
             pointerEvents="none"
-            entering={FadeIn.duration(300)}
+            entering={FadeIn.duration(200)}
+            exiting={FadeOut.duration(300)}
+          />
+        ) : null}
+
+        <View
+          style={[
+            styles.bottomPanel,
+            status === 'idle' ? styles.bottomPanelIdle : styles.bottomPanelSeated,
+            { paddingBottom: insets.bottom + spacing.md },
+          ]}
+        >
+          <StarBankToast bank={passingBank} />
+          {renderPanel()}
+        </View>
+
+        {modern && briefUp ? (
+          <Animated.ScrollView
+            style={styles.briefOverlay}
+            contentContainerStyle={[
+              styles.briefOverlayContent,
+              { paddingBottom: insets.bottom + spacing.md },
+            ]}
+            showsVerticalScrollIndicator={false}
+            entering={FadeIn.duration(200)}
             exiting={FadeOut.duration(200)}
           >
-            {/* The house print is where the spread ribbon left it, run or not: in
-                play the meter pushes the felt down, so the print climbs to match. */}
-            <FeltMarkings
-              casinoName={map.name}
-              align="top"
-              topInset={seated ? SPREAD_DECK_BOTTOM - TRAINING_METER_HEIGHT : idleDeckBottom}
+            <ArcadeLevelBrief
+              kicker={hasBegun ? `Level ${level} · Try again` : `Level ${level}`}
+              title={spec.title}
+              difficulty={speed.label}
+              body={spec.brief}
+              starTargets={targets}
+              starUnit={checkpointSpec ? 'checks' : 'right'}
+              rules={requirementChips(spec, { starTargets: false })}
+              startLabel={hasBegun ? 'Start again' : 'Start training'}
+              onStart={handleBegin}
+              // Start plays the tutorial itself on a first attempt; otherwise it is a tap away.
+              onHow={
+                (showPrimer || slides.length > 0) && (hasBegun || !autoTutorial)
+                  ? startTutorial
+                  : undefined
+              }
             />
-          </Animated.View>
-        )}
-        {renderStage()}
-      </TableCamera>
-
-      {briefUp ? (
-        <Animated.View
-          style={styles.briefScrim}
-          pointerEvents="none"
-          entering={FadeIn.duration(200)}
-          exiting={FadeOut.duration(300)}
-        />
-      ) : null}
-
-      <View
-        style={[
-          styles.bottomPanel,
-          status === 'idle' ? styles.bottomPanelIdle : styles.bottomPanelSeated,
-          { paddingBottom: insets.bottom + spacing.md },
-        ]}
-      >
-        <StarBankToast bank={passingBank} />
-        {renderPanel()}
+          </Animated.ScrollView>
+        ) : null}
       </View>
 
       {countTipPending ? (
@@ -906,11 +948,28 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: colors.overlayLight,
   },
+  body: {
+    flex: 1,
+  },
   bottomPanel: {
     paddingHorizontal: layout.screenPaddingH,
     paddingTop: spacing.xs,
     minHeight: 200,
     justifyContent: 'flex-end',
+  },
+  /** Modern: the brief scrolls over the felt and the panel slot together. */
+  briefOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  briefOverlayContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: layout.screenPaddingH,
+    paddingTop: spacing.sm,
   },
   /**
    * In play the question and its answers ride a little above the bottom edge —

@@ -3,12 +3,14 @@ import React, { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ArcadeLevelBrief } from '../../components/arcade/ArcadeLevelBrief';
 import { IconButton } from '../../components/common/IconButton';
 import { PrimaryButton } from '../../components/common/PrimaryButton';
 import { SecondaryButton } from '../../components/common/SecondaryButton';
 import { FeltBackdrop } from '../../components/game/FeltBackdrop';
 import { GameToasts } from '../../components/game/GameToasts';
 import { mapById } from '../../engine/betting/casino';
+import { useModernUi } from '../../hooks/useModernUi';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { playSound } from '../../services/audio';
 import { haptics } from '../../services/haptics';
@@ -50,6 +52,7 @@ export default function QuizScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
+  const modern = useModernUi();
   const { mapId } = useLocalSearchParams<{ mapId: string }>();
   const parsed = Number(mapId);
   const map = Number.isInteger(parsed) ? mapById(parsed) : undefined;
@@ -162,6 +165,20 @@ export default function QuizScreen() {
     return 'idle';
   }
 
+  const promptBody =
+    `Cards flash fast — keep the Hi-Lo running count, then pick the total. Face-down ` +
+    `decoys count for nothing. Fill all ${QUIZ_STREAK_TARGET} circles for the ` +
+    `${formatChips(QUIZ_GRAND_PRIZE_CHIPS)}-chip grand prize.`;
+  // Modern: the intro is the arcade card; the primer folds into its copy and
+  // the licence ladder into its rule pills.
+  const modernIntro = modern && phase === 'idle';
+  const arcadeBody = showPrimer
+    ? `${promptBody}\n\nHi-Lo in one line: 2–6 count +1, 7–9 count 0, 10–A count −1. ` +
+      'Add them up as the cards flash. Every shuffle starts back at 0.'
+    : promptBody;
+  const arcadeRules =
+    license === 'none' ? [`3 in a row opens the ${map.name} table`, 'All 9 unlock full stakes'] : [];
+
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       {/* Same felt, same house lettering at the same spot as the game table. */}
@@ -205,16 +222,18 @@ export default function QuizScreen() {
 
       {/* The band above the house lettering: the sprint's ♠ marker while
           idle, open felt once the cards are flying. */}
-      <View style={styles.markSlot} pointerEvents="none">
-        {phase === 'idle' ? (
-          <Animated.View
-            style={styles.introIcon}
-            entering={reducedMotion ? undefined : FadeInDown.duration(300)}
-          >
-            <Text style={styles.introIconText}>♠</Text>
-          </Animated.View>
-        ) : null}
-      </View>
+      {modernIntro ? null : (
+        <View style={styles.markSlot} pointerEvents="none">
+          {phase === 'idle' ? (
+            <Animated.View
+              style={styles.introIcon}
+              entering={reducedMotion ? undefined : FadeInDown.duration(300)}
+            >
+              <Text style={styles.introIconText}>♠</Text>
+            </Animated.View>
+          ) : null}
+        </View>
+      )}
 
       {/* The stage keeps clear of the lettering below the mark slot: the intro
           copy sits under it, and the flash cards and question land past it. */}
@@ -222,20 +241,37 @@ export default function QuizScreen() {
         style={[
           styles.stage,
           phase === 'idle' && [styles.stageIntro, { paddingBottom: insets.bottom + spacing.lg }],
+          modernIntro && styles.stageArcadeIntro,
           (phase === 'flashing' || phase === 'question') && styles.stageDeal,
         ]}
       >
-        {phase === 'idle' ? (
+        {modernIntro ? (
+          <Animated.ScrollView
+            style={styles.introScroll}
+            contentContainerStyle={[
+              styles.introScrollContent,
+              { paddingBottom: insets.bottom + spacing.lg },
+            ]}
+            showsVerticalScrollIndicator={false}
+            entering={reducedMotion ? undefined : FadeInDown.duration(300)}
+          >
+            <ArcadeLevelBrief
+              kicker={map.name}
+              title="Count Sprint"
+              body={arcadeBody}
+              rules={arcadeRules}
+              startLabel="Start Sprint"
+              onStart={() => startQuestion()}
+            />
+          </Animated.ScrollView>
+        ) : null}
+        {phase === 'idle' && !modern ? (
           <Animated.View
             style={[styles.centerBlock, styles.introBlock]}
             entering={reducedMotion ? undefined : FadeInDown.duration(300)}
           >
             <Text style={styles.promptTitle}>Count Sprint</Text>
-            <Text style={styles.promptBody}>
-              Cards flash fast — keep the Hi-Lo running count, then pick the total. Face-down
-              decoys count for nothing. Fill all {QUIZ_STREAK_TARGET} circles for the{' '}
-              {formatChips(QUIZ_GRAND_PRIZE_CHIPS)}-chip grand prize.
-            </Text>
+            <Text style={styles.promptBody}>{promptBody}</Text>
             {showPrimer ? (
               <View style={styles.primerBox}>
                 <Text style={styles.primerTitle}>HI-LO IN ONE LINE</Text>
@@ -468,6 +504,21 @@ const styles = StyleSheet.create({
   /** Intro copy reads below the house lettering, hugging the bottom. */
   stageIntro: {
     justifyContent: 'flex-end',
+  },
+  /** Modern: the arcade card scrolls in the whole stage; its content pads itself. */
+  stageArcadeIntro: {
+    justifyContent: 'flex-start',
+    paddingHorizontal: 0,
+    paddingBottom: 0,
+  },
+  introScroll: {
+    flex: 1,
+  },
+  introScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
   },
   /** Flash cards and the question land past the lettering. */
   stageDeal: {

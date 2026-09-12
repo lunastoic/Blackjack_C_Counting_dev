@@ -15,8 +15,8 @@ function v8Save(): Record<string, unknown> {
 }
 
 describe('v8 → v9 migration', () => {
-  it('is registered and the current version is 16', () => {
-    expect(SAVE_SCHEMA_VERSION).toBe(16);
+  it('is registered and the current version is 17', () => {
+    expect(SAVE_SCHEMA_VERSION).toBe(17);
     expect(MIGRATIONS[8]).toBeDefined();
     expect(MIGRATIONS[9]).toBeDefined();
     expect(MIGRATIONS[10]).toBeDefined();

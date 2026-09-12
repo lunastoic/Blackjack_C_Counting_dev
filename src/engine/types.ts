@@ -40,11 +40,25 @@ export function isCardDeck(value: unknown): value is CardDeck {
   return (CARD_DECKS as readonly unknown[]).includes(value);
 }
 
+/**
+ * How the intros and action buttons are drawn. `modern` is the arcade look —
+ * felt panels, bevelled buttons, the pixel face — drawn in code; `classic`
+ * keeps the original PNG buttons and burgundy panels.
+ */
+export const UI_STYLES = ['modern', 'classic'] as const;
+export type UiStyle = (typeof UI_STYLES)[number];
+
+export function isUiStyle(value: unknown): value is UiStyle {
+  return (UI_STYLES as readonly unknown[]).includes(value);
+}
+
 export interface GameSettings {
   readonly soundEnabled: boolean;
   readonly hapticsEnabled: boolean;
   /** Which plain deck every "regular" card shows (default the Public Domain Deck). */
   readonly cardDeck: CardDeck;
+  /** Intro panels and buttons: the arcade look, or the original assets. */
+  readonly uiStyle: UiStyle;
   /** Multiplier applied to all deal/flip/dealer timings: 0.5–2.0 (default 1.0). */
   readonly dealerSpeed: number;
   /** Decks per mode, user-selectable in in-game settings (default 6). */
@@ -67,6 +81,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
   soundEnabled: true,
   hapticsEnabled: true,
   cardDeck: 'regular',
+  uiStyle: 'modern',
   dealerSpeed: 1.0,
   deckCounts: { regular: 6, quiz: 6 },
   trainingAids: {

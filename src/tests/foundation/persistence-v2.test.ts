@@ -55,8 +55,8 @@ describe('v2 → v3 migration', () => {
 });
 
 describe('v1 → v2 migration', () => {
-  it('is registered and the current version is 16', () => {
-    expect(SAVE_SCHEMA_VERSION).toBe(16);
+  it('is registered and the current version is 17', () => {
+    expect(SAVE_SCHEMA_VERSION).toBe(17);
     expect(MIGRATIONS[1]).toBeDefined();
     expect(MIGRATIONS[2]).toBeDefined();
     expect(MIGRATIONS[3]).toBeDefined();

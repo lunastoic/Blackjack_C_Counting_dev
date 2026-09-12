@@ -12,6 +12,7 @@ import {
   CountCoachRow,
   DealerSpeedStepper,
   ToggleRow,
+  UiStyleRow,
 } from '../components/settings/SettingsRows';
 import { FEATURES } from '../constants/features';
 import { CASINO_MAPS } from '../engine/betting/casino';
@@ -152,6 +153,10 @@ export default function SettingsScreen() {
             value={settings.reducedMotion}
             onChange={settings.setReducedMotion}
           />
+        </SectionCard>
+
+        <SectionCard title="Look">
+          <UiStyleRow selected={settings.uiStyle} onSelect={settings.setUiStyle} />
         </SectionCard>
 
         <SectionCard title="Cards">

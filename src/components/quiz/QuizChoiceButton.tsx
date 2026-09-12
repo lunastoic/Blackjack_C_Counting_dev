@@ -1,10 +1,19 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
+import { useModernUi } from '../../hooks/useModernUi';
+import { ArcadeButton, ArcadeButtonVariant } from '../arcade/ArcadeButton';
 import { PressableScale } from '../common/PressableScale';
 import { colors, fontSizes, fontWeights, radii, shadows, spacing } from '../../theme';
 
 export type ChoiceState = 'idle' | 'correct' | 'wrong';
+
+/** Modern reveal: the right answer goes green, a wrong pick red. */
+const ARCADE_VARIANTS: Readonly<Record<ChoiceState, ArcadeButtonVariant>> = {
+  idle: 'neutral',
+  correct: 'green',
+  wrong: 'red',
+};
 
 interface QuizChoiceButtonProps {
   readonly value: number;
@@ -17,7 +26,8 @@ interface QuizChoiceButtonProps {
 
 /**
  * A large, tactile count-choice tile. In feedback mode it reveals whether it
- * was the right answer (green glow) or a wrong pick (red tint).
+ * was the right answer (green glow) or a wrong pick (red tint). The Modern
+ * look draws it as an arcade bevel with the same reveal colours.
  */
 export function QuizChoiceButton({
   value,
@@ -27,6 +37,7 @@ export function QuizChoiceButton({
   onPress,
   accessibilityLabel,
 }: QuizChoiceButtonProps) {
+  const modern = useModernUi();
   const isCorrect = state === 'correct';
   const isWrong = state === 'wrong';
 
@@ -34,6 +45,25 @@ export function QuizChoiceButton({
     () => FadeIn.duration(200).delay(Math.abs(value) * 30),
     [value],
   );
+
+  if (modern) {
+    return (
+      // The wrong-pick fade sits on the button, not the entering wrapper, so
+      // the FadeIn never fights it for opacity.
+      <Animated.View entering={entering} style={styles.arcadeCell}>
+        <ArcadeButton
+          label={label}
+          onPress={onPress}
+          disabled={disabled}
+          dimDisabled={false}
+          accessibilityLabel={accessibilityLabel}
+          variant={ARCADE_VARIANTS[state]}
+          size="large"
+          style={isWrong && styles.wrongWrapper}
+        />
+      </Animated.View>
+    );
+  }
 
   return (
     <Animated.View
@@ -80,6 +110,10 @@ const styles = StyleSheet.create({
   },
   wrongWrapper: {
     opacity: 0.7,
+  },
+  /** Same footprint as the classic tile so the grid keeps its shape. */
+  arcadeCell: {
+    minWidth: 96,
   },
   button: {
     minWidth: 96,
