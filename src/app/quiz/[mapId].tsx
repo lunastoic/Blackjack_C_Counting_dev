@@ -246,16 +246,12 @@ export default function QuizScreen() {
         ]}
       >
         {modernIntro ? (
-          <Animated.ScrollView
-            style={styles.introScroll}
-            contentContainerStyle={[
-              styles.introScrollContent,
-              { paddingBottom: insets.bottom + spacing.lg },
-            ]}
-            showsVerticalScrollIndicator={false}
+          <Animated.View
+            style={[styles.introRoom, { paddingBottom: insets.bottom + spacing.lg }]}
             entering={reducedMotion ? undefined : FadeInDown.duration(300)}
           >
             <ArcadeLevelBrief
+              fit
               kicker={map.name}
               title="Count Sprint"
               body={arcadeBody}
@@ -263,7 +259,7 @@ export default function QuizScreen() {
               startLabel="Start Sprint"
               onStart={() => startQuestion()}
             />
-          </Animated.ScrollView>
+          </Animated.View>
         ) : null}
         {phase === 'idle' && !modern ? (
           <Animated.View
@@ -505,18 +501,14 @@ const styles = StyleSheet.create({
   stageIntro: {
     justifyContent: 'flex-end',
   },
-  /** Modern: the arcade card scrolls in the whole stage; its content pads itself. */
+  /** Modern: the arcade card fills the whole stage, one page; the room pads itself. */
   stageArcadeIntro: {
     justifyContent: 'flex-start',
     paddingHorizontal: 0,
     paddingBottom: 0,
   },
-  introScroll: {
+  introRoom: {
     flex: 1,
-  },
-  introScrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
   },

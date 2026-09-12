@@ -44,7 +44,7 @@ export function StarGoals({ targets, unit, style }: StarGoalsProps) {
   );
 }
 
-const STAR_SIZE = 24;
+const STAR_SIZE = 20;
 
 const styles = StyleSheet.create({
   slot: {
@@ -54,11 +54,11 @@ const styles = StyleSheet.create({
   /** The tab straddles the inset's top edge. */
   tab: {
     zIndex: 1,
-    marginBottom: -(spacing.lg + spacing.xxs),
+    marginBottom: -spacing.lg,
   },
   inset: {
-    paddingTop: spacing.xl + spacing.sm,
-    gap: spacing.sm,
+    paddingTop: spacing.lg + spacing.xs,
+    gap: spacing.xs + spacing.xxs,
   },
   tiles: {
     flexDirection: 'row',
@@ -69,12 +69,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
+    gap: spacing.xxs,
     borderWidth: 2,
     borderColor: colors.arcadeFeltEdge,
     borderRadius: 16,
     backgroundColor: colors.arcadeTileFill,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
     paddingHorizontal: spacing.xs,
   },
   stars: {
@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
   },
   target: {
     fontFamily: fonts.monoMedium,
-    fontSize: fontSizes.small,
+    fontSize: fontSizes.caption + 1,
     fontWeight: fontWeights.bold,
     color: colors.arcadeCream,
     fontVariant: ['tabular-nums'],

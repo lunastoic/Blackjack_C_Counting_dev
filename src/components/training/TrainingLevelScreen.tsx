@@ -794,7 +794,9 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
         menuOpen={settingsOpen}
       />
 
-      <TrainingStatusStrip cells={cells} />
+      {/* The Modern brief carries the stars, strikes and pace itself, and needs
+          the strip's height to stay one page. */}
+      {modern && status === 'idle' ? null : <TrainingStatusStrip cells={cells} />}
       {seated ? <TrainingMeter meter={meter} drainMs={meterDrainMs} /> : null}
 
       {/* The felt and the panel share one box so the Modern brief can lie
@@ -851,17 +853,13 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
         </View>
 
         {modern && briefUp ? (
-          <Animated.ScrollView
-            style={styles.briefOverlay}
-            contentContainerStyle={[
-              styles.briefOverlayContent,
-              { paddingBottom: insets.bottom + spacing.md },
-            ]}
-            showsVerticalScrollIndicator={false}
+          <Animated.View
+            style={[styles.briefOverlay, { paddingBottom: insets.bottom + spacing.xs }]}
             entering={FadeIn.duration(200)}
             exiting={FadeOut.duration(200)}
           >
             <ArcadeLevelBrief
+              fit
               kicker={hasBegun ? `Level ${level} · Try again` : `Level ${level}`}
               title={spec.title}
               difficulty={speed.label}
@@ -878,7 +876,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
                   : undefined
               }
             />
-          </Animated.ScrollView>
+          </Animated.View>
         ) : null}
       </View>
 
@@ -957,19 +955,15 @@ const styles = StyleSheet.create({
     minHeight: 200,
     justifyContent: 'flex-end',
   },
-  /** Modern: the brief scrolls over the felt and the panel slot together. */
+  /** Modern: the brief lies over the felt and the panel slot together, one page. */
   briefOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-  },
-  briefOverlayContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
     paddingHorizontal: layout.screenPaddingH,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.xs,
   },
   /**
    * In play the question and its answers ride a little above the bottom edge —

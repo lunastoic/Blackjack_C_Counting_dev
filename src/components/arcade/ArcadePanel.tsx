@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
-import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { LayoutChangeEvent, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { colors, fonts, fontSizes, radii, spacing } from '../../theme';
 
 /**
@@ -17,12 +17,13 @@ const TAB_RADIUS = 14;
 interface ArcadePanelProps {
   readonly children: React.ReactNode;
   readonly style?: StyleProp<ViewStyle>;
+  readonly onLayout?: (event: LayoutChangeEvent) => void;
 }
 
 /** Green felt with a lighter felt edge; the intro's ground. */
-export function ArcadePanel({ children, style }: ArcadePanelProps) {
+export function ArcadePanel({ children, style, onLayout }: ArcadePanelProps) {
   return (
-    <View style={[styles.panel, style]}>
+    <View style={[styles.panel, style]} onLayout={onLayout}>
       <LinearGradient
         colors={[colors.arcadeFelt, colors.arcadeFeltDeep]}
         start={{ x: 0.5, y: 0 }}
@@ -130,7 +131,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.arcadeFelt,
     overflow: 'hidden',
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.lg,
+    paddingBottom: spacing.md,
     alignItems: 'stretch',
   },
   plaqueSlot: {
@@ -145,13 +146,13 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: TAB_RADIUS,
     borderTopRightRadius: TAB_RADIUS,
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xs,
+    paddingTop: spacing.xxs,
     marginBottom: -2,
     zIndex: 1,
   },
   plaqueKicker: {
     fontFamily: fonts.display,
-    fontSize: 24,
+    fontSize: 22,
     letterSpacing: 2,
     color: colors.arcadeCream,
     textShadowColor: colors.chipShadow,
@@ -166,14 +167,14 @@ const styles = StyleSheet.create({
     borderColor: colors.arcadePlaqueEdge,
     borderRadius: PLAQUE_RADIUS,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.lg + spacing.xs,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.md,
     alignItems: 'center',
   },
   plaqueTitle: {
     fontFamily: fonts.display,
-    fontSize: 46,
-    lineHeight: 46,
+    fontSize: 40,
+    lineHeight: 40,
     letterSpacing: 1,
     color: colors.arcadeGold,
     textAlign: 'center',
@@ -183,7 +184,7 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   plaqueFooter: {
-    marginTop: -(spacing.md + spacing.xs),
+    marginTop: -(spacing.md + spacing.xxs),
     alignItems: 'center',
   },
   tab: {
@@ -198,7 +199,7 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontFamily: fonts.display,
-    fontSize: 26,
+    fontSize: 22,
     letterSpacing: 2,
     color: colors.arcadeGold,
     textShadowColor: colors.chipShadow,
@@ -213,7 +214,7 @@ const styles = StyleSheet.create({
     borderColor: colors.arcadeInfoEdge,
     backgroundColor: colors.arcadeInfoFill,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xs + spacing.xxs,
+    paddingVertical: spacing.xs,
   },
   pillMint: {
     borderColor: colors.arcadeMint,
@@ -237,12 +238,12 @@ const styles = StyleSheet.create({
     borderColor: colors.arcadeInfoEdge,
     borderRadius: 14,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
   },
   infoText: {
     fontFamily: fonts.mono,
-    fontSize: fontSizes.small,
-    lineHeight: 22,
+    fontSize: fontSizes.caption + 1,
+    lineHeight: fontSizes.caption + 7,
     color: colors.arcadeCream,
     textAlign: 'center',
   },
@@ -252,7 +253,7 @@ const styles = StyleSheet.create({
     borderColor: colors.arcadeFeltEdge,
     borderRadius: 20,
     paddingHorizontal: spacing.sm,
-    paddingBottom: spacing.sm,
+    paddingBottom: spacing.xs + spacing.xxs,
     alignItems: 'center',
   },
 });

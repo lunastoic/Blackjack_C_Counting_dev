@@ -30,7 +30,7 @@ interface ExampleCardsProps {
  * Three cards from the player's own deck, each with its Hi-Lo value under it —
  * the intro's picture of what the level asks. Real card art, never drawn.
  */
-export function ExampleCards({ cardWidth = 84, style }: ExampleCardsProps) {
+export function ExampleCards({ cardWidth = 60, style }: ExampleCardsProps) {
   const faces = CARD_FACES[useSettingsStore((state) => state.cardDeck)];
   const cardHeight = cardWidth / CARD_ASPECT;
   const radius = cardCornerRadius(cardWidth);
@@ -67,8 +67,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'flex-end',
     gap: spacing.xs,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.xs,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xxs,
   },
   /** The pool of shadow the fan sits in. */
   shadow: {
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
   },
   slot: {
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: spacing.xxs,
   },
   card: {
     borderWidth: 2,
@@ -89,8 +89,8 @@ const styles = StyleSheet.create({
   },
   value: {
     fontFamily: fonts.display,
-    fontSize: 34,
-    lineHeight: 34,
+    fontSize: 28,
+    lineHeight: 28,
     textShadowColor: colors.chipShadow,
     textShadowOffset: { width: 1, height: 2 },
     textShadowRadius: 0,

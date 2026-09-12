@@ -1,6 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import {
+  LayoutChangeEvent,
+  Pressable,
+  StyleProp,
+  StyleSheet,
+  Text,
+  View,
+  ViewStyle,
+} from 'react-native';
 import { colors, fonts, fontSizes, spacing } from '../../theme';
 import { ArcadeButton } from './ArcadeButton';
 import { ArcadeInfoBox, ArcadePanel, ArcadePill, ArcadePlaque } from './ArcadePanel';
@@ -25,6 +33,11 @@ export interface ArcadeLevelBriefProps {
   readonly onHow?: () => void;
   readonly howLabel?: string;
   readonly showCards?: boolean;
+  /**
+   * Fill the room the parent gives and shrink the panel to fit it, so the
+   * brief is always one page — it never scrolls. The parent sizes the room.
+   */
+  readonly fit?: boolean;
   readonly style?: StyleProp<ViewStyle>;
 }
 
@@ -46,10 +59,32 @@ export function ArcadeLevelBrief({
   onHow,
   howLabel = 'How this level works',
   showCards = true,
+  fit = false,
   style,
 }: ArcadeLevelBriefProps) {
-  return (
-    <ArcadePanel style={[styles.panel, style]}>
+  // Both measures come from layout, which ignores the scale transform, so
+  // shrinking the panel never re-measures it.
+  const [room, setRoom] = useState(0);
+  const [natural, setNatural] = useState(0);
+  const measureRoom = useCallback((event: LayoutChangeEvent) => {
+    setRoom(event.nativeEvent.layout.height);
+  }, []);
+  const measurePanel = useCallback((event: LayoutChangeEvent) => {
+    setNatural(event.nativeEvent.layout.height);
+  }, []);
+  const measured = room > 0 && natural > 0;
+  const scale = fit && measured ? Math.min(1, room / natural) : 1;
+
+  const panel = (
+    <ArcadePanel
+      style={[
+        styles.panel,
+        // Hidden until both measures are in, so it never flashes at full size.
+        fit && { transform: [{ scale }], opacity: measured ? 1 : 0 },
+        style,
+      ]}
+      onLayout={fit ? measurePanel : undefined}
+    >
       <ArcadePlaque
         kicker={kicker}
         title={title}
@@ -86,12 +121,28 @@ export function ArcadeLevelBrief({
       ) : null}
     </ArcadePanel>
   );
+
+  if (!fit) {
+    return panel;
+  }
+  // The room is a flex box, so its height is what the parent leaves — the
+  // panel overflowing it (before the shrink) never stretches it.
+  return (
+    <View style={styles.room} onLayout={measureRoom}>
+      {panel}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
+  room: {
+    flex: 1,
+    justifyContent: 'center',
+  },
   panel: {
-    gap: spacing.md,
-    paddingTop: spacing.sm,
+    gap: spacing.xs + spacing.xxs,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm + spacing.xxs,
   },
   cardsGap: {
     height: spacing.xs,
@@ -104,14 +155,12 @@ const styles = StyleSheet.create({
   },
   start: {
     alignSelf: 'stretch',
-    marginTop: spacing.xs,
   },
   how: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    paddingVertical: spacing.xxs,
   },
   howPressed: {
     opacity: 0.6,
