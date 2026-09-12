@@ -247,12 +247,12 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   // While the table idles the brief and the tutorial are cards on the felt,
   // not a keyboard: the stage keeps only the felt the deck asks for and the
   // card floats centred in the rest instead of hugging the bottom edge. The
-  // house lettering is printed just below the deck's band — ribbon, pile or
-  // the primer's dealt beats — and stays in the open through primer, slides
-  // and run; the primer adds room under it for the count flag.
+  // house lettering is printed just below the deck — ribbon or pile — and
+  // stays in the open through primer, slides and run; the primer deals its
+  // beats onto the felt under the print, so it asks for that strip too.
   const letteringHeight = feltLetteringHeight(map.name, width);
   const idleStageHeight = inPrimer
-    ? tutorialStageHeight(letteringHeight)
+    ? tutorialStageHeight(letteringHeight, width)
     : SPREAD_DECK_BOTTOM + letteringHeight;
   // Sitting down pushes the felt under the meter — and, in Modern, under the
   // status strip the brief kept hidden. The print climbs by the same amount

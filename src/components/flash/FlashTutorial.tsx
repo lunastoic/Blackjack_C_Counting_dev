@@ -45,14 +45,16 @@ const PULL_START_DELAY_MS = 350;
 
 /**
  * Deck geometry, top-down in points so the deck is the same size on any felt:
- * the pile sits just under the dealer's rail and each beat's cards are dealt
- * out of it sideways, along the same band — the house print below stays in
- * the open the whole time. The count flag hangs under the print on the
- * betting beats.
+ * the pile sits just under the dealer's rail, the house print under it, and
+ * each beat's cards are dealt out of the pile onto the open felt below the
+ * print — the deck and the print stay in view the whole time. The count flag
+ * sits at the end of the dealt row on the betting beats.
  */
 const PILE_TOP = spacing.md;
-/** Flag height plus its margins. */
-const FLAG_ROOM = spacing.md + 32 + spacing.sm;
+/** Open felt between the print's foot and the dealt row, and under the row. */
+const FAN_GAP = spacing.sm;
+/** The dealt row is capped so the felt under the print still fits it on a 6.1" phone. */
+const BEAT_CARD_MAX_WIDTH = 52;
 /** The ribbon's end cards lean this far. */
 const RIBBON_TILT_DEG = 26;
 /** The ribbon's ends rise this far above its middle card. */
@@ -72,19 +74,20 @@ const RIBBON_MID_Y =
 /** Foot of the ribbon spread — the middle card's bottom edge; lettering prints below it. */
 export const SPREAD_DECK_BOTTOM = Math.ceil(RIBBON_MID_Y + SPREAD_CARD_WIDTH / CARD_ASPECT / 2);
 
-/** Pile and pulled cards read at one size: five across with room to spare. */
+/** Pile and pulled cards read at one size: five across with room for the flag. */
 function beatCardWidth(width: number): number {
-  return Math.min((width - 72) / 5 - 4, 62);
+  return Math.min((width - 72) / 5 - 4, BEAT_CARD_MAX_WIDTH);
 }
 
-/** Where the count flag hangs: just under the house print. */
-function flagTop(letteringHeight: number): number {
-  return SPREAD_DECK_BOTTOM + letteringHeight + spacing.md;
+/** Centre line of the dealt row: under the print, a strip of felt between. */
+function fanCentreY(letteringHeight: number, cardHeight: number): number {
+  return SPREAD_DECK_BOTTOM + letteringHeight + FAN_GAP + cardHeight / 2;
 }
 
-/** Felt the primer wants: the deck's band, the house print under it, the flag under that. */
-export function tutorialStageHeight(letteringHeight: number): number {
-  return SPREAD_DECK_BOTTOM + letteringHeight + FLAG_ROOM;
+/** Felt the primer wants: the deck's band, the house print, the dealt row, a margin. */
+export function tutorialStageHeight(letteringHeight: number, width: number): number {
+  const cardHeight = cardFrameHeight(beatCardWidth(width), BEAT_RING);
+  return Math.round(fanCentreY(letteringHeight, cardHeight) + cardHeight / 2 + FAN_GAP);
 }
 
 interface TutorialBeat {
@@ -119,7 +122,7 @@ const BEATS: readonly TutorialBeat[] = [
     // The low cards you counted out — they drove the count up to +7.
     ranks: ['2', '3', '4', '5', '6'],
     title: 'High count — bet big',
-    body: 'Counting these out pushed you to +7 — the small cards are gone and the deck is loaded with tens and aces. Blackjacks are coming, and they pay YOU. Raise your bets.',
+    body: 'Small cards gone, tens and aces left. Blackjacks pay you — raise your bets.',
     color: colors.success,
     badge: '+7',
   },
@@ -127,7 +130,7 @@ const BEATS: readonly TutorialBeat[] = [
     // The high cards already dealt — they dragged the count down to −7.
     ranks: ['A', 'K', 'Q', 'J', '10'],
     title: 'Low count — bet small',
-    body: 'These already hit the felt and dragged you to −7 — only small cards are left. The dealer stops busting and the edge is the house’s. Bet the minimum and wait it out.',
+    body: 'High cards gone, small ones left. The house has the edge — bet the minimum.',
     color: colors.error,
     badge: '−7',
   },
@@ -150,7 +153,7 @@ interface FlashTutorialDeckProps {
   /** With no beat out, keep the deck gathered in its pile instead of spreading it. */
   readonly gathered?: boolean;
   readonly width: number;
-  /** Felt the house print takes under the deck; the count flag hangs below it. */
+  /** Felt the house print takes under the deck; the beats are dealt below it. */
   readonly letteringHeight: number;
 }
 
@@ -176,7 +179,7 @@ export function FlashTutorialDeck({
           beat={beat}
           width={width}
           pile={pile}
-          flagTop={flagTop(letteringHeight)}
+          letteringHeight={letteringHeight}
         />
       ) : null}
     </View>
@@ -294,22 +297,23 @@ function BeatCards({
   beat,
   width,
   pile,
-  flagTop: flagY,
+  letteringHeight,
 }: {
   beat: number;
   width: number;
   pile: Point;
-  flagTop: number;
+  letteringHeight: number;
 }) {
   const reducedMotion = useReducedMotion();
   const faces = CARD_FACES[useSettingsStore((state) => state.cardDeck)];
   const spec = tutorialBeat(beat);
   const cardWidth = beatCardWidth(width);
   const cardHeight = cardFrameHeight(cardWidth, BEAT_RING);
-  // Dealt sideways along the pile's own band: the middle card lands on the
-  // pile and the rest fan out beside it, leaving the felt below untouched.
-  const fanY = pile.y;
+  // Dealt from the pile onto the open felt under the house print.
+  const fanY = fanCentreY(letteringHeight, cardHeight);
   const stepX = cardWidth - 6;
+  // The count flag sits just past the row's last card, on the same line.
+  const flagLeft = width / 2 + ((spec.ranks.length - 1) / 2) * stepX + cardWidth / 2 + spacing.md;
 
   // One shared pulse so the whole fan breathes together.
   const pulse = useSharedValue(0.5);
@@ -396,9 +400,11 @@ function BeatCards({
       {spec.badge ? (
         <Animated.View
           entering={reducedMotion ? undefined : FadeIn.delay(PULL_START_DELAY_MS + 300)}
-          style={[styles.badge, { borderColor: spec.color, top: flagY }]}
+          style={[styles.flagSlot, { left: flagLeft, top: fanY - cardHeight / 2, height: cardHeight }]}
         >
-          <Text style={[styles.badgeText, { color: spec.color }]}>{spec.badge}</Text>
+          <View style={[styles.badge, { borderColor: spec.color }]}>
+            <Text style={[styles.badgeText, { color: spec.color }]}>{spec.badge}</Text>
+          </View>
         </Animated.View>
       ) : null}
     </>
@@ -503,9 +509,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: colors.textPrimary,
   },
-  badge: {
+  /** A card-tall slot past the dealt row; the flag floats mid-card in it. */
+  flagSlot: {
     position: 'absolute',
-    alignSelf: 'center',
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  badge: {
     borderWidth: 1.5,
     borderRadius: radii.pill,
     paddingHorizontal: spacing.md,
