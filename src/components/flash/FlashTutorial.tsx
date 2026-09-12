@@ -55,6 +55,10 @@ const PILE_TOP = spacing.md;
 const FAN_GAP = spacing.sm;
 /** The dealt row is capped so the felt under the print still fits it on a 6.1" phone. */
 const BEAT_CARD_MAX_WIDTH = 52;
+/** Felt between the cards of a value beat, so every rank and suit reads whole. */
+const VALUE_BEAT_GAP = spacing.md;
+/** The betting beats bunch their cards — the count's worth of them, together — with the flag alongside. */
+const BET_BEAT_OVERLAP = 6;
 /** The ribbon's end cards lean this far. */
 const RIBBON_TILT_DEG = 26;
 /** The ribbon's ends rise this far above its middle card. */
@@ -311,7 +315,8 @@ function BeatCards({
   const cardHeight = cardFrameHeight(cardWidth, BEAT_RING);
   // Dealt from the pile onto the open felt under the house print.
   const fanY = fanCentreY(letteringHeight, cardHeight);
-  const stepX = cardWidth - 6;
+  // Value beats lay their cards out with felt between; the betting beats keep the bunched row.
+  const stepX = spec.badge ? cardWidth - BET_BEAT_OVERLAP : cardWidth + VALUE_BEAT_GAP;
   // The count flag sits just past the row's last card, on the same line.
   const flagLeft = width / 2 + ((spec.ranks.length - 1) / 2) * stepX + cardWidth / 2 + spacing.md;
 
