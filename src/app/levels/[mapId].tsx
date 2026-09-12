@@ -177,9 +177,10 @@ export default function LevelMapScreen() {
     });
   }
 
-  // The table is the root screen: pop back to it (switching its map) rather
-  // than stacking a fresh table on top of this map and the one before it —
-  // every screen left in the stack keeps its felt and posters in memory.
+  // A table under this map is popped back to (switching its map) rather than
+  // stacked on again — every screen left in the stack keeps its felt and
+  // posters in memory. From the launch map there is none, and dismissTo
+  // swaps this screen for it.
   function openTable(map: CasinoMap) {
     router.dismissTo({ pathname: '/game/[mapId]', params: { mapId: String(map.id) } });
   }

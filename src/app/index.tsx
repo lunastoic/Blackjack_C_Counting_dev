@@ -1,22 +1,15 @@
 import { Redirect } from 'expo-router';
-import React, { useState } from 'react';
-import { TrainingLevelScreen } from '../components/training/TrainingLevelScreen';
+import React from 'react';
 import { LUNA_LUXE } from '../engine/betting/casino';
-import { useDojoStore } from '../stores/dojoStore';
+import { useProgressionStore } from '../stores/progressionStore';
 
 /**
- * Launch lands you straight at the Luna Luxe table on the next training
- * level — no intro, no questions, just Start. Once all six are cleared the
- * table itself is home.
- *
- * The level is captured once per mount so clearing it shows the results card
- * instead of instantly re-pointing the table at the next level.
+ * Launch lands on Select Map at the newest casino: the ladder shows where
+ * you are, the START flag breathes on the level to play next, and the table
+ * button lights once the ladder is cleared. Everything else stacks on top.
  */
 export default function HomeScreen() {
-  const [level] = useState(() => useDojoStore.getState().nextFlashLevel(LUNA_LUXE.id));
-
-  if (level === null) {
-    return <Redirect href={{ pathname: '/game/[mapId]', params: { mapId: String(LUNA_LUXE.id) } }} />;
-  }
-  return <TrainingLevelScreen mapId={LUNA_LUXE.id} level={level} />;
+  const unlockedMapIds = useProgressionStore((state) => state.unlockedMapIds);
+  const mapId = Math.max(LUNA_LUXE.id, ...unlockedMapIds);
+  return <Redirect href={{ pathname: '/levels/[mapId]', params: { mapId: String(mapId) } }} />;
 }

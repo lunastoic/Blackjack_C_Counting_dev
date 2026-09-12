@@ -325,7 +325,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
     router.dismissTo({ pathname: '/levels/[mapId]', params: { mapId: String(mapId) } });
   }
 
-  // Likewise the table is the root screen: unwind to it and switch its map.
+  // Likewise the table: unwind to it if it's below, else take its place here.
   function sitAtTable() {
     router.dismissTo({ pathname: '/game/[mapId]', params: { mapId: String(mapId) } });
   }

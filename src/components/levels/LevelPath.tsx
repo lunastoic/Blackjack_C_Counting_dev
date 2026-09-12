@@ -1,7 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import Animated, {
+  cancelAnimation,
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { CHIP_SETS, LEVEL_ART } from '../../assets/registry';
 import { CasinoMap } from '../../engine/betting/casino';
 import {
@@ -13,6 +22,7 @@ import {
   nextFlashLevel,
   trainingLevelsForMap,
 } from '../../engine/dojo';
+import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { colors, fonts, fontSizes, fontWeights, radii, shadows, spacing } from '../../theme';
 import { ArcadeBadge, ArcadeFlag, arcadeShadow } from '../arcade';
 import { PressableScale } from '../common/PressableScale';
@@ -68,6 +78,8 @@ const MODERN_DASH_GAP = 7;
 const MODERN_DASH_HEIGHT = 2.5;
 /** Every Modern run bends the same gentle S; the trail runs under the nodes. */
 const MODERN_BEND = 0.5;
+/** One breath of the START node's glow, in and out. */
+const MODERN_BREATH_MS = 1100;
 
 export type LevelNodeState = 'done' | 'current' | 'locked';
 
@@ -449,6 +461,35 @@ function ModernLevelNode({
   onPress,
 }: ModernLevelNodeProps) {
   const locked = state === 'locked';
+  const reducedMotion = useReducedMotion();
+
+  // The START node breathes: its gold halo swells and its art lifts a touch,
+  // so the level to play next is the obvious first tap on a fresh map.
+  const breath = useSharedValue(0);
+  useEffect(() => {
+    if (isStart && !reducedMotion) {
+      breath.set(
+        withRepeat(
+          withSequence(
+            withTiming(1, { duration: MODERN_BREATH_MS, easing: Easing.inOut(Easing.sin) }),
+            withTiming(0, { duration: MODERN_BREATH_MS, easing: Easing.inOut(Easing.sin) }),
+          ),
+          -1,
+          true,
+        ),
+      );
+    } else {
+      cancelAnimation(breath);
+      breath.set(isStart ? 0.6 : 0);
+    }
+    return () => cancelAnimation(breath);
+  }, [isStart, reducedMotion, breath]);
+  const breathStyle = useAnimatedStyle(() => ({
+    shadowOpacity: 0.6 + breath.value * 0.4,
+    shadowRadius: 6 + breath.value * 10,
+    transform: [{ scale: 1 + breath.value * 0.04 }],
+  }));
+
   return (
     <View
       style={[
@@ -469,24 +510,31 @@ function ModernLevelNode({
         style={[
           styles.chipWrap,
           { width: nodeSize, height: nodeSize },
-          state === 'current' ? styles.modernArtCurrent : !locked && styles.modernArtShadow,
+          // The START node carries its own breathing halo below.
+          isStart
+            ? undefined
+            : state === 'current'
+              ? styles.modernArtCurrent
+              : !locked && styles.modernArtShadow,
         ]}
       >
         {/* Locked art dims, with a muted silhouette laid over it to wash the colour out
             (no grayscale filter without a native image library); the badge sits on the corner. */}
-        <Image
-          source={art}
-          style={[{ width: nodeSize, height: nodeSize }, locked && styles.modernArtLocked]}
-          contentFit="contain"
-        />
-        {locked ? (
+        <Animated.View style={isStart ? [styles.modernArtCurrent, breathStyle] : undefined}>
           <Image
             source={art}
-            style={[StyleSheet.absoluteFill, styles.modernArtWash]}
-            tintColor={colors.arcadeMuted}
+            style={[{ width: nodeSize, height: nodeSize }, locked && styles.modernArtLocked]}
             contentFit="contain"
           />
-        ) : null}
+          {locked ? (
+            <Image
+              source={art}
+              style={[StyleSheet.absoluteFill, styles.modernArtWash]}
+              tintColor={colors.arcadeMuted}
+              contentFit="contain"
+            />
+          ) : null}
+        </Animated.View>
         {locked ? <ArcadeBadge kind="lock" style={styles.modernBadge} /> : null}
         {state === 'done' ? <ArcadeBadge kind="check" style={styles.modernBadge} /> : null}
       </PressableScale>

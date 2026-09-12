@@ -7,8 +7,8 @@ import { ArcadeInfoBox, ArcadePanel, ArcadeTab } from './ArcadePanel';
 interface ArcadeTutorialPanelProps {
   /** "LEVEL 2", "HI-LO". */
   readonly kicker: string;
-  /** "1 OF 5". */
-  readonly progress: string;
+  /** "1 OF 5" — left out on a one-slide walkthrough. */
+  readonly progress?: string;
   readonly title: string;
   /** The primer tints each beat's title by its Hi-Lo value. */
   readonly titleColor?: string;
@@ -40,7 +40,7 @@ export function ArcadeTutorialPanel({
     <ArcadePanel style={[styles.panel, style]}>
       <View style={styles.header}>
         <ArcadeTab label={kicker} />
-        <Text style={styles.progress}>{progress.toUpperCase()}</Text>
+        {progress ? <Text style={styles.progress}>{progress.toUpperCase()}</Text> : null}
       </View>
       {/* Wraps, never shrinks — see ArcadePlaque. */}
       <Text style={[styles.title, { color: titleColor }]} numberOfLines={2}>

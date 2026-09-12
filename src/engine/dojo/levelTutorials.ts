@@ -22,10 +22,11 @@ const LEVEL_TUTORIALS: Readonly<Record<string, readonly TutorialSlide[]>> = {
   // -------------------------------------------------------------------------
   // Map 1 — Running Count Basics
   // -------------------------------------------------------------------------
-  '1:1': slides(
-    ['One card at a time', 'Tap its value: −1, 0 or +1. Twenty-one right clears it. Answer before the meter runs dry — right answers top it up.'],
-    ['Three strikes', 'A miss is a strike; your count stands. Three to spare — a fourth miss ends the run.'],
-  ),
+  // One slide: the primer has just run, so the first level is a single tap away.
+  '1:1': slides([
+    'One card at a time',
+    'Tap its value: −1, 0 or +1, before the meter runs dry. Twenty-one right clears the level; a fourth miss ends the run.',
+  ]),
   '1:2': slides(
     ['Two cards, one number', 'Add both values and tap the total.'],
     ['Pairs that cancel', 'A +1 next to a −1 is 0. Two lows are +2, two highs are −2.'],
