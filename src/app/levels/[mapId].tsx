@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -23,12 +24,21 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { appAssets, MAP_ART } from '../../assets/registry';
+import { appAssets, MAP_ART, MODERN_TABLE_FELTS } from '../../assets/registry';
+import {
+  ARCADE_SQUARE,
+  ArcadeBar,
+  ArcadeButton,
+  ArcadeMarquee,
+  arcadeShadow,
+  ArcadeSquare,
+} from '../../components/arcade';
 import { PressableScale } from '../../components/common/PressableScale';
 import { FEATURES } from '../../constants/features';
 import { LevelPath } from '../../components/levels/LevelPath';
 import { CASINO_MAPS, CasinoMap, mapById } from '../../engine/betting/casino';
 import { FLASH_LEVELS_PER_MAP, FlashProgress, nextFlashLevel } from '../../engine/dojo';
+import { useModernUi } from '../../hooks/useModernUi';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { playSound } from '../../services/audio';
 import { haptics } from '../../services/haptics';
@@ -41,7 +51,7 @@ import {
   useFlashDebugStore,
 } from '../../stores/flashDebugStore';
 import { useProgressionStore } from '../../stores/progressionStore';
-import { colors, fontSizes, fontWeights, layout, radii, shadows, spacing } from '../../theme';
+import { colors, fonts, fontSizes, fontWeights, layout, radii, shadows, spacing } from '../../theme';
 import { formatChips } from '../../utils/format';
 
 const AnimatedImage = Animated.createAnimatedComponent(Image);
@@ -51,6 +61,19 @@ const CARD_WIDTH_RATIO = 0.8;
 const CARD_GAP = spacing.md;
 /** Card height is capped so it reads as a card, not a full-screen panel. */
 const CARD_MAX_HEIGHT = 600;
+
+/**
+ * Modern: the card sits left with the next casino peeking in on the right;
+ * the foot under it doubles as the home-indicator room.
+ */
+const MODERN_PAGER_LEFT = 24;
+const MODERN_PAGER_RIGHT = 40;
+const MODERN_PAGER_TOP = 6;
+const MODERN_CARD_FOOT = 34;
+const MODERN_CARD_MAX_HEIGHT = 720;
+/** The card's ink base shows this far below its face. */
+const MODERN_CARD_DROP = 6;
+const MODERN_CARD_OUTLINE = 3;
 
 /** Unlock reveal: the screen settles, the new card slides to centre… */
 const REVEAL_SCROLL_DELAY_MS = 350;
@@ -82,7 +105,10 @@ export default function LevelMapScreen() {
     0,
     CASINO_MAPS.findIndex((map) => map.id === parsed),
   );
-  const cardWidth = Math.round(width * CARD_WIDTH_RATIO);
+  const modern = useModernUi();
+  const cardWidth = modern
+    ? width - MODERN_PAGER_LEFT - MODERN_PAGER_RIGHT
+    : Math.round(width * CARD_WIDTH_RATIO);
   const snap = cardWidth + CARD_GAP;
   const sidePadding = (width - cardWidth) / 2;
 
@@ -91,6 +117,9 @@ export default function LevelMapScreen() {
   // Cards fill the pager's height exactly — measured, since a horizontal list
   // gives its rows no height of their own.
   const [pagerHeight, setPagerHeight] = useState(0);
+  const cardHeight = modern
+    ? Math.min(Math.max(0, pagerHeight - MODERN_CARD_FOOT), MODERN_CARD_MAX_HEIGHT)
+    : Math.min(Math.max(0, pagerHeight - spacing.md), CARD_MAX_HEIGHT);
   const listRef = useRef<FlatList<CasinoMap>>(null);
 
   // Re-page when the route param changes while the screen stays mounted.
@@ -156,22 +185,58 @@ export default function LevelMapScreen() {
   }
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-      <View style={styles.header}>
-        <View style={styles.headerSpacer} />
-        <Text style={styles.title}>Select Map</Text>
-        <PressableScale
-          accessibilityLabel="Settings, stats and achievements"
-          onPress={() => router.push('/settings')}
-          style={styles.headerButton}
-        >
-          <Ionicons name="settings-outline" size={24} color={colors.textSecondary} />
-        </PressableScale>
-      </View>
+    <View
+      style={[
+        styles.root,
+        modern && styles.rootModern,
+        {
+          paddingTop: insets.top,
+          // Modern: the card's foot is the home-indicator room; the DEV row needs its own.
+          paddingBottom: modern && !FLASH_DEBUG_AVAILABLE ? 0 : insets.bottom,
+        },
+      ]}
+    >
+      {modern ? (
+        <Image
+          source={MODERN_TABLE_FELTS['gray-suede']}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          accessible={false}
+        />
+      ) : null}
+      {modern ? (
+        <View style={styles.hudModern}>
+          <View style={styles.hudGhost} />
+          <ArcadeMarquee
+            title="Select Map"
+            subtitle={`${active + 1} of ${CASINO_MAPS.length} maps`}
+            style={styles.hudMarquee}
+          />
+          <ArcadeSquare
+            tone="plaque"
+            accessibilityLabel="Settings, stats and achievements"
+            onPress={() => router.push('/settings')}
+          >
+            <Ionicons name="settings-outline" size={22} color={colors.arcadeGold} />
+          </ArcadeSquare>
+        </View>
+      ) : (
+        <View style={styles.header}>
+          <View style={styles.headerSpacer} />
+          <Text style={styles.title}>Select Map</Text>
+          <PressableScale
+            accessibilityLabel="Settings, stats and achievements"
+            onPress={() => router.push('/settings')}
+            style={styles.headerButton}
+          >
+            <Ionicons name="settings-outline" size={24} color={colors.textSecondary} />
+          </PressableScale>
+        </View>
+      )}
 
       <FlatList
         ref={listRef}
-        style={styles.pager}
+        style={[styles.pager, modern && styles.pagerModern]}
         onLayout={(event: LayoutChangeEvent) =>
           setPagerHeight(Math.floor(event.nativeEvent.layout.height))
         }
@@ -183,7 +248,15 @@ export default function LevelMapScreen() {
         bounces={false}
         showsHorizontalScrollIndicator={false}
         initialScrollIndex={initialIndex}
-        contentContainerStyle={{ paddingHorizontal: sidePadding, alignItems: 'center' }}
+        contentContainerStyle={
+          modern
+            ? {
+                paddingLeft: MODERN_PAGER_LEFT,
+                paddingRight: MODERN_PAGER_RIGHT,
+                alignItems: 'flex-start',
+              }
+            : { paddingHorizontal: sidePadding, alignItems: 'center' }
+        }
         getItemLayout={(_, index) => ({ length: snap, offset: snap * index, index })}
         onMomentumScrollEnd={onScrollEnd}
         keyExtractor={(map) => String(map.id)}
@@ -191,7 +264,8 @@ export default function LevelMapScreen() {
           <MapCard
             map={item}
             width={cardWidth}
-            height={Math.min(Math.max(0, pagerHeight - spacing.md), CARD_MAX_HEIGHT)}
+            height={cardHeight}
+            modern={modern}
             isActive={index === active}
             isLast={index === CASINO_MAPS.length - 1}
             progress={progress}
@@ -236,16 +310,19 @@ export default function LevelMapScreen() {
         </View>
       ) : null}
 
-      <View style={styles.dots} accessibilityLabel={`Casino ${active + 1} of ${CASINO_MAPS.length}`}>
-        {CASINO_MAPS.map((map, index) => (
-          <PressableScale
-            key={map.id}
-            accessibilityLabel={map.name}
-            onPress={() => listRef.current?.scrollToIndex({ index, animated: true })}
-            style={[styles.dot, index === active && styles.dotActive]}
-          />
-        ))}
-      </View>
+      {/* Modern: the marquee's "N of 6" and the peeking neighbour carry the paging. */}
+      {modern ? null : (
+        <View style={styles.dots} accessibilityLabel={`Casino ${active + 1} of ${CASINO_MAPS.length}`}>
+          {CASINO_MAPS.map((map, index) => (
+            <PressableScale
+              key={map.id}
+              accessibilityLabel={map.name}
+              onPress={() => listRef.current?.scrollToIndex({ index, animated: true })}
+              style={[styles.dot, index === active && styles.dotActive]}
+            />
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -254,6 +331,7 @@ interface MapCardProps {
   readonly map: CasinoMap;
   readonly width: number;
   readonly height: number;
+  readonly modern: boolean;
   readonly isActive: boolean;
   readonly isLast: boolean;
   readonly progress: FlashProgress;
@@ -272,6 +350,7 @@ function MapCard({
   map,
   width,
   height,
+  modern,
   isActive,
   isLast,
   progress,
@@ -289,7 +368,8 @@ function MapCard({
   const tableOpen = next === null;
   const remaining = next === null ? 0 : FLASH_LEVELS_PER_MAP - next + 1;
   const previous = mapById(map.id - 1);
-  const pathWidth = width - spacing.md * 2;
+  // Modern: the ladder spans the card face inside its outline.
+  const pathWidth = modern ? width - MODERN_CARD_OUTLINE * 2 : width - spacing.md * 2;
   // The ladder is laid out to whatever height is left under the banner — no scrolling.
   const [pathHeight, setPathHeight] = useState(0);
 
@@ -438,6 +518,127 @@ function MapCard({
         withTiming(-3, { duration: 60 }),
         withTiming(0, { duration: 60 }),
       ),
+    );
+  }
+
+  if (modern) {
+    const levelsLabel = `${remaining} level${remaining === 1 ? '' : 's'}`;
+    const status = locked
+      ? `Locked · finish ${previous?.name ?? 'the previous casino'}`
+      : tableOpen
+        ? `All ${FLASH_LEVELS_PER_MAP} levels cleared · max bet ${formatChips(map.maxBet)}`
+        : `${levelsLabel} to open the table · max bet ${formatChips(map.maxBet)}`;
+    // The ink base shows under the face; the wrapper stays unclipped for its shadow.
+    return (
+      <View style={{ width, height: height + MODERN_CARD_DROP, marginRight: isLast ? 0 : CARD_GAP }}>
+        <View style={styles.cardModernBase} />
+        <View style={[styles.cardModernFace, { height }]}>
+          {/* The skyline fills the face, cropped to its middle; the shade keeps the ladder legible. */}
+          <Image
+            source={MAP_ART[map.artKey]}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            contentPosition={{ left: '52%', top: '50%' }}
+          />
+          <LinearGradient
+            colors={[
+              colors.arcadeNightShade,
+              colors.arcadeNightVeil,
+              colors.arcadeNightVeil,
+              colors.arcadeNightShade,
+            ]}
+            locations={[0, 0.22, 0.6, 1]}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+
+          {stage !== 'open' ? (
+            <Animated.View style={[styles.lockPane, styles.lockPaneModern, paneStyle]} pointerEvents="box-none">
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${map.name} locked — finish level ${FLASH_LEVELS_PER_MAP} at ${previous?.name ?? 'the previous casino'}`}
+                disabled={!locked}
+                hitSlop={spacing.md}
+                onPress={rattleLock}
+              >
+                <Animated.View style={[styles.lockBody, shakeStyle]}>
+                  <View style={styles.lockBadge}>
+                    <AnimatedImage
+                      source={appAssets.icons.lock}
+                      style={[styles.lockIcon, lockStyle]}
+                      contentFit="contain"
+                    />
+                    <AnimatedImage
+                      source={appAssets.icons.unlock}
+                      style={[styles.lockIcon, styles.lockIconOver, unlockStyle]}
+                      contentFit="contain"
+                    />
+                  </View>
+                  <Text style={styles.lockTextModern}>{locked ? 'TABLE LOCKED' : 'UNLOCKED'}</Text>
+                </Animated.View>
+              </Pressable>
+            </Animated.View>
+          ) : null}
+
+          <View style={styles.headModern}>
+            <ArcadeMarquee title={map.name} subtitle={status} subtitleSpacing={1} />
+          </View>
+
+          <View style={styles.pathWrapModern} onLayout={onPathLayout}>
+            {!locked && pathHeight > 0 ? (
+              <Animated.View style={[styles.pathFill, contentStyle]}>
+                <LevelPath
+                  map={map}
+                  progress={progress}
+                  width={pathWidth}
+                  height={pathHeight}
+                  onSelect={onSelectLevel}
+                  interactive={stage === 'open'}
+                  modern
+                />
+              </Animated.View>
+            ) : null}
+          </View>
+
+          {/* The foot keeps one height whichever button shows, so the ladder never shifts. */}
+          {!locked ? (
+            <Animated.View style={[styles.footModern, contentStyle]}>
+              {tableOpen ? (
+                <ArcadeButton
+                  label="Play Table"
+                  leading="▶"
+                  sublabel={`max bet ${formatChips(map.maxBet)}`}
+                  variant="gold"
+                  size="large"
+                  disabled={!playable}
+                  dimDisabled={false}
+                  onPress={onTable}
+                  accessibilityLabel={`Play blackjack at ${map.name}, max bet ${formatChips(map.maxBet)}`}
+                />
+              ) : (
+                <ArcadeButton
+                  label={`Table opens in ${levelsLabel}`}
+                  leading={<Ionicons name="lock-closed" size={16} color={colors.arcadeMuted} />}
+                  variant="locked"
+                  size="medium"
+                  disabled
+                  dimDisabled={false}
+                  onPress={onTable}
+                  accessibilityLabel={`${map.name} table opens in ${levelsLabel}, ${levelsDone} of ${FLASH_LEVELS_PER_MAP} done`}
+                  overlay={
+                    <ArcadeBar
+                      thin
+                      progress={levelsDone / FLASH_LEVELS_PER_MAP}
+                      accessibilityLabel={`${levelsDone} of ${FLASH_LEVELS_PER_MAP} levels done`}
+                      style={styles.footProgressModern}
+                    />
+                  }
+                />
+              )}
+            </Animated.View>
+          ) : null}
+        </View>
+      </View>
     );
   }
 
@@ -811,5 +1012,84 @@ const styles = StyleSheet.create({
   },
   dotActive: {
     backgroundColor: colors.textPrimary,
+  },
+
+  // Modern
+  rootModern: {
+    backgroundColor: colors.arcadeNight,
+  },
+  /** Ghost square · marquee · settings square, like the table's HUD. */
+  hudModern: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    paddingHorizontal: layout.screenPaddingH,
+    paddingVertical: spacing.sm,
+  },
+  hudGhost: {
+    width: ARCADE_SQUARE,
+  },
+  hudMarquee: {
+    flex: 1,
+  },
+  pagerModern: {
+    marginTop: MODERN_PAGER_TOP,
+  },
+  cardModernBase: {
+    position: 'absolute',
+    top: MODERN_CARD_DROP,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: radii.xl,
+    backgroundColor: colors.arcadeInk,
+    shadowColor: colors.overlay,
+    shadowOpacity: 0.9,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 12,
+  },
+  cardModernFace: {
+    borderRadius: radii.xl,
+    borderWidth: MODERN_CARD_OUTLINE,
+    borderColor: colors.arcadeInk,
+    backgroundColor: colors.arcadeNight,
+    overflow: 'hidden',
+  },
+  /** The casino's marquee, painted above the lock pane so it stays readable. */
+  headModern: {
+    marginTop: 10,
+    marginHorizontal: 14,
+    zIndex: 3,
+  },
+  pathWrapModern: {
+    flex: 1,
+    minHeight: 0,
+    marginTop: 14,
+  },
+  footModern: {
+    height: 84,
+    justifyContent: 'flex-end',
+    paddingHorizontal: spacing.md,
+    paddingBottom: 10,
+  },
+  /** Levels cleared so far, along the locked button's foot. */
+  footProgressModern: {
+    position: 'absolute',
+    left: 10,
+    right: 10,
+    bottom: 0,
+  },
+  lockPaneModern: {
+    backgroundColor: colors.overlay,
+  },
+  lockTextModern: {
+    fontFamily: fonts.display,
+    fontSize: 22,
+    lineHeight: 24,
+    letterSpacing: 1,
+    color: colors.arcadeGold,
+    includeFontPadding: false,
+    ...arcadeShadow.deep,
   },
 });

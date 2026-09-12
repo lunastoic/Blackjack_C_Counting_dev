@@ -226,7 +226,7 @@ export const UI_STYLE_LABELS: Readonly<Record<UiStyle, string>> = {
   classic: 'Classic',
 };
 
-const UI_STYLE_BLURBS: Readonly<Record<UiStyle, string>> = {
+export const UI_STYLE_BLURBS: Readonly<Record<UiStyle, string>> = {
   modern: 'Arcade intros and bevelled buttons, drawn fresh. Switches everywhere at once.',
   classic: 'The original button art and burgundy intros.',
 };

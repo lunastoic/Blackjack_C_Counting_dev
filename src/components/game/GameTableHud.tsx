@@ -6,13 +6,17 @@ import { MAX_LEVEL, XP_PER_LEVEL } from '../../engine/progression/progression';
 import { useDailyGoalStore } from '../../stores/dailyGoalStore';
 import { useEconomyStore } from '../../stores/economyStore';
 import { useProgressionStore } from '../../stores/progressionStore';
-import { colors, fontSizes, fontWeights, layout, radii, spacing } from '../../theme';
+import { useModernUi } from '../../hooks/useModernUi';
+import { colors, fonts, fontSizes, fontWeights, layout, radii, spacing } from '../../theme';
 import { formatChips } from '../../utils/format';
+import { ArcadeBar, ArcadeBevel, ArcadeMarquee, ArcadeSquare, arcadeShadow } from '../arcade';
 import { PressableScale } from '../common/PressableScale';
 import { ProgressBar } from '../common/ProgressBar';
 
 const SIDE_SLOT = layout.touchTarget;
 const REWARD_BTN = 28;
+/** The Modern gift bud: a plaque square nested into the chips pill. */
+const MODERN_BUD = 34;
 
 interface GameTableHudProps {
   readonly mapName: string;
@@ -55,6 +59,94 @@ export function GameTableHud({
     return () => clearInterval(timer);
   }, []);
   const dailyReady = isDailyRewardAvailable(now) || isGoalClaimable(now);
+  const modern = useModernUi();
+
+  if (modern) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.topRow}>
+          <ArcadeSquare onPress={onOpenMaps} accessibilityLabel={leftAccessibilityLabel}>
+            <Ionicons name={leftIcon} size={22} color={colors.arcadeGold} />
+          </ArcadeSquare>
+          <ArcadeMarquee title={mapName} subtitle={modeLabel} style={styles.marquee} />
+          <ArcadeSquare
+            onPress={onOpenSettings}
+            tone="plaque"
+            open={menuOpen}
+            accessibilityLabel="Table settings"
+            accessibilityState={{ expanded: menuOpen }}
+          >
+            <Ionicons name="menu" size={26} color={colors.arcadeGold} />
+          </ArcadeSquare>
+        </View>
+
+        <View style={styles.bottomRow}>
+          <View style={[styles.chipsCluster, styles.modernChipsCluster]}>
+            <ArcadeBevel
+              face={colors.arcadeStripFace}
+              deep={colors.arcadeStripDeep}
+              drop={3}
+              outline={2}
+              band={3}
+              radius={10}
+              style={styles.modernChipsPill}
+              faceStyle={styles.modernChipsFace}
+            >
+              <View style={styles.modernChipsRow} accessibilityLabel={`Chips: ${chips}`}>
+                <Text style={styles.modernLabel}>CHIPS:</Text>
+                <Text style={styles.modernValue} numberOfLines={1}>
+                  {formatChips(chips)}
+                </Text>
+              </View>
+            </ArcadeBevel>
+            <PressableScale
+              accessibilityLabel={dailyReady ? 'Daily reward available' : 'Daily rewards'}
+              onPress={() => router.push('/rewards')}
+              style={styles.modernBud}
+            >
+              <ArcadeBevel
+                face={dailyReady ? colors.arcadeGold : colors.arcadePlaque}
+                deep={dailyReady ? colors.arcadeGoldDeep : colors.arcadePlaqueDeep}
+                drop={3}
+                outline={2}
+                band={3}
+                radius={10}
+                faceStyle={styles.modernBudFace}
+              >
+                <Ionicons
+                  name="gift"
+                  size={16}
+                  color={dailyReady ? colors.arcadeInkOnLight : colors.arcadeGold}
+                />
+              </ArcadeBevel>
+              {dailyReady ? <View style={styles.modernReadyDot} /> : null}
+            </PressableScale>
+          </View>
+
+          <View
+            style={[styles.levelBlock, styles.modernLevelBlock]}
+            accessibilityLabel={
+              atMaxLevel
+                ? `Level ${level}, maximum level`
+                : `Level ${level}, ${xpIntoLevel} of ${XP_PER_LEVEL} XP`
+            }
+          >
+            <View style={styles.statRow}>
+              <Text style={styles.modernLabel}>LEVEL:</Text>
+              <Text style={styles.modernValue}>{level}</Text>
+            </View>
+            <ArcadeBar
+              progress={xpProgress}
+              accessibilityLabel={
+                atMaxLevel ? 'Maximum level reached' : `${xpIntoLevel} of ${XP_PER_LEVEL} XP`
+              }
+              style={styles.xpBar}
+            />
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -289,5 +381,78 @@ const styles = StyleSheet.create({
   },
   xpBar: {
     width: '100%',
+  },
+  /* Modern */
+  marquee: {
+    flex: 1,
+    minWidth: 0,
+  },
+  modernChipsCluster: {
+    alignItems: 'flex-end',
+    marginBottom: 3,
+  },
+  modernChipsPill: {
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  modernChipsFace: {
+    borderRightWidth: 0,
+    borderTopRightRadius: 0,
+    borderBottomRightRadius: 0,
+    minHeight: 30,
+    paddingTop: 1,
+    paddingBottom: 3,
+    paddingLeft: spacing.sm + spacing.xxs,
+    paddingRight: spacing.xl - 2,
+    justifyContent: 'center',
+  },
+  modernChipsRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 5,
+  },
+  modernLabel: {
+    fontFamily: fonts.display,
+    fontSize: 16,
+    lineHeight: 18,
+    letterSpacing: 1,
+    color: colors.arcadeGold,
+    includeFontPadding: false,
+    ...arcadeShadow.soft,
+  },
+  modernValue: {
+    fontFamily: fonts.display,
+    fontSize: 22,
+    lineHeight: 22,
+    color: colors.arcadeCream,
+    fontVariant: ['tabular-nums'],
+    includeFontPadding: false,
+    ...arcadeShadow.deep,
+  },
+  modernBud: {
+    width: MODERN_BUD,
+    marginLeft: -14,
+    zIndex: 1,
+  },
+  modernBudFace: {
+    height: MODERN_BUD,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 2,
+  },
+  modernReadyDot: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.arcadeRed,
+    borderWidth: 2,
+    borderColor: colors.arcadeInk,
+  },
+  modernLevelBlock: {
+    gap: 3,
+    marginBottom: 3,
   },
 });

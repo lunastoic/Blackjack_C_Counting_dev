@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { ArcadeButton, ArcadeTag } from '../arcade';
 import { PressableScale } from '../common/PressableScale';
 import { PrimaryButton } from '../common/PrimaryButton';
+import { useModernUi } from '../../hooks/useModernUi';
 import { haptics } from '../../services/haptics';
 import { colors, fontSizes, fontWeights, radii, shadows, spacing } from '../../theme';
 import { formatCount } from '../../utils/countCoach';
@@ -18,6 +20,7 @@ interface QuizCountEntryProps {
  * count with −/+ and lock it in. Mounts fresh (at 0) for every question.
  */
 export function QuizCountEntry({ onSubmit }: QuizCountEntryProps) {
+  const modern = useModernUi();
   const [value, setValue] = useState(0);
 
   function step(delta: number) {
@@ -28,6 +31,43 @@ export function QuizCountEntry({ onSubmit }: QuizCountEntryProps) {
       }
       return next;
     });
+  }
+
+  if (modern) {
+    // The stepper's own tap sits on the buttons; the clamp haptic stays in step().
+    return (
+      <View style={styles.arcadeContainer}>
+        <View style={styles.stepperRow}>
+          <ArcadeButton
+            label="−"
+            variant="neutral"
+            size="large"
+            round
+            hapticFeedback={false}
+            onPress={() => step(-1)}
+            accessibilityLabel="Decrease count"
+          />
+          <ArcadeTag label={formatCount(value)} big />
+          <ArcadeButton
+            label="+"
+            variant="neutral"
+            size="large"
+            round
+            hapticFeedback={false}
+            onPress={() => step(1)}
+            accessibilityLabel="Increase count"
+          />
+        </View>
+        <ArcadeButton
+          label={`Lock in ${formatCount(value)}`}
+          trailing="▶"
+          variant="gold"
+          size="large"
+          onPress={() => onSubmit(value)}
+          accessibilityHint="Submits this running count as your answer"
+        />
+      </View>
+    );
   }
 
   return (
@@ -65,9 +105,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
   },
+  arcadeContainer: {
+    alignSelf: 'stretch',
+    alignItems: 'stretch',
+    gap: spacing.md,
+  },
   stepperRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.lg,
   },
   stepButton: {

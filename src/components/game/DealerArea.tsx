@@ -2,7 +2,9 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { RoundState } from '../../engine/blackjack/round';
 import { CardSkin } from '../../assets/cards.generated';
-import { colors, fontSizes, fontWeights, spacing } from '../../theme';
+import { useModernUi } from '../../hooks/useModernUi';
+import { colors, fonts, fontSizes, fontWeights, spacing } from '../../theme';
+import { arcadeShadow } from '../arcade';
 import { HandView } from './HandView';
 
 interface DealerAreaProps {
@@ -39,9 +41,12 @@ export function DealerArea({
   cardGap,
   maxWidth,
 }: DealerAreaProps) {
+  const modern = useModernUi();
   return (
     <View style={styles.area}>
-      <Text style={styles.areaLabel}>{areaLabel}</Text>
+      <Text style={[styles.areaLabel, modern && styles.areaLabelModern]}>
+        {modern ? areaLabel.toUpperCase() : areaLabel}
+      </Text>
       {round ? (
         <HandView
           hand={round.dealerHand}
@@ -58,7 +63,9 @@ export function DealerArea({
         />
       ) : (
         <View style={styles.emptyHand}>
-          <Text style={styles.emptyHandText}>{emptyLabel}</Text>
+          <Text style={[styles.emptyHandText, modern && styles.emptyHandTextModern]}>
+            {emptyLabel}
+          </Text>
         </View>
       )}
     </View>
@@ -85,5 +92,22 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: fontSizes.small,
     fontStyle: 'italic',
+  },
+  /* Modern */
+  areaLabelModern: {
+    fontFamily: fonts.display,
+    fontWeight: undefined,
+    fontSize: 18,
+    lineHeight: 19,
+    letterSpacing: 3,
+    color: colors.arcadeCream,
+    opacity: 0.8,
+    includeFontPadding: false,
+    ...arcadeShadow.deep,
+  },
+  emptyHandTextModern: {
+    fontFamily: fonts.mono,
+    fontSize: 13,
+    color: colors.arcadeMuted,
   },
 });

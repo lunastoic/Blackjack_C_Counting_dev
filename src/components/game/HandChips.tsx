@@ -9,9 +9,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import { HandResult } from '../../engine/blackjack/resolve';
 import { RoundPhase } from '../../engine/state-machine/phases';
+import { useModernUi } from '../../hooks/useModernUi';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { playSound } from '../../services/audio';
-import { colors, fontWeights } from '../../theme';
+import { colors, fonts, fontWeights } from '../../theme';
 import { BET_SPOT_CHIP_SIZE } from './BetSpot';
 import { ChipStack } from './ChipStack';
 
@@ -53,6 +54,7 @@ export function HandChips({
   animateStakeIn = false,
 }: HandChipsProps) {
   const reducedMotion = useReducedMotion();
+  const modern = useModernUi();
   const translateY = useSharedValue(0);
   const opacity = useSharedValue(1);
 
@@ -108,7 +110,15 @@ export function HandChips({
               showLabel={!compact}
             />
             <View style={styles.tagSlot}>
-              <Text style={[styles.tag, styles.winTag]}>WIN</Text>
+              <Text
+                style={[
+                  styles.tag,
+                  modern ? styles.tagModern : null,
+                  modern ? styles.winTagModern : styles.winTag,
+                ]}
+              >
+                WIN
+              </Text>
             </View>
           </Animated.View>
         ) : null}
@@ -121,7 +131,7 @@ export function HandChips({
         />
         {/* Both piles keep a tag line so their chips sit on the same base line. */}
         <View style={styles.tagSlot}>
-          {doubled ? <Text style={styles.tag}>DOUBLED</Text> : null}
+          {doubled ? <Text style={[styles.tag, modern && styles.tagModern]}>DOUBLED</Text> : null}
         </View>
       </View>
     </Animated.View>
@@ -162,5 +172,17 @@ const styles = StyleSheet.create({
   },
   winTag: {
     color: colors.success,
+  },
+  /* Modern */
+  tagModern: {
+    fontFamily: fonts.display,
+    fontWeight: undefined,
+    fontSize: 12,
+    letterSpacing: 1,
+    color: colors.arcadeMuted,
+    includeFontPadding: false,
+  },
+  winTagModern: {
+    color: colors.arcadeMint,
   },
 });

@@ -1,7 +1,9 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, fontSizes, fontWeights, spacing } from '../../theme';
+import { useModernUi } from '../../hooks/useModernUi';
+import { colors, fonts, fontSizes, fontWeights, spacing } from '../../theme';
 import { formatChips } from '../../utils/format';
+import { arcadeShadow } from '../arcade';
 import { ChipStack } from './ChipStack';
 
 /** Shared chip size for the felt bet spot across betting and in-round play. */
@@ -31,20 +33,24 @@ export function BetSpot({
 }: BetSpotProps) {
   const showWager = children == null && wager > 0;
   const showPlaceholder = children == null && wager <= 0 && showEmpty;
+  const modern = useModernUi();
 
   return (
-    <View style={styles.circle} accessibilityLabel={`Bet spot, ${formatChips(wager)}`}>
+    <View
+      style={[styles.circle, modern && styles.circleModern]}
+      accessibilityLabel={`Bet spot, ${formatChips(wager)}`}
+    >
       {children}
       {showWager ? (
         <ChipStack amount={wager} chipSetKey={chipSetKey} chipSize={BET_SPOT_CHIP_SIZE} />
       ) : null}
       {showPlaceholder ? (
         <>
-          <Text style={styles.betLabel}>PLACE BET</Text>
-          <Text style={styles.betValue}>{formatChips(0)}</Text>
+          <Text style={[styles.betLabel, modern && styles.betLabelModern]}>PLACE BET</Text>
+          <Text style={[styles.betValue, modern && styles.betValueModern]}>{formatChips(0)}</Text>
         </>
       ) : null}
-      <Text style={styles.maxBet}>Max {formatChips(maxBet)}</Text>
+      <Text style={[styles.maxBet, modern && styles.maxBetModern]}>Max {formatChips(maxBet)}</Text>
     </View>
   );
 }
@@ -75,5 +81,41 @@ const styles = StyleSheet.create({
   maxBet: {
     color: colors.textMuted,
     fontSize: 10,
+  },
+  /* Modern: the dashed gold ring; no token at 35% arcade gold, so borderGold (40%) stands in. */
+  circleModern: {
+    width: 124,
+    height: 124,
+    borderRadius: 62,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: colors.borderGold,
+  },
+  betLabelModern: {
+    fontFamily: fonts.display,
+    fontWeight: undefined,
+    fontSize: 18,
+    lineHeight: 19,
+    letterSpacing: 3,
+    color: colors.arcadeCream,
+    opacity: 0.8,
+    includeFontPadding: false,
+    ...arcadeShadow.deep,
+  },
+  betValueModern: {
+    fontFamily: fonts.display,
+    fontWeight: undefined,
+    fontSize: 40,
+    lineHeight: 40,
+    color: colors.arcadeGold,
+    includeFontPadding: false,
+    textShadowColor: colors.chipShadow,
+    textShadowOffset: { width: 2, height: 3 },
+    textShadowRadius: 0,
+  },
+  maxBetModern: {
+    fontFamily: fonts.mono,
+    fontSize: 11,
+    color: colors.arcadeMuted,
   },
 });

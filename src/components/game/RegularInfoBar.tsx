@@ -7,10 +7,12 @@ import {
   shuffleThreshold,
   totalCards,
 } from '../../engine/shoe/shoe';
+import { useModernUi } from '../../hooks/useModernUi';
 import { useGameSessionStore } from '../../stores/gameSessionStore';
 import { useProgressionStore } from '../../stores/progressionStore';
-import { colors, fontSizes, fontWeights, radii, spacing } from '../../theme';
+import { colors, fonts, fontSizes, fontWeights, radii, spacing } from '../../theme';
 import { formatChips } from '../../utils/format';
+import { ArcadeStrip, ArcadeStripCell, ArcadeStripDivider } from '../arcade';
 
 /**
  * Near-deck strip while the Count Coach is Off or Learn: shoe progress and
@@ -33,6 +35,38 @@ export function RegularInfoBar() {
     cutAt > 0 ? Math.min(100, Math.round((dealt / cutAt) * 100)) : 0;
   const decksLeftApprox =
     shoe && remaining > 0 ? (remaining / 52).toFixed(1) : '0.0';
+  const modern = useModernUi();
+
+  if (modern) {
+    const foot = justShuffled
+      ? 'Deck shuffled — count reset to 0'
+      : shufflePending
+        ? 'Shuffling deck after this round'
+        : shoe
+          ? `Cut ~${cutAt}/${total} · ~${decksLeftApprox} decks left · Max ${map ? formatChips(betCap) : '—'}${license === 'permit' ? ' (permit)' : ''}`
+          : '';
+    const footColor = justShuffled
+      ? colors.arcadeMint
+      : shufflePending
+        ? colors.arcadeLoss
+        : colors.arcadeGold;
+    return (
+      <View style={styles.modernContainer}>
+        <ArcadeStrip compact style={styles.modernStrip}>
+          <ArcadeStripCell label="Dealt" value={dealt} compact />
+          <ArcadeStripDivider />
+          <ArcadeStripCell label="Remaining" value={remaining} compact />
+          <ArcadeStripDivider />
+          <ArcadeStripCell label="To cut" value={`${percentToCut}%`} compact />
+        </ArcadeStrip>
+        <View style={styles.modernFoot}>
+          <Text style={[styles.modernFootText, { color: footColor }]} numberOfLines={2}>
+            {foot}
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -124,6 +158,29 @@ const styles = StyleSheet.create({
     color: colors.success,
     fontSize: fontSizes.caption,
     fontWeight: fontWeights.semibold,
+    textAlign: 'center',
+  },
+  /* Modern */
+  modernContainer: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    gap: spacing.xs,
+    minWidth: 0,
+  },
+  modernStrip: {
+    alignSelf: 'stretch',
+    marginBottom: 5,
+  },
+  modernFoot: {
+    alignSelf: 'stretch',
+    height: 28,
+    justifyContent: 'center',
+  },
+  modernFootText: {
+    fontFamily: fonts.mono,
+    fontSize: 11,
+    lineHeight: 14,
+    opacity: 0.85,
     textAlign: 'center',
   },
 });

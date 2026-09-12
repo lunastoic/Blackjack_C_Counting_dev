@@ -1,13 +1,16 @@
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ArcadeButton, ArcadeInfoBox } from '../../components/arcade';
 import { ArcadeLevelBrief } from '../../components/arcade/ArcadeLevelBrief';
 import { IconButton } from '../../components/common/IconButton';
 import { PrimaryButton } from '../../components/common/PrimaryButton';
 import { SecondaryButton } from '../../components/common/SecondaryButton';
 import { FeltBackdrop } from '../../components/game/FeltBackdrop';
+import { GameSettingsSheet } from '../../components/game/GameSettingsSheet';
+import { GameTableHud } from '../../components/game/GameTableHud';
 import { GameToasts } from '../../components/game/GameToasts';
 import { mapById } from '../../engine/betting/casino';
 import { useModernUi } from '../../hooks/useModernUi';
@@ -30,9 +33,11 @@ import { QuizChoiceButton } from '../../components/quiz/QuizChoiceButton';
 import { QuizCountEntry } from '../../components/quiz/QuizCountEntry';
 import { QuizCountReview } from '../../components/quiz/QuizCountReview';
 import { QuizFlashStage } from '../../components/quiz/QuizFlashStage';
-import { QuizMilestoneBadge } from '../../components/quiz/QuizMilestoneBadge';
+import { QuizMilestoneBadge, quizRankForStreak } from '../../components/quiz/QuizMilestoneBadge';
+import { SprintPanel, SprintPlaque } from '../../components/quiz/QuizSprintPanel';
+import { QuizSprintStrip } from '../../components/quiz/QuizSprintStrip';
 import { QuizStreakMeter } from '../../components/quiz/QuizStreakMeter';
-import { colors, fontSizes, fontWeights, radii, shadows, spacing } from '../../theme';
+import { colors, fonts, fontSizes, fontWeights, radii, shadows, spacing } from '../../theme';
 import { formatCount } from '../../utils/countCoach';
 import { formatChips } from '../../utils/format';
 
@@ -41,6 +46,8 @@ import { formatChips } from '../../utils/format';
  * the house lettering printed mid-felt (see FeltBackdrop).
  */
 const STAGE_LETTERING_CLEARANCE = 96;
+/** Modern: the flash cards sit this far above the home indicator. */
+const STAGE_ARCADE_FLASH_LIFT = 76;
 
 /**
  * Quiz Mode — the Count Sprint. Cards flash fast, decoys test focus, and a
@@ -53,6 +60,8 @@ export default function QuizScreen() {
   const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
   const modern = useModernUi();
+  // Modern: the HUD's ≡ opens the same sheet as the table.
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const { mapId } = useLocalSearchParams<{ mapId: string }>();
   const parsed = Number(mapId);
   const map = Number.isInteger(parsed) ? mapById(parsed) : undefined;
@@ -165,64 +174,137 @@ export default function QuizScreen() {
     return 'idle';
   }
 
-  const promptBody =
+  const promptLead =
     `Cards flash fast — keep the Hi-Lo running count, then pick the total. Face-down ` +
-    `decoys count for nothing. Fill all ${QUIZ_STREAK_TARGET} circles for the ` +
+    `decoys count for nothing. `;
+  const promptBody =
+    `${promptLead}Fill all ${QUIZ_STREAK_TARGET} circles for the ` +
     `${formatChips(QUIZ_GRAND_PRIZE_CHIPS)}-chip grand prize.`;
   // Modern: the intro is the arcade card; the primer folds into its copy and
-  // the licence ladder into its rule pills.
+  // the licence ladder into its rule pills. The circles are a meter there.
   const modernIntro = modern && phase === 'idle';
+  const arcadeLead = `${promptLead}Fill the meter for the ${formatChips(QUIZ_GRAND_PRIZE_CHIPS)}-chip grand prize.`;
   const arcadeBody = showPrimer
-    ? `${promptBody}\n\nHi-Lo in one line: 2–6 count +1, 7–9 count 0, 10–A count −1. ` +
+    ? `${arcadeLead}\n\nHi-Lo in one line: 2–6 count +1, 7–9 count 0, 10–A count −1. ` +
       'Add them up as the cards flash. Every shuffle starts back at 0.'
-    : promptBody;
+    : arcadeLead;
   const arcadeRules =
     license === 'none' ? [`3 in a row opens the ${map.name} table`, 'All 9 unlock full stakes'] : [];
+  // The question plaque's tab recaps the flash that just ran.
+  const decoysFlashed = flashCards.filter((item) => item.faceDown).length;
+  const flashTab =
+    `${flashCards.length} cards` +
+    (decoysFlashed > 0 ? ` · ${decoysFlashed} decoy${decoysFlashed > 1 ? 's' : ''}` : '');
+  const feedbackTitle = rewardReady
+    ? 'Grand Prize Unlocked!'
+    : wasCorrect
+      ? `Correct — +${xpAwarded} XP`
+      : rideLost
+        ? 'Ride Lost!'
+        : streak > 0
+          ? `Streak Broken — back to ${streak}`
+          : 'Streak Broken';
+  const licenseLine = licenseEarned
+    ? licenseEarned === 'licensed'
+      ? `🏆 Full table license — max bets unlocked at ${map.name}!`
+      : `🎟️ Table permit earned — ${map.name}'s floor is open! Bets stay capped until you run all 9.`
+    : null;
+
+  function claim() {
+    if (claimGrandPrize()) {
+      playSound('achievementUnlock');
+      void haptics.success();
+    }
+  }
+
+  function ride() {
+    if (letItRide()) {
+      playSound('betPlaced');
+      void haptics.mediumTap();
+      startQuestion();
+    }
+  }
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       {/* Same felt, same house lettering at the same spot as the game table. */}
       <FeltBackdrop feltKey={map.feltKey} casinoName={map.name} />
 
-      <View style={styles.topBar}>
-        <IconButton glyph="‹" accessibilityLabel="Leave quiz" onPress={leaveQuiz} />
-        <View style={styles.topInfo}>
-          <Text style={styles.mapName} numberOfLines={1}>
-            {map.name}
-          </Text>
-          <Text style={styles.topMeta}>
-            Session {questionsCorrect}/{questionsAnswered}
-            {lifetimeAccuracy !== null ? ` · lifetime ${lifetimeAccuracy}%` : ''}
-            {quizStats.bestStreak > 0 ? ` · best ${quizStats.bestStreak}` : ''}
-          </Text>
+      {modern ? (
+        // The table's HUD, with the back chevron in the map slot and the
+        // session tally in the mode line.
+        <GameTableHud
+          mapName={map.name}
+          modeLabel={`Count Sprint · Session ${questionsCorrect}/${questionsAnswered}`}
+          leftIcon="chevron-back"
+          leftAccessibilityLabel="Leave quiz"
+          onOpenMaps={leaveQuiz}
+          onOpenSettings={() => setSettingsOpen(true)}
+          menuOpen={settingsOpen}
+        />
+      ) : (
+        <View style={styles.topBar}>
+          <IconButton glyph="‹" accessibilityLabel="Leave quiz" onPress={leaveQuiz} />
+          <View style={styles.topInfo}>
+            <Text style={styles.mapName} numberOfLines={1}>
+              {map.name}
+            </Text>
+            <Text style={styles.topMeta}>
+              Session {questionsCorrect}/{questionsAnswered}
+              {lifetimeAccuracy !== null ? ` · lifetime ${lifetimeAccuracy}%` : ''}
+              {quizStats.bestStreak > 0 ? ` · best ${quizStats.bestStreak}` : ''}
+            </Text>
+          </View>
+          <View style={styles.topSpacer} />
         </View>
-        <View style={styles.topSpacer} />
-      </View>
+      )}
 
-      <View style={styles.meterRow}>
-        <QuizMilestoneBadge streak={streak} />
-      </View>
+      {modern ? (
+        // Rank, streak and flash pace in one strip; the meter takes the nine
+        // circles' place, so the medallion goes.
+        <QuizSprintStrip
+          streak={streak}
+          target={QUIZ_STREAK_TARGET}
+          checkpoints={QUIZ_CHECKPOINTS}
+          rank={quizRankForStreak(streak)}
+          cardCount={difficulty.cardCount}
+          secondsPerFlash={secondsPerFlash}
+          prizeMultiplier={prizeMultiplier}
+          pot={pot}
+        />
+      ) : (
+        <>
+          <View style={styles.meterRow}>
+            <QuizMilestoneBadge streak={streak} />
+          </View>
 
-      <QuizStreakMeter streak={streak} target={QUIZ_STREAK_TARGET} checkpoints={QUIZ_CHECKPOINTS} />
+          <QuizStreakMeter
+            streak={streak}
+            target={QUIZ_STREAK_TARGET}
+            checkpoints={QUIZ_CHECKPOINTS}
+          />
 
-      {prizeMultiplier > 1 ? (
-        <Text style={styles.ridingLine}>
-          RIDING ×{prizeMultiplier} — {formatChips(pot)} chips on the line
-        </Text>
-      ) : null}
+          {prizeMultiplier > 1 ? (
+            <Text style={styles.ridingLine}>
+              RIDING ×{prizeMultiplier} — {formatChips(pot)} chips on the line
+            </Text>
+          ) : null}
 
-      <Text style={styles.difficultyLine}>
-        {difficulty.cardCount} cards
-        {difficulty.decoyCount > 0
-          ? ` · ${difficulty.decoyCount} decoy${difficulty.decoyCount > 1 ? 's' : ''}`
-          : ''}
-        {` · ${secondsPerFlash}s flash`}
-        {difficulty.pairFlash ? ' · pairs' : ''}
-      </Text>
+          <Text style={styles.difficultyLine}>
+            {difficulty.cardCount} cards
+            {difficulty.decoyCount > 0
+              ? ` · ${difficulty.decoyCount} decoy${difficulty.decoyCount > 1 ? 's' : ''}`
+              : ''}
+            {` · ${secondsPerFlash}s flash`}
+            {difficulty.pairFlash ? ' · pairs' : ''}
+          </Text>
+        </>
+      )}
 
       {/* The band above the house lettering: the sprint's ♠ marker while
-          idle, open felt once the cards are flying. */}
-      {modernIntro ? null : (
+          idle, open felt once the cards are flying. Modern sits its panels
+          at the foot of the felt instead. */}
+      {modern ? null : (
         <View style={styles.markSlot} pointerEvents="none">
           {phase === 'idle' ? (
             <Animated.View
@@ -242,7 +324,17 @@ export default function QuizScreen() {
           styles.stage,
           phase === 'idle' && [styles.stageIntro, { paddingBottom: insets.bottom + spacing.lg }],
           modernIntro && styles.stageArcadeIntro,
-          (phase === 'flashing' || phase === 'question') && styles.stageDeal,
+          !modern && (phase === 'flashing' || phase === 'question') && styles.stageDeal,
+          modern &&
+            phase === 'flashing' && [
+              styles.stageArcadeOpen,
+              { paddingBottom: insets.bottom + STAGE_ARCADE_FLASH_LIFT },
+            ],
+          modern &&
+            (phase === 'question' || phase === 'feedback') && [
+              styles.stageArcadePanel,
+              { paddingBottom: insets.bottom + spacing.lg },
+            ],
         ]}
       >
         {modernIntro ? (
@@ -307,7 +399,105 @@ export default function QuizScreen() {
           underglow={difficulty.underglow}
         />
 
-        {phase === 'question' ? (
+        {phase === 'question' && modern ? (
+          <Animated.View
+            style={styles.arcadeBlock}
+            entering={reducedMotion ? undefined : FadeInDown.duration(250)}
+          >
+            <SprintPanel>
+              <SprintPlaque tab={flashTab} body="What was the count?" small />
+              {directEntry ? (
+                <Text style={styles.arcadeCaption}>
+                  No more choices at this rank — dial in the exact count.
+                </Text>
+              ) : decoysFlashed > 0 ? (
+                <Text style={styles.arcadeCaption}>Remember: face-down decoys are zero.</Text>
+              ) : null}
+              {directEntry ? (
+                <QuizCountEntry onSubmit={(value) => answer(value)} />
+              ) : (
+                <View style={styles.arcadeGrid}>
+                  {choices.map((choice) => (
+                    <QuizChoiceButton
+                      key={choice}
+                      value={choice}
+                      label={formatCount(choice)}
+                      state={choiceState(choice)}
+                      accessibilityLabel={`Answer ${formatCount(choice)}`}
+                      onPress={() => answer(choice)}
+                    />
+                  ))}
+                </View>
+              )}
+            </SprintPanel>
+          </Animated.View>
+        ) : null}
+
+        {phase === 'feedback' && modern ? (
+          <Animated.View
+            style={styles.arcadeBlock}
+            entering={reducedMotion ? undefined : FadeInDown.duration(250)}
+          >
+            <SprintPanel>
+              <SprintPlaque
+                tab={rewardReady ? '👑 Grand prize' : 'Count Sprint'}
+                body={rewardReady ? 'Unlocked!' : feedbackTitle}
+                tone={rewardReady ? 'gold' : wasCorrect ? 'win' : 'lose'}
+                small
+              />
+              {licenseLine ? (
+                <Text style={[styles.arcadeCaption, styles.arcadeCaptionGold]}>{licenseLine}</Text>
+              ) : null}
+              <ArcadeInfoBox>
+                The count was{' '}
+                <Text style={styles.arcadeInfoValue}>{formatCount(correctAnswer)}</Text>
+                {!wasCorrect && selectedChoice !== null ? (
+                  <>
+                    {' — you picked '}
+                    <Text style={styles.arcadeInfoValue}>{formatCount(selectedChoice)}</Text>
+                  </>
+                ) : null}
+                {rideLost ? '. The riding pot is gone — back to a fresh 1,000.' : ''}
+              </ArcadeInfoBox>
+              {rewardReady ? null : <QuizCountReview flashCards={flashCards} />}
+              {rewardReady ? (
+                <>
+                  <ArcadeButton
+                    label={`Claim ${formatChips(pot)} chips`}
+                    trailing="▶"
+                    variant="gold"
+                    size="large"
+                    onPress={claim}
+                  />
+                  {prizeMultiplier < QUIZ_MAX_RIDE_MULTIPLIER ? (
+                    <ArcadeButton
+                      label={`Let it ride — play for ${formatChips(pot * 2)}`}
+                      variant="neutral"
+                      size="medium"
+                      onPress={ride}
+                    />
+                  ) : null}
+                </>
+              ) : (
+                <ArcadeButton
+                  label="Next cards"
+                  trailing="▶"
+                  variant="gold"
+                  size="large"
+                  onPress={() => startQuestion()}
+                />
+              )}
+              <ArcadeButton
+                label={licenseEarned ? 'Take your seat at the table' : 'Back to table'}
+                variant="neutral"
+                size="medium"
+                onPress={leaveQuiz}
+              />
+            </SprintPanel>
+          </Animated.View>
+        ) : null}
+
+        {phase === 'question' && !modern ? (
           <Animated.View
             style={styles.centerBlock}
             entering={reducedMotion ? undefined : FadeInDown.duration(250)}
@@ -339,7 +529,7 @@ export default function QuizScreen() {
           </Animated.View>
         ) : null}
 
-        {phase === 'feedback' ? (
+        {phase === 'feedback' && !modern ? (
           <Animated.View
             style={styles.centerBlock}
             entering={reducedMotion ? undefined : FadeInDown.duration(250)}
@@ -360,25 +550,13 @@ export default function QuizScreen() {
                   { color: wasCorrect ? colors.success : colors.error },
                 ]}
               >
-                {rewardReady
-                  ? 'Grand Prize Unlocked!'
-                  : wasCorrect
-                    ? `Correct — +${xpAwarded} XP`
-                    : rideLost
-                      ? 'Ride Lost!'
-                      : streak > 0
-                        ? `Streak Broken — back to ${streak}`
-                        : 'Streak Broken'}
+                {feedbackTitle}
               </Text>
             </Animated.View>
 
-            {licenseEarned ? (
+            {licenseLine ? (
               <View style={styles.licenseBanner}>
-                <Text style={styles.licenseBannerText}>
-                  {licenseEarned === 'licensed'
-                    ? `🏆 Full table license — max bets unlocked at ${map.name}!`
-                    : `🎟️ Table permit earned — ${map.name}'s floor is open! Bets stay capped until you run all 9.`}
-                </Text>
+                <Text style={styles.licenseBannerText}>{licenseLine}</Text>
               </View>
             ) : null}
 
@@ -394,25 +572,11 @@ export default function QuizScreen() {
 
             {rewardReady ? (
               <>
-                <PrimaryButton
-                  label={`Claim ${formatChips(pot)} chips`}
-                  onPress={() => {
-                    if (claimGrandPrize()) {
-                      playSound('achievementUnlock');
-                      void haptics.success();
-                    }
-                  }}
-                />
+                <PrimaryButton label={`Claim ${formatChips(pot)} chips`} onPress={claim} />
                 {prizeMultiplier < QUIZ_MAX_RIDE_MULTIPLIER ? (
                   <SecondaryButton
                     label={`Let it ride — play for ${formatChips(pot * 2)}`}
-                    onPress={() => {
-                      if (letItRide()) {
-                        playSound('betPlaced');
-                        void haptics.mediumTap();
-                        startQuestion();
-                      }
-                    }}
+                    onPress={ride}
                   />
                 ) : null}
               </>
@@ -428,6 +592,13 @@ export default function QuizScreen() {
       </View>
 
       <GameToasts levelUpNotice={levelUpNotice} onDismissLevelUp={dismissLevelUp} />
+      {modern ? (
+        <GameSettingsSheet
+          visible={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          mapId={map.id}
+        />
+      ) : null}
     </View>
   );
 }
@@ -515,6 +686,41 @@ const styles = StyleSheet.create({
   /** Flash cards and the question land past the lettering. */
   stageDeal: {
     paddingTop: STAGE_LETTERING_CLEARANCE,
+  },
+  /** Modern flash: cards low on the open felt. */
+  stageArcadeOpen: {
+    justifyContent: 'flex-end',
+    gap: spacing.md,
+  },
+  /** Modern question and review: the panel at the foot of the felt. */
+  stageArcadePanel: {
+    justifyContent: 'flex-end',
+    gap: spacing.md,
+  },
+  arcadeBlock: {
+    alignSelf: 'stretch',
+  },
+  arcadeCaption: {
+    fontFamily: fonts.mono,
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.arcadeMuted,
+    textAlign: 'center',
+  },
+  arcadeCaptionGold: {
+    color: colors.arcadeGold,
+  },
+  arcadeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    rowGap: spacing.sm,
+    columnGap: spacing.sm + spacing.xxs,
+    paddingVertical: spacing.xxs,
+  },
+  arcadeInfoValue: {
+    fontFamily: fonts.monoMedium,
+    color: colors.arcadeGold,
   },
   centerBlock: {
     alignItems: 'center',

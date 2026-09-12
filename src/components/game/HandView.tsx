@@ -4,9 +4,11 @@ import { evaluateCards } from '../../engine/hand/evaluate';
 import { Hand } from '../../engine/hand/hand';
 import { hiLoValue, isFaceUp } from '../../engine/cards/card';
 import { CardSkin } from '../../assets/cards.generated';
+import { useModernUi } from '../../hooks/useModernUi';
 import { cardFanOverlap, cardRowStep } from '../../utils/dealSequence';
-import { colors, fontSizes, fontWeights, radii, spacing } from '../../theme';
+import { colors, fonts, fontSizes, fontWeights, radii, spacing } from '../../theme';
 import { formatCount } from '../../utils/countCoach';
+import { ArcadeTag } from '../arcade';
 import { PlayingCard } from './PlayingCard';
 
 interface HandViewProps {
@@ -52,6 +54,7 @@ export function HandView({
   maxWidth,
   glowHalo = true,
 }: HandViewProps) {
+  const modern = useModernUi();
   const displayedCards =
     maxVisibleCards !== undefined
       ? hand.cards.slice(0, Math.max(0, maxVisibleCards))
@@ -72,12 +75,21 @@ export function HandView({
         : cardWidth - cardFanOverlap(cardWidth, count);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, modern && styles.containerModern]}>
       <View style={styles.cards}>
         {displayedCards.map((card, index) => {
           const value = hiLoValue(card.rank);
-          const tagColor =
-            value > 0 ? colors.trainingPlus : value < 0 ? colors.trainingMinus : colors.trainingNeutral;
+          const tagColor = modern
+            ? value > 0
+              ? colors.arcadeMint
+              : value < 0
+                ? colors.arcadeLoss
+                : colors.arcadeCream
+            : value > 0
+              ? colors.trainingPlus
+              : value < 0
+                ? colors.trainingMinus
+                : colors.trainingNeutral;
           return (
             <View
               key={card.id}
@@ -96,6 +108,7 @@ export function HandView({
                 <Text
                   style={[
                     styles.valueTag,
+                    modern && styles.valueTagModern,
                     { color: tagColor, borderColor: tagColor },
                     !isFaceUp(card) && styles.valueTagHidden,
                   ]}
@@ -109,9 +122,13 @@ export function HandView({
         })}
       </View>
       {visibleCards.length > 0 ? (
-        <View style={styles.totalBadge}>
-          <Text style={styles.totalText}>{total}</Text>
-        </View>
+        modern ? (
+          <ArcadeTag label={String(total)} />
+        ) : (
+          <View style={styles.totalBadge}>
+            <Text style={styles.totalText}>{total}</Text>
+          </View>
+        )
       ) : null}
     </View>
   );
@@ -158,5 +175,16 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.small,
     fontWeight: fontWeights.bold,
     fontVariant: ['tabular-nums'],
+  },
+  /* Modern */
+  containerModern: {
+    gap: spacing.sm - 2,
+  },
+  valueTagModern: {
+    fontFamily: fonts.monoMedium,
+    fontWeight: undefined,
+    fontSize: fontSizes.caption,
+    borderWidth: 2,
+    backgroundColor: colors.arcadeStripFace,
   },
 });

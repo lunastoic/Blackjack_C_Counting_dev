@@ -1,7 +1,8 @@
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ArcadeButton, ArcadePanel, arcadeShadow, arcadeText } from '../../components/arcade';
 import { PrimaryButton } from '../../components/common/PrimaryButton';
 import { SecondaryButton } from '../../components/common/SecondaryButton';
 import { ActionBar } from '../../components/game/ActionBar';
@@ -23,6 +24,7 @@ import { HandChips } from '../../components/game/HandChips';
 import { HandView } from '../../components/game/HandView';
 import { LearnCountBar } from '../../components/game/LearnCountBar';
 import { MapCoverflow, QuizOrGameMode } from '../../components/game/MapCoverflow';
+import { ModernPlaque } from '../../components/game/ModernPlaque';
 import { PayoutBanner } from '../../components/game/PayoutBanner';
 import { RegularInfoBar } from '../../components/game/RegularInfoBar';
 import { ShuffleCeremony } from '../../components/game/ShuffleCeremony';
@@ -35,6 +37,7 @@ import { objectivesForMap } from '../../engine/dojo';
 import { SpeedSlider } from '../../components/settings/SettingsRows';
 import { HandResult } from '../../engine/blackjack/resolve';
 import { effectiveDealerSpeed, mapById } from '../../engine/betting/casino';
+import { useModernUi } from '../../hooks/useModernUi';
 import { playSound, warmTableSounds } from '../../services/audio';
 import { initialDealVisibleCounts } from '../../utils/dealSequence';
 import { useDojoStore } from '../../stores/dojoStore';
@@ -48,7 +51,7 @@ import {
   DEALER_SPEED_STEP,
   useSettingsStore,
 } from '../../stores/settingsStore';
-import { colors, fontSizes, fontWeights, layout, radii, spacing } from '../../theme';
+import { colors, fonts, fontSizes, fontWeights, layout, radii, spacing } from '../../theme';
 import {
   betAdviceForCount,
   COUNT_COACH_LABELS,
@@ -65,8 +68,33 @@ const RESULT_BADGE: Record<HandResult, { text: string; color: string }> = {
   loss: { text: 'LOSS', color: colors.error },
 };
 
+/** The Modern result tag takes the arcade palette; the words stay. */
+const MODERN_RESULT_COLOR: Record<HandResult, string> = {
+  blackjack: colors.arcadeGold,
+  win: colors.arcadeMint,
+  push: colors.arcadeMuted,
+  loss: colors.arcadeLoss,
+};
+
+/** A gold mono pill that opens a chart — the Modern look's aid link. */
+function AidPill({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      hitSlop={spacing.xs}
+      style={({ pressed }) => [styles.aidPill, pressed && styles.aidPillPressed]}
+    >
+      <Text style={styles.aidPillLabel}>{label}</Text>
+    </Pressable>
+  );
+}
+
 /** Felt showing between the cards of a hand (each card adds its own 2pt ring). */
 const CARD_GAP = spacing.xs;
+/** The mock deals 76pt cards, leaving open felt between the hands and room for the stake label. */
+const MODERN_DEALT_CARD_WIDTH = 76;
 
 /**
  * Blackjack table for every casino. One experience, one dial: the Count
@@ -134,6 +162,7 @@ export default function GameScreen() {
   const stopAutoplay = useGameSessionStore((state) => state.stopAutoplay);
   const setAutoplaySpeed = useGameSessionStore((state) => state.setAutoplaySpeed);
   const guidedMode = useGameSessionStore((state) => state.guidedMode);
+  const modern = useModernUi();
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [strategyOpen, setStrategyOpen] = useState(false);
@@ -194,7 +223,11 @@ export default function GameScreen() {
    * two hands fit. Short screens scale it down so both hands, the felt
    * between them and the action bar still share the height.
    */
-  const dealerCardWidth = Math.min(DEALT_CARD_WIDTH, dealerRowWidth / 3, Math.round(height / 9.4));
+  const dealerCardWidth = Math.min(
+    modern ? MODERN_DEALT_CARD_WIDTH : DEALT_CARD_WIDTH,
+    dealerRowWidth / 3,
+    Math.round(height / 9.4),
+  );
   const playerCardWidth = isSplit
     ? Math.min(Math.round(dealerCardWidth * 0.8), (playerRowWidth - CARD_GAP) / 2)
     : dealerCardWidth;
@@ -215,6 +248,8 @@ export default function GameScreen() {
 
   /** Deal sits you at the rail; betting pulls the camera back behind the chair. */
   const cameraSeated = phase !== 'betting' || isAutoplayRound;
+  /** The hand is over but still on the felt: the buttons stay, greyed. */
+  const actionsStayPut = phase === 'dealerTurn' || phase === 'payout' || phase === 'collecting';
 
   // Fog of war: the rail shows "?" until the running count is proven (tier
   // 1); the strip's true count needs tier 2. A live meter (no fog) is the
@@ -309,7 +344,7 @@ export default function GameScreen() {
           </View>
         )}
 
-        <View style={styles.dealerArea}>
+        <View style={[styles.dealerArea, modern && styles.dealerAreaModern]}>
           <DealerArea
             round={round}
             dealerCardWidth={dealerCardWidth}
@@ -346,7 +381,13 @@ export default function GameScreen() {
                 return (
                   <View key={hand.id} style={styles.handSlot}>
                     {result ? (
-                      <Text style={[styles.resultBadge, { color: RESULT_BADGE[result].color }]}>
+                      <Text
+                        style={[
+                          styles.resultBadge,
+                          modern && styles.resultBadgeModern,
+                          { color: modern ? MODERN_RESULT_COLOR[result] : RESULT_BADGE[result].color },
+                        ]}
+                      >
                         {RESULT_BADGE[result].text}
                       </Text>
                     ) : null}
@@ -361,7 +402,9 @@ export default function GameScreen() {
                       maxWidth={playerRowWidth}
                     />
                     {isAutoplayRound ? (
-                      <Text style={styles.handBet}>Drill{hand.isDoubled ? ' · doubled' : ''}</Text>
+                      <Text style={[styles.handBet, modern && styles.handBetModern]}>
+                        Drill{hand.isDoubled ? ' · doubled' : ''}
+                      </Text>
                     ) : (
                       <HandChips
                         bet={hand.bet}
@@ -389,14 +432,21 @@ export default function GameScreen() {
 
       {/* Bottom panel — betting keeps a taller slot for the tray; in-round
           uses a compact slot so the hand sits closer to Hit/Stand. */}
-      <View style={[styles.bottomPanel, { paddingBottom: insets.bottom + spacing.md }]}>
-        {/* The off-book toast hangs above the buttons the play came from. */}
-        {coach.level !== 'off' ? (
+      <View
+        style={[
+          styles.bottomPanel,
+          modern && styles.bottomPanelModern,
+          { paddingBottom: insets.bottom + spacing.md },
+        ]}
+      >
+        {/* The off-book toast hangs above the buttons the play came from —
+            except over a Modern hand-over banner, where it stacks on top. */}
+        {coach.level !== 'off' && !(modern && phase === 'payout') ? (
           <DeviationToast notice={deviationNotice} onDismiss={dismissDeviation} />
         ) : null}
         {autoplay || isAutoplayRound ? (
           <View style={styles.autoplayRow}>
-            <Text style={styles.autoplayText}>
+            <Text style={[styles.autoplayText, modern && styles.statusTextModern]}>
               {autoplay ? 'Autoplay drill running — practice counting' : 'Finishing last drill hand…'}
             </Text>
             {autoplay ? (
@@ -409,7 +459,11 @@ export default function GameScreen() {
                   step={DEALER_SPEED_STEP}
                   onChange={setAutoplaySpeed}
                 />
-                <SecondaryButton label="Stop autoplay" onPress={stopAutoplay} />
+                {modern ? (
+                  <ArcadeButton label="Stop autoplay" variant="neutral" onPress={stopAutoplay} />
+                ) : (
+                  <SecondaryButton label="Stop autoplay" onPress={stopAutoplay} />
+                )}
               </>
             ) : null}
           </View>
@@ -420,43 +474,93 @@ export default function GameScreen() {
             }
           >
             {phase === 'betting' ? (
-              <View style={styles.actionSection}>
+              <View style={[styles.actionSection, modern && styles.actionSectionModern]}>
                 <BettingPanel />
                 {FEATURES.autoplayDrill && coach.allowFullTools ? (
-                  <Text style={styles.aidLink} onPress={startAutoplay}>
-                    Start autoplay drill (no chips at stake)
-                  </Text>
+                  modern ? (
+                    <View style={styles.aidButtons}>
+                      <AidPill label="Start autoplay drill (no chips at stake)" onPress={startAutoplay} />
+                    </View>
+                  ) : (
+                    <Text style={styles.aidLink} onPress={startAutoplay}>
+                      Start autoplay drill (no chips at stake)
+                    </Text>
+                  )
                 ) : null}
               </View>
-            ) : phase === 'playerTurn' ? (
-              <View style={styles.actionSection}>
+            ) : phase === 'playerTurn' || (modern && actionsStayPut) ? (
+              // Modern keeps Split · Hit · Stand · Double in place (dimmed)
+              // while the dealer plays and the banner shows, as in the mock.
+              <View style={[styles.actionSection, modern && styles.actionSectionModern]}>
                 <ActionBar />
-                <View style={styles.aidButtons}>
+                <View style={[styles.aidButtons, modern && styles.aidButtonsModern]}>
                   {coach.allowFullTools && strategyHintsEnabled ? (
-                    <Text style={styles.aidLink} onPress={() => setStrategyOpen(true)}>
-                      Strategy chart
-                    </Text>
+                    modern ? (
+                      <AidPill label="Strategy chart" onPress={() => setStrategyOpen(true)} />
+                    ) : (
+                      <Text style={styles.aidLink} onPress={() => setStrategyOpen(true)}>
+                        Strategy chart
+                      </Text>
+                    )
                   ) : null}
                   {coach.allowFullTools && chartsEnabled ? (
-                    <Text style={styles.aidLink} onPress={() => setChartsOpen(true)}>
-                      Card charts
-                    </Text>
+                    modern ? (
+                      <AidPill label="Card charts" onPress={() => setChartsOpen(true)} />
+                    ) : (
+                      <Text style={styles.aidLink} onPress={() => setChartsOpen(true)}>
+                        Card charts
+                      </Text>
+                    )
                   ) : null}
                 </View>
               </View>
             ) : statusText ? (
-              <Text style={styles.statusText}>{statusText}</Text>
+              <Text style={[styles.statusText, modern && styles.statusTextModern]}>{statusText}</Text>
             ) : null}
           </View>
         )}
       </View>
 
-      <PayoutBanner />
+      <PayoutBanner
+        above={
+          modern && coach.level !== 'off' && phase === 'payout' ? (
+            <DeviationToast notice={deviationNotice} onDismiss={dismissDeviation} inline />
+          ) : undefined
+        }
+      />
       {coach.allowFullTools && pulseEnabled ? <CountPulse /> : null}
       {coach.showCountCheck ? <CountCheckPrompt /> : null}
 
       {license === 'none' && !debugUnlockAll ? (
         <View style={styles.licenseGate}>
+          {modern ? (
+            <ArcadePanel style={styles.licensePanelModern}>
+              <ModernPlaque tab="Table closed" title={`Earn your seat at ${map.name}`} small />
+              <Text style={arcadeText.caption}>
+                This floor opens to counters. Clear the six training levels at this casino and the
+                table is yours.
+              </Text>
+              <ArcadeButton
+                label={`Play level ${nextFlashLevel ?? 1}`}
+                trailing="▶"
+                onPress={() =>
+                  router.replace({
+                    pathname: '/flash/[mapId]/[level]',
+                    params: { mapId: String(map.id), level: String(nextFlashLevel ?? 1) },
+                  })
+                }
+                style={styles.licenseButtonModern}
+              />
+              <ArcadeButton
+                label="Level map"
+                variant="neutral"
+                onPress={() =>
+                  router.push({ pathname: '/levels/[mapId]', params: { mapId: String(map.id) } })
+                }
+                style={styles.licenseButtonModern}
+              />
+            </ArcadePanel>
+          ) : (
           <View style={styles.licenseCard}>
             <Text style={styles.licenseKicker}>TABLE CLOSED</Text>
             <Text style={styles.licenseTitle}>Earn your seat at {map.name}</Text>
@@ -480,6 +584,7 @@ export default function GameScreen() {
               }
             />
           </View>
+          )}
         </View>
       ) : null}
 
@@ -665,5 +770,62 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.small,
     fontStyle: 'italic',
     textAlign: 'center',
+  },
+  /* Modern */
+  dealerAreaModern: {
+    paddingTop: spacing.xs,
+    gap: spacing.sm,
+  },
+  resultBadgeModern: {
+    fontFamily: fonts.display,
+    fontWeight: undefined,
+    fontSize: 16,
+    lineHeight: 17,
+    letterSpacing: 3,
+    includeFontPadding: false,
+    ...arcadeShadow.deep,
+  },
+  handBetModern: {
+    fontFamily: fonts.mono,
+    color: colors.arcadeMuted,
+  },
+  bottomPanelModern: {
+    gap: spacing.sm + spacing.xxs,
+  },
+  actionSectionModern: {
+    gap: spacing.sm + spacing.xxs,
+  },
+  aidButtonsModern: {
+    gap: spacing.md,
+  },
+  aidPill: {
+    borderRadius: radii.pill,
+    borderWidth: 2,
+    borderColor: colors.borderGold,
+    backgroundColor: colors.arcadeInfoFill,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xs,
+  },
+  aidPillPressed: {
+    opacity: 0.7,
+  },
+  aidPillLabel: {
+    fontFamily: fonts.mono,
+    fontSize: fontSizes.small,
+    color: colors.arcadeGold,
+  },
+  statusTextModern: {
+    fontFamily: fonts.mono,
+    color: colors.arcadeMuted,
+    paddingTop: spacing.sm,
+  },
+  licensePanelModern: {
+    width: '88%',
+    maxWidth: 380,
+    paddingTop: spacing.xs,
+    gap: spacing.sm + spacing.xxs,
+  },
+  licenseButtonModern: {
+    alignSelf: 'stretch',
   },
 });

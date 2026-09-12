@@ -3,18 +3,27 @@ import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 import { ACTION_LABELS } from '../../engine/strategy/describe';
+import { useModernUi } from '../../hooks/useModernUi';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { DeviationNotice } from '../../stores/gameSessionStore';
 import { colors, fontSizes, fontWeights, radii, shadows, spacing } from '../../theme';
+import { ArcadeToast } from '../arcade';
 
 /** How long the book play hangs on the felt before it fades on its own. */
 const TOAST_MS = 4000;
 const CLOSE_SIZE = 22;
+/** The Modern toast's width when it stacks over the hand-over banner. */
+const MODERN_STACK_WIDTH = 225;
 
 interface DeviationToastProps {
   readonly notice: DeviationNotice | null;
   /** Clears the notice — the timer and the × both land here. */
   readonly onDismiss: () => void;
+  /**
+   * Lay the toast out in place instead of hanging it off the host's top edge
+   * — the Modern hand-over stack puts it right above the banner.
+   */
+  readonly inline?: boolean;
 }
 
 /**
@@ -26,8 +35,9 @@ interface DeviationToastProps {
  * Mount it inside the bottom panel (the felt's centre gap is too short for
  * two lines once a hand is out).
  */
-export function DeviationToast({ notice, onDismiss }: DeviationToastProps) {
+export function DeviationToast({ notice, onDismiss, inline = false }: DeviationToastProps) {
   const reducedMotion = useReducedMotion();
+  const modern = useModernUi();
 
   useEffect(() => {
     if (!notice) {
@@ -39,6 +49,36 @@ export function DeviationToast({ notice, onDismiss }: DeviationToastProps) {
 
   if (!notice) {
     return null;
+  }
+  if (modern) {
+    const toast = (
+      <Animated.View
+        key={notice.serial}
+        style={[styles.modernToast, inline && styles.modernToastStacked]}
+        pointerEvents="box-none"
+        entering={reducedMotion ? undefined : FadeInDown.duration(200)}
+        exiting={reducedMotion ? undefined : FadeOutDown.duration(180)}
+        accessibilityLiveRegion="polite"
+        accessibilityLabel={`Book play: ${ACTION_LABELS[notice.book]}. ${notice.situation}`}
+      >
+        <ArcadeToast
+          title={`Book play: ${ACTION_LABELS[notice.book]}`}
+          detail={`${notice.situation} · you chose ${ACTION_LABELS[notice.chosen]}`}
+          onDismiss={onDismiss}
+          leading={<Ionicons name="book-outline" size={14} color={colors.arcadeGold} />}
+        />
+      </Animated.View>
+    );
+    if (inline) {
+      return toast;
+    }
+    return (
+      <View style={styles.anchor} pointerEvents="box-none">
+        <View style={styles.slot} pointerEvents="box-none">
+          {toast}
+        </View>
+      </View>
+    );
   }
   return (
     <View style={styles.anchor} pointerEvents="box-none">
@@ -138,5 +178,15 @@ const styles = StyleSheet.create({
   },
   closePressed: {
     opacity: 0.6,
+  },
+  /* Modern */
+  modernToast: {
+    maxWidth: '100%',
+    ...shadows.overlay,
+  },
+  /** Over the banner: narrower and tucked to the stack's right edge. */
+  modernToastStacked: {
+    alignSelf: 'flex-end',
+    width: MODERN_STACK_WIDTH,
   },
 });

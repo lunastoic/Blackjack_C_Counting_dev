@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, fontSizes, fontWeights, radii, spacing } from '../../theme';
+import { useModernUi } from '../../hooks/useModernUi';
+import { colors, fonts, fontSizes, fontWeights, radii, spacing } from '../../theme';
+import { ArcadeBevel, arcadeShadow } from '../arcade';
 import { PressableScale } from '../common/PressableScale';
 
 interface TrainingToggleProps {
@@ -18,6 +20,58 @@ export const TRAINING_TOGGLE_WIDTH = 62;
  * hints). Off: dark and dimmed (casino-real play, counts fogged to "?").
  */
 export function TrainingToggle({ enabled, onToggle }: TrainingToggleProps) {
+  const modern = useModernUi();
+
+  if (modern) {
+    return (
+      <PressableScale
+        onPress={() => onToggle(!enabled)}
+        accessibilityRole="switch"
+        accessibilityLabel="Training mode"
+        accessibilityState={{ checked: enabled }}
+        accessibilityHint={
+          enabled
+            ? 'Turns off the live count, count rail, card glow and strategy hints'
+            : 'Turns on the live count, count rail, card glow and strategy hints'
+        }
+        style={styles.modernTab}
+      >
+        <ArcadeBevel
+          face={colors.arcadePlaque}
+          deep={colors.arcadePlaqueDeep}
+          drop={3}
+          outline={2}
+          band={3}
+          radius={radii.md}
+          faceStyle={styles.modernFace}
+        >
+          <Ionicons
+            name={enabled ? 'school' : 'school-outline'}
+            size={22}
+            color={colors.arcadeGold}
+          />
+          <Text style={styles.modernLabel} numberOfLines={1}>
+            TRAINING
+          </Text>
+          <ArcadeBevel
+            face={enabled ? colors.arcadeGold : colors.arcadeNeutral}
+            deep={enabled ? colors.arcadeGoldDeep : colors.arcadeNeutralDeep}
+            drop={2}
+            outline={2}
+            band={2}
+            radius={8}
+            style={styles.modernState}
+            faceStyle={styles.modernStateFace}
+          >
+            <Text style={[styles.modernStateText, !enabled && styles.modernStateTextDim]}>
+              {enabled ? 'ON' : 'OFF'}
+            </Text>
+          </ArcadeBevel>
+        </ArcadeBevel>
+      </PressableScale>
+    );
+  }
+
   return (
     <PressableScale
       style={[styles.tab, enabled ? styles.tabOn : styles.tabOff]}
@@ -108,5 +162,45 @@ const styles = StyleSheet.create({
   },
   stateTextOff: {
     color: colors.textMuted,
+  },
+  /* Modern */
+  modernTab: {
+    width: TRAINING_TOGGLE_WIDTH,
+  },
+  modernFace: {
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm + spacing.xxs,
+    paddingHorizontal: 2,
+  },
+  modernLabel: {
+    fontFamily: fonts.display,
+    fontSize: 14,
+    lineHeight: 15,
+    letterSpacing: 1,
+    color: colors.arcadeGold,
+    includeFontPadding: false,
+    ...arcadeShadow.soft,
+  },
+  modernState: {
+    marginTop: 2,
+  },
+  modernStateFace: {
+    paddingHorizontal: 7,
+    paddingBottom: 2,
+    alignItems: 'center',
+  },
+  modernStateText: {
+    fontFamily: fonts.display,
+    fontSize: 14,
+    lineHeight: 16,
+    letterSpacing: 1,
+    color: colors.arcadeInkOnLight,
+    includeFontPadding: false,
+  },
+  modernStateTextDim: {
+    color: colors.arcadeCream,
+    ...arcadeShadow.soft,
   },
 });

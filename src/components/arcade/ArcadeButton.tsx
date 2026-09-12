@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -11,8 +12,15 @@ const OUTLINE = 3;
 /** The deeper band along the face's bottom, inside the outline. */
 const BAND = 6;
 
-export type ArcadeButtonVariant = 'gold' | 'green' | 'red' | 'orange' | 'blue' | 'neutral';
-export type ArcadeButtonSize = 'small' | 'medium' | 'large';
+export type ArcadeButtonVariant =
+  | 'gold'
+  | 'green'
+  | 'red'
+  | 'orange'
+  | 'blue'
+  | 'neutral'
+  | 'locked';
+export type ArcadeButtonSize = 'xsmall' | 'small' | 'medium' | 'large';
 
 interface Palette {
   readonly face: string;
@@ -31,11 +39,14 @@ const PALETTES: Readonly<Record<ArcadeButtonVariant, Palette>> = {
     deep: colors.arcadeNeutralDeep,
     label: colors.arcadeCream,
   },
+  /** A dimmed neutral for a control that is locked rather than merely disabled. */
+  locked: { face: colors.arcadeLocked, deep: colors.arcadeLockedDeep, label: colors.arcadeMuted },
 };
 
 const SIZES: Readonly<
   Record<ArcadeButtonSize, { fontSize: number; minHeight: number; paddingH: number; radius: number }>
 > = {
+  xsmall: { fontSize: 20, minHeight: 38, paddingH: spacing.md + spacing.xxs, radius: radii.sm + 2 },
   small: { fontSize: 22, minHeight: 40, paddingH: spacing.sm, radius: radii.sm + 2 },
   medium: { fontSize: 26, minHeight: 46, paddingH: spacing.lg, radius: radii.md },
   large: { fontSize: 32, minHeight: 54, paddingH: spacing.xl, radius: radii.lg },
@@ -52,8 +63,18 @@ export interface ArcadeButtonProps {
    * colour after the reveal is the feedback.
    */
   readonly dimDisabled?: boolean;
-  /** A glyph after the label, e.g. ▶ on Start. */
+  /** A glyph after the label — "▶" draws the play icon (the pixel face has no such glyph). */
   readonly trailing?: string;
+  /** A glyph or icon before the label — "▶" on Play Table, the lock on a locked one, a tab's icon. */
+  readonly leading?: React.ReactNode;
+  /** A smaller line under the label — "max bet 1,000" under Play Table. */
+  readonly sublabel?: string;
+  /** The strategy glow: the book move lights up while a hint is showing. */
+  readonly glow?: boolean;
+  /** A circle instead of a rounded block — the −/+ steppers. */
+  readonly round?: boolean;
+  /** Anything laid over the face — the progress bar along a locked table's foot. */
+  readonly overlay?: React.ReactNode;
   /** Fires the light tap on press (default true). */
   readonly hapticFeedback?: boolean;
   readonly accessibilityLabel?: string;
@@ -75,6 +96,11 @@ export function ArcadeButton({
   disabled = false,
   dimDisabled = true,
   trailing,
+  leading,
+  sublabel,
+  glow = false,
+  round = false,
+  overlay,
   hapticFeedback = true,
   accessibilityLabel,
   accessibilityHint,
@@ -84,6 +110,7 @@ export function ArcadeButton({
   const pressed = useSharedValue(0);
   const palette = PALETTES[variant];
   const metrics = SIZES[size];
+  const radius = round ? metrics.minHeight : metrics.radius;
 
   const faceStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: pressed.value * ARCADE_BUTTON_DEPTH }],
@@ -95,7 +122,7 @@ export function ArcadeButton({
     <View style={[style, disabled && dimDisabled && styles.disabled]}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel ?? label}
+        accessibilityLabel={accessibilityLabel ?? (sublabel ? `${label}, ${sublabel}` : label)}
         accessibilityHint={accessibilityHint}
         accessibilityState={{ disabled }}
         disabled={disabled}
@@ -111,38 +138,70 @@ export function ArcadeButton({
           }
           onPress();
         }}
-        style={styles.root}
+        style={[styles.root, round && { width: metrics.minHeight }]}
       >
-        <View style={[styles.base, { borderRadius: metrics.radius }]} />
+        {glow ? <View style={[styles.glow, { borderRadius: radius + 2 }]} /> : null}
+        <View style={[styles.base, { borderRadius: radius }]} />
         <Animated.View
           style={[
             styles.face,
             {
               backgroundColor: palette.face,
-              borderRadius: metrics.radius,
+              borderRadius: radius,
               minHeight: metrics.minHeight,
-              paddingHorizontal: metrics.paddingH,
+              paddingHorizontal: round ? 0 : metrics.paddingH,
             },
+            round && { width: metrics.minHeight, height: metrics.minHeight },
             faceStyle,
           ]}
         >
           <View style={[styles.band, { backgroundColor: palette.deep }]} />
-          <Text
-            style={[styles.label, { color: palette.label, fontSize: metrics.fontSize }]}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.7}
-          >
-            {label.toUpperCase()}
-            {trailing ? ` ${trailing}` : ''}
-          </Text>
+          <View style={styles.row}>
+            {leading ? (
+              <View style={styles.leading}>
+                {leading === PLAY ? <PlayGlyph color={palette.label} fontSize={metrics.fontSize} /> : leading}
+              </View>
+            ) : null}
+            <Text
+              style={[
+                styles.label,
+                { color: palette.label, fontSize: metrics.fontSize },
+                variant === 'gold' && styles.labelOnLight,
+              ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
+              {label.toUpperCase()}
+              {trailing && trailing !== PLAY ? ` ${trailing}` : ''}
+            </Text>
+            {trailing === PLAY ? <PlayGlyph color={palette.label} fontSize={metrics.fontSize} /> : null}
+          </View>
+          {sublabel ? (
+            <Text
+              style={[styles.sublabel, { color: palette.label }, variant === 'gold' && styles.labelOnLight]}
+              numberOfLines={1}
+            >
+              {sublabel.toUpperCase()}
+            </Text>
+          ) : null}
+          {overlay}
         </Animated.View>
       </Pressable>
     </View>
   );
 }
 
+/** The play arrow: Jersey has no ▶, and the system fallback draws an emoji. */
+const PLAY = '▶';
+function PlayGlyph({ color, fontSize }: { color: string; fontSize: number }) {
+  return <Ionicons name="play" size={Math.round(fontSize * 0.62)} color={color} style={styles.play} />;
+}
+
 const styles = StyleSheet.create({
+  play: {
+    marginTop: 1,
+  },
   root: {
     alignSelf: 'stretch',
     paddingBottom: ARCADE_BUTTON_DEPTH,
@@ -158,6 +217,20 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: colors.arcadeInk,
+  },
+  /** The strategy hint: a soft yellow halo around the whole bevel. */
+  glow: {
+    position: 'absolute',
+    top: -2,
+    left: -2,
+    right: -2,
+    bottom: -2,
+    backgroundColor: colors.strategyHint,
+    opacity: 0.9,
+    shadowColor: colors.strategyHint,
+    shadowOpacity: 0.9,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
   },
   face: {
     borderWidth: OUTLINE,
@@ -175,7 +248,22 @@ const styles = StyleSheet.create({
     bottom: 0,
     height: BAND,
   },
+  // The row stays inside the face so a long label shrinks (adjustsFontSizeToFit)
+  // instead of pushing its leading glyph out past the edge.
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm - 2,
+    maxWidth: '100%',
+  },
+  leading: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
   label: {
+    flexShrink: 1,
     fontFamily: fonts.display,
     letterSpacing: 1,
     textAlign: 'center',
@@ -183,5 +271,21 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 1, height: 2 },
     textShadowRadius: 0,
     includeFontPadding: false,
+  },
+  labelOnLight: {
+    textShadowColor: 'transparent',
+  },
+  sublabel: {
+    fontFamily: fonts.display,
+    fontSize: 14,
+    lineHeight: 14,
+    letterSpacing: 2,
+    opacity: 0.8,
+    textAlign: 'center',
+    textShadowColor: colors.chipShadow,
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 0,
+    includeFontPadding: false,
+    marginTop: 1,
   },
 });

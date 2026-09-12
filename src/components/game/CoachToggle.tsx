@@ -2,8 +2,10 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { CountCoachLevel } from '../../engine/types';
-import { colors, fontSizes, fontWeights, radii, spacing } from '../../theme';
+import { useModernUi } from '../../hooks/useModernUi';
+import { colors, fonts, fontSizes, fontWeights, radii, spacing } from '../../theme';
 import { COUNT_COACH_LABELS, nextCountCoachLevel } from '../../utils/countCoach';
+import { ArcadeBevel, arcadeShadow } from '../arcade';
 import { PressableScale } from '../common/PressableScale';
 import { TRAINING_TOGGLE_WIDTH } from './TrainingToggle';
 
@@ -28,6 +30,53 @@ const ICONS: Record<CountCoachLevel, React.ComponentProps<typeof Ionicons>['name
 export function CoachToggle({ level, onSelect }: CoachToggleProps) {
   const lit = level !== 'off';
   const next = nextCountCoachLevel(level);
+  const modern = useModernUi();
+
+  if (modern) {
+    const full = level === 'full';
+    return (
+      <PressableScale
+        onPress={() => onSelect(next)}
+        accessibilityRole="button"
+        accessibilityLabel={`Count Coach: ${COUNT_COACH_LABELS[level]}`}
+        accessibilityHint={`Switches to ${COUNT_COACH_LABELS[next]}`}
+        style={styles.modernTab}
+      >
+        <ArcadeBevel
+          face={colors.arcadePlaque}
+          deep={colors.arcadePlaqueDeep}
+          drop={3}
+          outline={2}
+          band={3}
+          radius={radii.md}
+          faceStyle={styles.modernFace}
+        >
+          <Ionicons name={ICONS[level]} size={22} color={colors.arcadeGold} />
+          <Text style={styles.modernLabel} numberOfLines={1}>
+            COACH
+          </Text>
+          <ArcadeBevel
+            face={full ? colors.arcadeGold : colors.arcadeNeutral}
+            deep={full ? colors.arcadeGoldDeep : colors.arcadeNeutralDeep}
+            drop={2}
+            outline={2}
+            band={2}
+            radius={8}
+            style={styles.modernState}
+            faceStyle={styles.modernStateFace}
+          >
+            <Text
+              style={[styles.modernStateText, !full && styles.modernStateTextDim]}
+              numberOfLines={1}
+            >
+              {COUNT_COACH_LABELS[level].toUpperCase()}
+            </Text>
+          </ArcadeBevel>
+        </ArcadeBevel>
+      </PressableScale>
+    );
+  }
+
   return (
     <PressableScale
       style={[styles.tab, lit ? styles.tabOn : styles.tabOff, level === 'learn' && styles.tabLearn]}
@@ -119,6 +168,46 @@ const styles = StyleSheet.create({
   },
   stateTextOff: {
     color: colors.textMuted,
+  },
+  /* Modern */
+  modernTab: {
+    width: TRAINING_TOGGLE_WIDTH,
+  },
+  modernFace: {
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm + spacing.xxs,
+    paddingHorizontal: 2,
+  },
+  modernLabel: {
+    fontFamily: fonts.display,
+    fontSize: 14,
+    lineHeight: 15,
+    letterSpacing: 1,
+    color: colors.arcadeGold,
+    includeFontPadding: false,
+    ...arcadeShadow.soft,
+  },
+  modernState: {
+    marginTop: 2,
+  },
+  modernStateFace: {
+    paddingHorizontal: 7,
+    paddingBottom: 2,
+    alignItems: 'center',
+  },
+  modernStateText: {
+    fontFamily: fonts.display,
+    fontSize: 14,
+    lineHeight: 16,
+    letterSpacing: 1,
+    color: colors.arcadeInkOnLight,
+    includeFontPadding: false,
+  },
+  modernStateTextDim: {
+    color: colors.arcadeCream,
+    ...arcadeShadow.soft,
   },
 });
 

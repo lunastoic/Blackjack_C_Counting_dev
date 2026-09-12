@@ -5,7 +5,9 @@ import { CHIP_SETS } from '../../assets/registry';
 import { playSound } from '../../services/audio';
 import { useEconomyStore } from '../../stores/economyStore';
 import { useGameSessionStore } from '../../stores/gameSessionStore';
-import { colors, fontSizes, fontWeights, spacing } from '../../theme';
+import { useModernUi } from '../../hooks/useModernUi';
+import { colors, fonts, fontSizes, fontWeights, spacing } from '../../theme';
+import { ArcadeChip, arcadeShadow } from '../arcade';
 import { PressableScale } from '../common/PressableScale';
 
 const CHIP_SIZE = 56;
@@ -25,6 +27,7 @@ export function ChipTray() {
   const wager = useGameSessionStore((state) => state.wager);
   const addChipToBet = useGameSessionStore((state) => state.addChipToBet);
   const chips = useEconomyStore((state) => state.chips);
+  const modern = useModernUi();
 
   if (!map) {
     return null;
@@ -50,16 +53,22 @@ export function ChipTray() {
             }}
             style={[styles.chip, !affordable && styles.chipDisabled]}
           >
-            <View style={styles.chipFace}>
-              {image != null ? (
-                <Image source={image} style={styles.chipImage} contentFit="contain" />
-              ) : (
-                <View style={styles.chipFallback}>
-                  <Text style={styles.chipFallbackText}>{formatChipShort(value)}</Text>
-                </View>
-              )}
-            </View>
-            <Text style={styles.chipValue}>{formatChipShort(value)}</Text>
+            {modern ? (
+              <ArcadeChip value={value} size={CHIP_SIZE} />
+            ) : (
+              <View style={styles.chipFace}>
+                {image != null ? (
+                  <Image source={image} style={styles.chipImage} contentFit="contain" />
+                ) : (
+                  <View style={styles.chipFallback}>
+                    <Text style={styles.chipFallbackText}>{formatChipShort(value)}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+            <Text style={[styles.chipValue, modern && styles.chipValueModern]}>
+              {formatChipShort(value)}
+            </Text>
           </PressableScale>
         );
       })}
@@ -98,6 +107,16 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.caption,
     fontWeight: fontWeights.semibold,
     fontVariant: ['tabular-nums'],
+  },
+  /* Modern: pixel label under the drawn chip. */
+  chipValueModern: {
+    fontFamily: fonts.display,
+    fontWeight: undefined,
+    fontSize: 17,
+    lineHeight: 18,
+    color: colors.arcadeCream,
+    includeFontPadding: false,
+    ...arcadeShadow.soft,
   },
   chipFallback: {
     width: CHIP_SIZE,

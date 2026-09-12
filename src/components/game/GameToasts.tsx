@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useModernUi } from '../../hooks/useModernUi';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { playSound } from '../../services/audio';
 import { haptics } from '../../services/haptics';
@@ -9,6 +10,7 @@ import { useAchievementStore } from '../../stores/achievementStore';
 import { LevelUpNotice, useGameSessionStore } from '../../stores/gameSessionStore';
 import { colors, fontSizes, fontWeights, layers, radii, shadows, spacing } from '../../theme';
 import { formatChips } from '../../utils/format';
+import { ArcadeToast } from '../arcade';
 import { PressableScale } from '../common/PressableScale';
 
 const TOAST_MS = 3200;
@@ -29,6 +31,7 @@ export function GameToasts({ levelUpNotice, onDismissLevelUp }: GameToastsProps 
   const dismissUnlock = useAchievementStore((state) => state.dismissUnlock);
   const reducedMotion = useReducedMotion();
   const insets = useSafeAreaInsets();
+  const modern = useModernUi();
 
   const unlock = pendingUnlocks[0] ?? null;
 
@@ -54,6 +57,47 @@ export function GameToasts({ levelUpNotice, onDismissLevelUp }: GameToastsProps 
 
   if (!levelUp && !unlock) {
     return null;
+  }
+
+  if (modern) {
+    return (
+      <View
+        style={[styles.stack, styles.stackModern, { top: insets.top + spacing.sm }]}
+        pointerEvents="box-none"
+      >
+        {levelUp ? (
+          <Animated.View
+            entering={reducedMotion ? undefined : FadeInUp.duration(250)}
+            exiting={reducedMotion ? undefined : FadeOutUp.duration(200)}
+          >
+            <PressableScale
+              onPress={dismissLevelUp}
+              accessibilityLabel="Dismiss level up"
+              style={styles.toastModern}
+            >
+              <ArcadeToast
+                title={`Level ${levelUp.level} reached!`}
+                detail={`+${formatChips(levelUp.chipReward)} chips`}
+              />
+            </PressableScale>
+          </Animated.View>
+        ) : null}
+        {unlock ? (
+          <Animated.View
+            entering={reducedMotion ? undefined : FadeInUp.duration(250)}
+            exiting={reducedMotion ? undefined : FadeOutUp.duration(200)}
+          >
+            <PressableScale
+              onPress={() => dismissUnlock(unlock.achievementId)}
+              accessibilityLabel="Dismiss achievement"
+              style={styles.toastModern}
+            >
+              <ArcadeToast title={`Achievement: ${unlock.title}`} detail={unlock.description} />
+            </PressableScale>
+          </Animated.View>
+        ) : null}
+      </View>
+    );
   }
 
   return (
@@ -119,5 +163,16 @@ const styles = StyleSheet.create({
   subtitle: {
     color: colors.textSecondary,
     fontSize: fontSizes.caption,
+  },
+  /* Modern: the dark arcade toast, tucked to the right like the book-play pop. */
+  stackModern: {
+    left: spacing.lg + spacing.xs,
+    right: spacing.lg + spacing.xs,
+    alignItems: 'flex-end',
+  },
+  toastModern: {
+    minWidth: 225,
+    maxWidth: '100%',
+    ...shadows.overlay,
   },
 });

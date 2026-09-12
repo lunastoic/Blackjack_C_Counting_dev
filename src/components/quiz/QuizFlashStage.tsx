@@ -3,10 +3,12 @@ import React from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { Keyframe } from 'react-native-reanimated';
 import { CARD_BACK, CardSkin } from '../../assets/cards.generated';
-import { PlayingCard, CARD_ASPECT } from '../game/PlayingCard';
+import { ArcadeBevel, ArcadeTab } from '../arcade';
+import { PlayingCard, CARD_ASPECT, cardCornerRadius } from '../game/PlayingCard';
+import { useModernUi } from '../../hooks/useModernUi';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { QuizFlashStep } from '../../stores/quizSessionStore';
-import { colors, fontSizes, fontWeights, radii, spacing } from '../../theme';
+import { colors, fonts, fontSizes, fontWeights, radii, spacing } from '../../theme';
 
 interface QuizFlashStageProps {
   readonly step: QuizFlashStep | null;
@@ -28,6 +30,10 @@ const FLASH_ENTERING = new Keyframe({
   },
 }).duration(220);
 
+/** The Modern flash keeps the mock's card sizes on the open felt. */
+const ARCADE_PAIR_WIDTH = 104;
+const ARCADE_SINGLE_WIDTH = 130;
+
 /**
  * Cinematic flash area. Cards slide in from the deck with a small rotation,
  * face-down decoys carry a "DECOY — IGNORE" banner, and pairs fan slightly.
@@ -41,6 +47,7 @@ export function QuizFlashStage({
 }: QuizFlashStageProps) {
   const { width } = useWindowDimensions();
   const reducedMotion = useReducedMotion();
+  const modern = useModernUi();
 
   const entering = reducedMotion ? undefined : FLASH_ENTERING;
 
@@ -49,8 +56,67 @@ export function QuizFlashStage({
   }
 
   const pair = step.length > 1;
-  const flashCardWidth = pair ? Math.min(width * 0.3, 120) : Math.min(width * 0.38, 150);
+  const flashCardWidth = modern
+    ? pair
+      ? ARCADE_PAIR_WIDTH
+      : ARCADE_SINGLE_WIDTH
+    : pair
+      ? Math.min(width * 0.3, 120)
+      : Math.min(width * 0.38, 150);
   const decoy = step.some((item) => item.faceDown);
+
+  if (modern) {
+    return (
+      <View style={styles.arcadeStage}>
+        <View style={styles.cardRow}>
+          {step.map((item, index) => {
+            const offset = pair ? (index === 0 ? -8 : 8) : 0;
+            const rotate = pair ? (index === 0 ? '-4deg' : '4deg') : '0deg';
+            return (
+              <Animated.View key={item.card.id} entering={entering}>
+                <View style={{ transform: [{ translateX: offset }, { rotate: rotate }] }}>
+                  {item.faceDown ? (
+                    <View>
+                      <Image
+                        source={CARD_BACK}
+                        style={{
+                          width: flashCardWidth,
+                          height: flashCardWidth / CARD_ASPECT,
+                          borderRadius: cardCornerRadius(flashCardWidth),
+                        }}
+                        accessibilityLabel="Face-down card — does not count"
+                      />
+                      <ArcadeBevel
+                        face={colors.arcadeRed}
+                        deep={colors.arcadeRedDeep}
+                        drop={3}
+                        outline={2}
+                        band={0}
+                        radius={6}
+                        style={styles.arcadeDecoy}
+                        faceStyle={styles.arcadeDecoyFace}
+                      >
+                        <Text style={styles.arcadeDecoyText}>DECOY</Text>
+                      </ArcadeBevel>
+                    </View>
+                  ) : (
+                    <PlayingCard
+                      card={item.card}
+                      skin={skin}
+                      width={flashCardWidth}
+                      underglow={underglow}
+                    />
+                  )}
+                </View>
+              </Animated.View>
+            );
+          })}
+        </View>
+        <ArcadeTab label={`Flash ${stepIndex + 1} of ${totalSteps}`} />
+        {decoy ? <Text style={styles.arcadeDecoyHint}>Ignore face-down cards</Text> : null}
+      </View>
+    );
+  }
 
   return (
     <View style={styles.stage}>
@@ -110,6 +176,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 220,
+  },
+  arcadeStage: {
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  arcadeDecoy: {
+    position: 'absolute',
+    left: spacing.xs,
+    right: spacing.xs,
+    bottom: 10,
+  },
+  arcadeDecoyFace: {
+    alignItems: 'center',
+  },
+  arcadeDecoyText: {
+    fontFamily: fonts.display,
+    fontSize: 16,
+    lineHeight: 18,
+    letterSpacing: 2,
+    color: colors.arcadeCream,
+    includeFontPadding: false,
+    textShadowColor: colors.chipShadow,
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 0,
+  },
+  arcadeDecoyHint: {
+    fontFamily: fonts.monoMedium,
+    fontSize: 12,
+    lineHeight: 17,
+    letterSpacing: 0.5,
+    color: colors.arcadeLoss,
+    textAlign: 'center',
   },
   cardRow: {
     flexDirection: 'row',

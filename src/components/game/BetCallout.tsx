@@ -2,8 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInLeft, FadeOutLeft } from 'react-native-reanimated';
+import { useModernUi } from '../../hooks/useModernUi';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
-import { colors, fontSizes, fontWeights, radii, shadows, spacing } from '../../theme';
+import { colors, fonts, fontSizes, fontWeights, radii, shadows, spacing } from '../../theme';
 import { BetAdvice, BetAdviceTone } from '../../utils/countCoach';
 
 /** The pointer's reach from the pill's edge to the rail's value tag. */
@@ -14,6 +15,12 @@ const TONE_COLORS: Record<BetAdviceTone, string> = {
   cold: colors.trainingMinus,
   flat: colors.gold,
   hot: colors.trainingPlus,
+};
+
+const MODERN_TONE_COLORS: Record<BetAdviceTone, string> = {
+  cold: colors.arcadeLoss,
+  flat: colors.arcadeGold,
+  hot: colors.arcadeMint,
 };
 
 const TONE_ICONS: Record<BetAdviceTone, React.ComponentProps<typeof Ionicons>['name']> = {
@@ -41,8 +48,9 @@ interface BetCalloutProps {
  */
 export function BetCallout({ advice, left, centerY }: BetCalloutProps) {
   const reducedMotion = useReducedMotion();
+  const modern = useModernUi();
   const [height, setHeight] = useState(0);
-  const tint = TONE_COLORS[advice.tone];
+  const tint = modern ? MODERN_TONE_COLORS[advice.tone] : TONE_COLORS[advice.tone];
 
   function onLayout(event: LayoutChangeEvent) {
     setHeight(event.nativeEvent.layout.height);
@@ -59,15 +67,23 @@ export function BetCallout({ advice, left, centerY }: BetCalloutProps) {
       accessibilityLiveRegion="polite"
       accessibilityLabel={`${advice.headline}. ${advice.detail}`}
     >
-      <View style={[styles.pointer, { borderRightColor: tint }]} />
-      <View style={[styles.plaque, { borderColor: tint }]}>
+      <View style={[styles.pointer, { borderRightColor: modern ? colors.arcadeInk : tint }]} />
+      <View
+        style={[
+          styles.plaque,
+          modern ? styles.plaqueModern : { borderColor: tint },
+        ]}
+      >
         <View style={styles.headlineRow}>
           <Ionicons name={TONE_ICONS[advice.tone]} size={12} color={tint} />
-          <Text style={[styles.headline, { color: tint }]} numberOfLines={1}>
+          <Text
+            style={[styles.headline, modern && styles.headlineModern, { color: tint }]}
+            numberOfLines={1}
+          >
             {advice.headline}
           </Text>
         </View>
-        <Text style={styles.detail}>{advice.detail}</Text>
+        <Text style={[styles.detail, modern && styles.detailModern]}>{advice.detail}</Text>
       </View>
     </Animated.View>
   );
@@ -114,5 +130,31 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.caption,
     fontWeight: fontWeights.semibold,
     lineHeight: fontSizes.caption + 4,
+  },
+  /* Modern */
+  plaqueModern: {
+    backgroundColor: colors.arcadeToastFill,
+    borderWidth: 2,
+    borderColor: colors.arcadeInk,
+    borderRadius: 14,
+    shadowColor: colors.arcadeInk,
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  headlineModern: {
+    fontFamily: fonts.display,
+    fontWeight: undefined,
+    fontSize: 18,
+    lineHeight: 19,
+    letterSpacing: 1,
+    includeFontPadding: false,
+  },
+  detailModern: {
+    fontFamily: fonts.mono,
+    fontWeight: undefined,
+    color: colors.arcadeMuted,
+    fontSize: 11,
+    lineHeight: 15,
   },
 });

@@ -45,6 +45,9 @@ const ACTIONS: readonly {
   { action: 'split', image: appAssets.buttons.split, label: 'Split', variant: 'blue', shortLabel: 'Split' },
 ];
 
+/** The Modern bar reads Split · Hit · Stand · Double, as in the mock. */
+const MODERN_ACTIONS = [ACTIONS[3], ACTIONS[0], ACTIONS[1], ACTIONS[2]] as const;
+
 /**
  * Hit / Stand / Double / Split. Classic uses the migrated button art; Modern
  * draws the same colours as arcade bevels. With Training Mode on (Full coach)
@@ -81,7 +84,7 @@ export function ActionBar() {
 
   return (
     <View style={styles.bar}>
-      {ACTIONS.map(({ action, image, label, variant, shortLabel }) => (
+      {(modern ? MODERN_ACTIONS : ACTIONS).map(({ action, image, label, variant, shortLabel }) => (
         <ActionButton
           key={action}
           image={image}
@@ -147,6 +150,7 @@ function ActionButton({
           accessibilityHint={highlighted ? 'Recommended by basic strategy' : undefined}
           variant={modern.variant}
           size="small"
+          glow={highlighted}
           disabled={!enabled}
           // The tap is already the haptic; ActionBar fires it when the action lands.
           hapticFeedback={false}

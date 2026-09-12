@@ -1,7 +1,19 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useModernUi } from '../../hooks/useModernUi';
 import { useGameSessionStore } from '../../stores/gameSessionStore';
-import { colors, fontSizes, fontWeights, lineHeights, radii, spacing } from '../../theme';
+import { colors, fonts, fontSizes, fontWeights, lineHeights, radii, spacing } from '../../theme';
+import { ArcadeStrip, ArcadeStripCell, ArcadeStripDivider } from '../arcade';
+
+function arcadeCountColor(value: number): string {
+  if (value > 0) {
+    return colors.arcadeMint;
+  }
+  if (value < 0) {
+    return colors.arcadeLoss;
+  }
+  return colors.arcadeCream;
+}
 
 function countColor(value: number): string {
   if (value > 0) {
@@ -43,6 +55,64 @@ export function LearnCountBar({ live = false }: LearnCountBarProps) {
   const runningLabel = runningCount > 0 ? `+${runningCount}` : `${runningCount}`;
   const trueLabel = trueCountValue > 0 ? `+${trueCountValue}` : `${trueCountValue}`;
   const canChallenge = !live && revealTier < 2 && phase === 'betting';
+  const modern = useModernUi();
+
+  if (modern) {
+    const foot = justShuffled
+      ? live
+        ? 'Shuffled — count reset to 0'
+        : 'Shuffled — count reset, meter fogged'
+      : shufflePending
+        ? 'Shuffling deck after this round'
+        : canChallenge
+          ? revealTier === 0
+            ? 'Tap to prove the running count and reveal it'
+            : 'Running count live — tap to unlock the true count'
+          : live
+            ? 'Training Mode — counts live'
+            : '';
+    const footColor = justShuffled
+      ? colors.arcadeMint
+      : shufflePending
+        ? colors.arcadeLoss
+        : colors.arcadeGold;
+    return (
+      <Pressable
+        onPress={() => requestCountCheck()}
+        disabled={!canChallenge}
+        accessibilityLabel={
+          canChallenge
+            ? 'Count fogged — tap to prove your count and reveal it'
+            : 'Count meter'
+        }
+        style={styles.modernContainer}
+      >
+        <ArcadeStrip compact style={styles.modernStrip}>
+          <ArcadeStripCell
+            label="Running"
+            value={runningShown ? runningLabel : '?'}
+            valueColor={runningShown ? arcadeCountColor(runningCount) : colors.arcadeGold}
+            compact
+          />
+          <ArcadeStripDivider />
+          <ArcadeStripCell
+            label="True"
+            value={trueShown ? trueLabel : '?'}
+            valueColor={trueShown ? arcadeCountColor(trueCountValue) : colors.arcadeGold}
+            compact
+          />
+          <ArcadeStripDivider />
+          <ArcadeStripCell label="Cards left" value={remaining} compact />
+        </ArcadeStrip>
+        {/* Same fixed two-line foot as Classic: the strip never shifts. */}
+        <View style={styles.modernFoot}>
+          <Text style={[styles.modernFootText, { color: footColor }]} numberOfLines={2}>
+            {foot}
+          </Text>
+        </View>
+      </Pressable>
+    );
+  }
 
   return (
     <Pressable
@@ -172,6 +242,29 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.caption,
     lineHeight: lineHeights.caption,
     fontWeight: fontWeights.semibold,
+    textAlign: 'center',
+  },
+  /* Modern */
+  modernContainer: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    gap: spacing.xs,
+    minWidth: 0,
+  },
+  modernStrip: {
+    alignSelf: 'stretch',
+    marginBottom: 5,
+  },
+  modernFoot: {
+    alignSelf: 'stretch',
+    height: 28,
+    justifyContent: 'center',
+  },
+  modernFootText: {
+    fontFamily: fonts.mono,
+    fontSize: 11,
+    lineHeight: 14,
+    opacity: 0.85,
     textAlign: 'center',
   },
 });

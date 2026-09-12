@@ -13,19 +13,21 @@ export interface QuizRank {
   readonly title: string;
   readonly subtitle: string;
   readonly color: string;
+  /** The Modern strip's colour: muted for the warm-up, gold on the climb, mint at the top. */
+  readonly arcadeColor: string;
 }
 
 const RANKS: QuizRank[] = [
-  { title: 'New Shoe', subtitle: 'Warm-up round', color: colors.textMuted },
-  { title: 'Apprentice', subtitle: 'Finding the rhythm', color: colors.textSecondary },
-  { title: 'Apprentice', subtitle: 'Finding the rhythm', color: colors.textSecondary },
-  { title: 'Card Sharp', subtitle: 'Decoys incoming', color: colors.goldDim },
-  { title: 'Card Sharp', subtitle: 'Decoys incoming', color: colors.goldDim },
-  { title: 'Card Sharp', subtitle: 'Decoys incoming', color: colors.goldDim },
-  { title: 'Counter', subtitle: 'Speed rising', color: colors.gold },
-  { title: 'Counter', subtitle: 'Speed rising', color: colors.gold },
-  { title: 'Ace Counter', subtitle: 'Pairs & pressure', color: colors.goldBright },
-  { title: 'High Roller', subtitle: 'Grand prize ready', color: colors.success },
+  { title: 'New Shoe', subtitle: 'Warm-up round', color: colors.textMuted, arcadeColor: colors.arcadeMuted },
+  { title: 'Apprentice', subtitle: 'Finding the rhythm', color: colors.textSecondary, arcadeColor: colors.arcadeGold },
+  { title: 'Apprentice', subtitle: 'Finding the rhythm', color: colors.textSecondary, arcadeColor: colors.arcadeGold },
+  { title: 'Card Sharp', subtitle: 'Decoys incoming', color: colors.goldDim, arcadeColor: colors.arcadeGold },
+  { title: 'Card Sharp', subtitle: 'Decoys incoming', color: colors.goldDim, arcadeColor: colors.arcadeGold },
+  { title: 'Card Sharp', subtitle: 'Decoys incoming', color: colors.goldDim, arcadeColor: colors.arcadeGold },
+  { title: 'Counter', subtitle: 'Speed rising', color: colors.gold, arcadeColor: colors.arcadeGold },
+  { title: 'Counter', subtitle: 'Speed rising', color: colors.gold, arcadeColor: colors.arcadeGold },
+  { title: 'Ace Counter', subtitle: 'Pairs & pressure', color: colors.goldBright, arcadeColor: colors.arcadeGold },
+  { title: 'High Roller', subtitle: 'Grand prize ready', color: colors.success, arcadeColor: colors.arcadeMint },
 ];
 
 export function quizRankForStreak(streak: number): QuizRank {

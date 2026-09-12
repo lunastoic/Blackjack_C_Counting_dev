@@ -3,7 +3,9 @@ import { StyleSheet, Text, View } from 'react-native';
 import { RoundState } from '../../engine/blackjack/round';
 import { RoundPhase } from '../../engine/state-machine/phases';
 import { isShufflePending, Shoe, shuffleThreshold } from '../../engine/shoe/shoe';
-import { colors, fontWeights, layout, spacing } from '../../theme';
+import { useModernUi } from '../../hooks/useModernUi';
+import { colors, fonts, fontWeights, layout, spacing } from '../../theme';
+import { arcadeShadow } from '../arcade';
 import { visibleDiscardCount, visibleShoeCount } from '../../utils/cardPiles';
 import { CARD_ASPECT } from './PlayingCard';
 import { CardStack } from './CardStack';
@@ -41,20 +43,26 @@ function PileColumn({
   label,
   count,
   showCount = true,
+  modern = false,
   children,
 }: {
   label: string;
   count: number;
   showCount?: boolean;
+  modern?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <View style={styles.pileColumn}>
-      <Text style={styles.pileLabel} numberOfLines={1}>
+    <View style={[styles.pileColumn, modern && styles.pileColumnModern]}>
+      {/* The Jersey label runs wider than the pile; it hangs over both edges
+          rather than ellipsize (DISCA…). */}
+      <Text style={[styles.pileLabel, modern && styles.pileLabelModern]} numberOfLines={1}>
         {label}
       </Text>
       <View style={styles.stackSlot}>{children}</View>
-      <Text style={styles.pileCount}>{showCount || count > 0 ? count : ' '}</Text>
+      <Text style={[styles.pileCount, modern && styles.pileCountModern]}>
+        {showCount || count > 0 ? count : ' '}
+      </Text>
     </View>
   );
 }
@@ -73,6 +81,7 @@ export function TablePilesRow({
   insetForCountRail = false,
   showCutCardMarker = false,
 }: TablePilesRowProps) {
+  const modern = useModernUi();
   const totalCards = shoe?.cards.length ?? 0;
   const shoeCount = visibleShoeCount(shoe, phase, initialDealStep, pendingReveals);
   const discardCount = visibleDiscardCount(shoe, round, phase, pendingReveals);
@@ -86,6 +95,7 @@ export function TablePilesRow({
     <View
       style={[
         styles.band,
+        modern && styles.bandModern,
         {
           paddingLeft: insetForCountRail ? RAIL_BAR_CLEARANCE : layout.screenPaddingH,
         },
@@ -98,7 +108,7 @@ export function TablePilesRow({
           ceremonyActive && styles.pilesHidden,
         ]}
       >
-        <PileColumn label="DISCARD" count={discardCount} showCount={false}>
+        <PileColumn label="DISCARD" count={discardCount} showCount={false} modern={modern}>
           <CardStack
             variant="discard"
             count={ceremonyActive ? 0 : discardCount}
@@ -108,7 +118,7 @@ export function TablePilesRow({
         </PileColumn>
       </View>
 
-      <View style={styles.center}>{center}</View>
+      <View style={[styles.center, modern && styles.centerModern]}>{center}</View>
 
       <View
         style={[
@@ -117,7 +127,7 @@ export function TablePilesRow({
           ceremonyActive && styles.pilesHidden,
         ]}
       >
-        <PileColumn label="DECK" count={ceremonyActive ? 0 : shoeCount}>
+        <PileColumn label="DECK" count={ceremonyActive ? 0 : shoeCount} modern={modern}>
           <CardStack
             variant="shoe"
             count={ceremonyActive ? 0 : shoeCount}
@@ -191,5 +201,33 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
     height: 16,
     textAlign: 'center',
+  },
+  /* Modern */
+  bandModern: {
+    minHeight: 102,
+    gap: spacing.sm - 2,
+  },
+  centerModern: {
+    paddingHorizontal: 0,
+  },
+  pileColumnModern: {
+    gap: spacing.xxs,
+  },
+  pileLabelModern: {
+    fontFamily: fonts.display,
+    fontWeight: undefined,
+    fontSize: 14,
+    lineHeight: 15,
+    letterSpacing: 2,
+    color: colors.arcadeGold,
+    includeFontPadding: false,
+    width: SIDE_WIDTH + spacing.md,
+    ...arcadeShadow.soft,
+  },
+  pileCountModern: {
+    fontFamily: fonts.mono,
+    fontWeight: undefined,
+    fontSize: 12,
+    lineHeight: 16,
   },
 });

@@ -80,6 +80,29 @@ export const colors = {
   arcadeNeutral: '#4A3F3A',
   arcadeNeutralDeep: '#2C2421',
   arcadeInkOnLight: '#1E1607',
+  // Table chrome — the HUD marquee, count strip, toggles and the map card
+  arcadePlaqueDeep: '#3B1219', // the deeper band under a burgundy bevel
+  arcadeStripFace: '#00000080', // 50% black — the count and streak strips
+  arcadeStripDeep: '#00000066',
+  arcadeLocked: '#3A3532', // a locked bevel's face (Play Table before the ladder is done)
+  arcadeLockedDeep: '#1F1B19',
+  arcadeLoss: '#FF8A80', // losses, misses and "NOT QUITE" on the dark bevels
+  arcadeToastFill: '#0C0A09E6',
+  arcadeGlow: '#F2C445B3', // the gold halo on the current level and the book move
+  arcadeNight: '#0B1424', // the map card's ground behind the art
+  arcadeNightShade: '#0B1424D9',
+  arcadeNightVeil: '#0B142433',
+  arcadeHighlight: '#FFFFFF2E', // the thin light along a chip's inner ring
+  // Modern chips, drawn in code: 1 cream · 5 orange · 25 green · 50 magenta · 100 blue
+  arcadeChipOutline: '#FFFFFF', // the hairline around a chip's number
+  arcadeChipCream: '#EFE8D6',
+  arcadeChipCreamDeep: '#C4BBA5',
+  arcadeChipCreamDash: '#7A7470',
+  arcadeChipMagenta: '#C13B8C',
+  arcadeChipMagentaDeep: '#7E2159',
+  arcadeCrescentLight: '#FFE9A0',
+  arcadeCrescent: '#EFC24A',
+  arcadeCrescentDeep: '#B98A1E',
 } as const;
 
 export type ColorToken = keyof typeof colors;

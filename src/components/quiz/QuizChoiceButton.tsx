@@ -111,9 +111,11 @@ const styles = StyleSheet.create({
   wrongWrapper: {
     opacity: 0.7,
   },
-  /** Same footprint as the classic tile so the grid keeps its shape. */
+  /** Two to a row in the sprint panel's grid; a lone odd tile stays half-width. */
   arcadeCell: {
-    minWidth: 96,
+    flexGrow: 1,
+    flexBasis: '40%',
+    minWidth: 120,
   },
   button: {
     minWidth: 96,

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
-import { colors, fontWeights } from '../../theme';
+import { colors, fonts, fontWeights } from '../../theme';
 
 /**
  * The lettering printed on a real blackjack layout: the house name and rules
@@ -21,6 +21,8 @@ interface ArcLine {
   readonly size: number;
   readonly weight: '600' | '800';
   readonly opacity: number;
+  /** Extra advance per glyph in the Modern look's tracked mono face. */
+  readonly tracking: number;
 }
 
 interface FeltMarkingsProps {
@@ -45,10 +47,14 @@ interface FeltMarkingsProps {
    * `anchor` is set.
    */
   readonly align?: 'center' | 'top';
+  /** The Modern look: the mono face in caps with wide tracking. */
+  readonly modern?: boolean;
 }
 
 /** Average glyph advance relative to font size for the system font. */
 const GLYPH_ADVANCE = 0.62;
+/** The mono face's fixed advance relative to font size. */
+const MONO_ADVANCE = 0.6;
 /** Baseline-to-baseline distance between lines at full size. */
 const LINE_GAP = 34;
 /** Glyph box sits this far above its arc point, as a fraction of its size. */
@@ -146,6 +152,7 @@ export function FeltMarkings({
   sideInset = 0,
   topInset = 0,
   align = 'center',
+  modern = false,
 }: FeltMarkingsProps) {
   const [size, setSize] = useState({ width: 0, height: 0 });
 
@@ -169,9 +176,9 @@ export function FeltMarkings({
         );
 
   const lines: ArcLine[] = [
-    { text: casinoName, size: TITLE_SIZE * scale, weight: '800', opacity: 0.4 },
-    { text: RULE_TEXT, size: RULE_SIZE * scale, weight: '600', opacity: 0.34 },
-    { text: FINE_TEXT, size: FINE_SIZE * scale, weight: '600', opacity: 0.3 },
+    { text: casinoName, size: TITLE_SIZE * scale, weight: '800', opacity: 0.4, tracking: 4 },
+    { text: RULE_TEXT, size: RULE_SIZE * scale, weight: '600', opacity: 0.34, tracking: 3 },
+    { text: FINE_TEXT, size: FINE_SIZE * scale, weight: '600', opacity: 0.3, tracking: 1.8 },
   ];
 
   const cx = size.width / 2;
@@ -195,8 +202,11 @@ export function FeltMarkings({
       {scale > 0
         ? lines.map((line, lineIndex) => {
             const radius = baseRadius + lineIndex * LINE_GAP * scale;
-            const chars = line.text.split('');
-            const anglePerChar = (line.size * GLYPH_ADVANCE) / radius;
+            const chars = (modern ? line.text.toUpperCase() : line.text).split('');
+            const advance = modern
+              ? line.size * MONO_ADVANCE + line.tracking * scale
+              : line.size * GLYPH_ADVANCE;
+            const anglePerChar = advance / radius;
             return chars.map((char, charIndex) => {
               if (char === ' ') {
                 return null;
@@ -209,11 +219,17 @@ export function FeltMarkings({
                   key={`${lineIndex}-${charIndex}`}
                   style={[
                     styles.char,
+                    modern && styles.charModern,
                     {
                       left: x - line.size / 2,
                       top: y - line.size * GLYPH_RISE,
                       fontSize: line.size,
-                      fontWeight: line.weight === '800' ? fontWeights.heavy : fontWeights.semibold,
+                      // A weight on the mono face would send iOS hunting for a bolder cut it does not have.
+                      fontWeight: modern
+                        ? undefined
+                        : line.weight === '800'
+                          ? fontWeights.heavy
+                          : fontWeights.semibold,
                       opacity: line.opacity,
                       width: line.size,
                       transform: [{ rotate: `${-phi}rad` }],
@@ -242,5 +258,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  charModern: {
+    fontFamily: fonts.monoMedium,
   },
 });

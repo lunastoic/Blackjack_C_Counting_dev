@@ -2,7 +2,8 @@ import { Image } from 'expo-image';
 import React from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
-import { TABLE_FELTS } from '../../assets/registry';
+import { MODERN_TABLE_FELTS, TABLE_FELTS } from '../../assets/registry';
+import { useModernUi } from '../../hooks/useModernUi';
 import { colors, layout, spacing } from '../../theme';
 import { FeltMarkings } from './FeltMarkings';
 import { FELT_SIT_DROP, FELT_SIT_SCALE, useSeatedProgress } from './TableCamera';
@@ -39,6 +40,9 @@ interface FeltBackdropProps {
 
 export function FeltBackdrop({ feltKey, casinoName, seated }: FeltBackdropProps) {
   const { width } = useWindowDimensions();
+  const modern = useModernUi();
+  // The Modern felt carries its own vignette; the Classic one takes a flat tint.
+  const modernFelt = modern ? MODERN_TABLE_FELTS[feltKey] : undefined;
   const progress = useSeatedProgress(seated ?? false);
   // A felt on the camera grows about the screen centre when the player sits,
   // so its arcs are fitted to clear the rails at the seated size — the same
@@ -59,12 +63,17 @@ export function FeltBackdrop({ feltKey, casinoName, seated }: FeltBackdropProps)
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <Animated.View style={[StyleSheet.absoluteFill, surfaceStyle]}>
         <Image
-          source={TABLE_FELTS[feltKey] ?? TABLE_FELTS['gray-suede']}
+          source={modernFelt ?? TABLE_FELTS[feltKey] ?? TABLE_FELTS['gray-suede']}
           style={styles.felt}
           contentFit="cover"
         />
-        <View style={styles.tint} />
-        <FeltMarkings casinoName={casinoName} anchor={FELT_LETTERING_ANCHOR} sideInset={sideInset} />
+        {modernFelt ? null : <View style={styles.tint} />}
+        <FeltMarkings
+          casinoName={casinoName}
+          anchor={FELT_LETTERING_ANCHOR}
+          sideInset={sideInset}
+          modern={modern}
+        />
       </Animated.View>
     </View>
   );

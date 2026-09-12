@@ -5,7 +5,9 @@ import { playSound } from '../../services/audio';
 import { haptics } from '../../services/haptics';
 import { useEconomyStore } from '../../stores/economyStore';
 import { useGameSessionStore } from '../../stores/gameSessionStore';
-import { colors, fontSizes, fontWeights, radii, spacing } from '../../theme';
+import { useModernUi } from '../../hooks/useModernUi';
+import { colors, fonts, fontSizes, fontWeights, radii, spacing } from '../../theme';
+import { ArcadeButton, ArcadeInfoBox, arcadeShadow } from '../arcade';
 import { PrimaryButton } from '../common/PrimaryButton';
 import { SecondaryButton } from '../common/SecondaryButton';
 import { ChipTray } from './ChipTray';
@@ -19,6 +21,7 @@ export function BettingPanel() {
   const deal = useGameSessionStore((state) => state.deal);
   const chips = useEconomyStore((state) => state.chips);
   const lastBet = useEconomyStore((state) => state.lastBet);
+  const modern = useModernUi();
 
   if (!map) {
     return null;
@@ -32,33 +35,85 @@ export function BettingPanel() {
     const economy = useEconomyStore.getState();
     const dailyAvailable = economy.isDailyRewardAvailable();
     const brokeAvailable = economy.isBrokeRewardAvailable();
+    const claimDaily = () => {
+      if (useEconomyStore.getState().claimDailyReward()) {
+        void haptics.success();
+      }
+    };
+    const claimBroke = () => {
+      if (useEconomyStore.getState().claimBrokeReward()) {
+        void haptics.success();
+      }
+    };
+    if (modern) {
+      return (
+        <View style={[styles.panel, styles.panelModern]}>
+          <View style={styles.brokeCardModern}>
+            <Text style={styles.brokeTitleModern}>OUT OF CHIPS</Text>
+            {dailyAvailable ? (
+              <ArcadeButton label="Claim daily reward" onPress={claimDaily} style={styles.brokeButtonModern} />
+            ) : brokeAvailable ? (
+              <ArcadeButton label="Claim rescue chips" onPress={claimBroke} style={styles.brokeButtonModern} />
+            ) : (
+              <ArcadeInfoBox>Check the Rewards screen for your next free chips.</ArcadeInfoBox>
+            )}
+          </View>
+        </View>
+      );
+    }
     return (
       <View style={styles.panel}>
         <View style={styles.brokeCard}>
           <Text style={styles.brokeTitle}>Out of chips</Text>
           {dailyAvailable ? (
-            <PrimaryButton
-              label="Claim daily reward"
-              onPress={() => {
-                if (useEconomyStore.getState().claimDailyReward()) {
-                  void haptics.success();
-                }
-              }}
-            />
+            <PrimaryButton label="Claim daily reward" onPress={claimDaily} />
           ) : brokeAvailable ? (
-            <PrimaryButton
-              label="Claim rescue chips"
-              onPress={() => {
-                if (useEconomyStore.getState().claimBrokeReward()) {
-                  void haptics.success();
-                }
-              }}
-            />
+            <PrimaryButton label="Claim rescue chips" onPress={claimBroke} />
           ) : (
             <Text style={styles.brokeHint}>
               Check the Rewards screen for your next free chips.
             </Text>
           )}
+        </View>
+      </View>
+    );
+  }
+
+  const onDeal = () => {
+    if (deal()) {
+      playSound('betPlaced');
+      void haptics.mediumTap();
+    }
+  };
+
+  if (modern) {
+    return (
+      <View style={[styles.panel, styles.panelModern]}>
+        <ChipTray />
+
+        <View style={styles.buttonRow}>
+          <ArcadeButton
+            label="Return"
+            variant="neutral"
+            onPress={returnBet}
+            disabled={wager === 0}
+            style={styles.sideButtonModern}
+            accessibilityHint="Return all chips from the bet to your bankroll"
+          />
+          <ArcadeButton
+            label="Deal"
+            onPress={onDeal}
+            disabled={!canDeal}
+            style={styles.dealButtonModern}
+          />
+          <ArcadeButton
+            label="Redo"
+            variant="neutral"
+            onPress={redoBet}
+            disabled={!canRedo}
+            style={styles.sideButtonModern}
+            accessibilityHint="Repeat your previous bet"
+          />
         </View>
       </View>
     );
@@ -78,12 +133,7 @@ export function BettingPanel() {
         />
         <PrimaryButton
           label="Deal"
-          onPress={() => {
-            if (deal()) {
-              playSound('betPlaced');
-              void haptics.mediumTap();
-            }
-          }}
+          onPress={onDeal}
           disabled={!canDeal}
           style={styles.dealButton}
         />
@@ -115,6 +165,33 @@ const styles = StyleSheet.create({
   dealButton: {
     flex: 1.4,
     borderRadius: radii.md,
+  },
+  /* Modern */
+  panelModern: {
+    gap: spacing.sm + spacing.xxs,
+  },
+  sideButtonModern: {
+    flex: 1,
+  },
+  dealButtonModern: {
+    flex: 1.4,
+  },
+  brokeCardModern: {
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  brokeTitleModern: {
+    fontFamily: fonts.display,
+    fontSize: 28,
+    lineHeight: 30,
+    letterSpacing: 2,
+    color: colors.arcadeGold,
+    includeFontPadding: false,
+    ...arcadeShadow.deep,
+  },
+  brokeButtonModern: {
+    alignSelf: 'stretch',
   },
   brokeCard: {
     alignItems: 'center',

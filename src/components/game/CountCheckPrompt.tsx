@@ -2,16 +2,21 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { FEATURES } from '../../constants/features';
+import { useModernUi } from '../../hooks/useModernUi';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { playSound } from '../../services/audio';
 import { haptics } from '../../services/haptics';
 import { useGameSessionStore } from '../../stores/gameSessionStore';
-import { colors, fontSizes, fontWeights, radii, shadows, spacing } from '../../theme';
+import { colors, fonts, fontSizes, fontWeights, layout, radii, shadows, spacing } from '../../theme';
 import { formatCount } from '../../utils/countCoach';
+import { ArcadeButton, ArcadeInfoBox, ArcadePanel, arcadeText } from '../arcade';
 import { PressableScale } from '../common/PressableScale';
 import { PrimaryButton } from '../common/PrimaryButton';
+import { ModernPlaque } from './ModernPlaque';
 
 const HI_LO_REMINDER = '2–6 count +1  ·  7–9 count 0  ·  10–A count −1';
+/** The Modern panel rides above the chip tray, off the bottom of the felt. */
+const MODERN_PANEL_LIFT = 214;
 
 /**
  * Learn coach pop quiz. Appears over the felt between rounds when the Count
@@ -27,6 +32,7 @@ export function CountCheckPrompt() {
   const revealTier = useGameSessionStore((state) => state.revealTier);
   const answerCountCheck = useGameSessionStore((state) => state.answerCountCheck);
   const dismissCountCheck = useGameSessionStore((state) => state.dismissCountCheck);
+  const modern = useModernUi();
 
   if (!check || phase !== 'betting') {
     return null;
@@ -44,6 +50,100 @@ export function CountCheckPrompt() {
       playSound('loss');
       void haptics.warning();
     }
+  }
+
+  const revealNote = check.shuffledAfter
+    ? 'Fresh shoe — the meter fogs until you prove the new count.'
+    : check.wasCorrect
+      ? revealTier >= 2
+        ? 'True count unlocked — both numbers are live on the table.'
+        : 'Running count revealed on the meter — prove the true count next.'
+      : 'The meter fogs a tier — win it back on the next check.';
+  const streakLine = FEATURES.autoCountChecks
+    ? learnStreak > 0
+      ? `Check streak: ${learnStreak} — the coach backs off while you're hot`
+      : 'The coach checks every round until you find your rhythm'
+    : learnStreak > 0
+      ? `Check streak: ${learnStreak}`
+      : 'Tap the meter between hands whenever you want to prove your count';
+
+  if (modern) {
+    // The level-brief panel, lowered over the tray: kicker tab, the question
+    // (or the verdict) on the plaque, four neutral bevels, mono captions.
+    return (
+      <Animated.View
+        style={[styles.overlay, styles.overlayModern]}
+        entering={reducedMotion ? undefined : FadeIn.duration(180)}
+      >
+        <Animated.View
+          style={styles.panelSlotModern}
+          entering={reducedMotion ? undefined : FadeInDown.duration(220)}
+        >
+          <ArcadePanel style={styles.panelModern}>
+            {!answered ? (
+              <>
+                <ModernPlaque
+                  tab="Count check"
+                  title={isTrue ? 'What is the true count?' : 'What is the running count?'}
+                  small
+                />
+                {isTrue ? (
+                  <Text style={arcadeText.caption}>Running count ÷ decks left, to the nearest ½.</Text>
+                ) : null}
+                <View style={styles.gridModern}>
+                  {check.choices.map((choice) => (
+                    <ArcadeButton
+                      key={choice}
+                      label={formatCount(choice)}
+                      accessibilityLabel={`Answer ${formatCount(choice)}`}
+                      variant="neutral"
+                      size="large"
+                      onPress={() => handleAnswer(choice)}
+                      style={styles.gridButtonModern}
+                    />
+                  ))}
+                </View>
+              </>
+            ) : (
+              <>
+                <ModernPlaque
+                  tab="Count check"
+                  title={check.wasCorrect ? 'Correct! +3 XP' : 'Not quite'}
+                  color={check.wasCorrect ? colors.arcadeMint : colors.arcadeLoss}
+                  small
+                />
+                <ArcadeInfoBox>
+                  {isTrue ? 'True count: ' : 'Running count: '}
+                  <Text style={styles.infoStrongModern}>
+                    {formatCount(isTrue ? check.trueCount : check.runningCount)}
+                  </Text>
+                  {isTrue ? ` (running ${formatCount(check.runningCount)})` : ''}
+                  {!check.wasCorrect && check.selected !== null
+                    ? ` — you picked ${formatCount(check.selected)}`
+                    : ''}
+                </ArcadeInfoBox>
+                {!check.wasCorrect ? (
+                  <Text style={[arcadeText.caption, styles.capRedModern]}>{HI_LO_REMINDER}</Text>
+                ) : null}
+                <Text style={[arcadeText.caption, styles.capGoldModern]}>{revealNote}</Text>
+                {check.shuffledAfter ? (
+                  <Text style={[arcadeText.caption, styles.capMintModern]}>
+                    Shoe shuffled — the next count starts at 0.
+                  </Text>
+                ) : null}
+                <ArcadeButton
+                  label="Keep playing"
+                  trailing="▶"
+                  onPress={dismissCountCheck}
+                  style={styles.keepPlayingModern}
+                />
+              </>
+            )}
+            <Text style={arcadeText.caption}>{streakLine}</Text>
+          </ArcadePanel>
+        </Animated.View>
+      </Animated.View>
+    );
   }
 
   // The overlay blocks the table until the check is answered — that's the drill.
@@ -98,15 +198,7 @@ export function CountCheckPrompt() {
             {!check.wasCorrect ? (
               <Text style={styles.reminder}>{HI_LO_REMINDER}</Text>
             ) : null}
-            <Text style={styles.revealNote}>
-              {check.shuffledAfter
-                ? 'Fresh shoe — the meter fogs until you prove the new count.'
-                : check.wasCorrect
-                  ? revealTier >= 2
-                    ? 'True count unlocked — both numbers are live on the table.'
-                    : 'Running count revealed on the meter — prove the true count next.'
-                  : 'The meter fogs a tier — win it back on the next check.'}
-            </Text>
+            <Text style={styles.revealNote}>{revealNote}</Text>
             {check.shuffledAfter ? (
               <Text style={styles.shuffleNote}>Shoe shuffled — the next count starts at 0.</Text>
             ) : null}
@@ -114,15 +206,7 @@ export function CountCheckPrompt() {
           </View>
         )}
 
-        <Text style={styles.streakLine}>
-          {FEATURES.autoCountChecks
-            ? learnStreak > 0
-              ? `Check streak: ${learnStreak} — the coach backs off while you're hot`
-              : 'The coach checks every round until you find your rhythm'
-            : learnStreak > 0
-              ? `Check streak: ${learnStreak}`
-              : 'Tap the meter between hands whenever you want to prove your count'}
-        </Text>
+        <Text style={styles.streakLine}>{streakLine}</Text>
       </Animated.View>
     </Animated.View>
   );
@@ -227,5 +311,52 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: fontSizes.caption,
     textAlign: 'center',
+  },
+  /* Modern */
+  overlayModern: {
+    justifyContent: 'flex-end',
+    paddingHorizontal: layout.screenPaddingH,
+    paddingBottom: MODERN_PANEL_LIFT,
+  },
+  panelSlotModern: {
+    alignSelf: 'stretch',
+  },
+  panelModern: {
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm + spacing.xxs,
+    gap: spacing.xs + spacing.xxs,
+    ...shadows.overlay,
+  },
+  gridModern: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    columnGap: spacing.sm + spacing.xxs,
+    rowGap: spacing.sm,
+    paddingVertical: spacing.xxs,
+  },
+  gridButtonModern: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: '40%',
+    minWidth: 120,
+  },
+  infoStrongModern: {
+    fontFamily: fonts.monoMedium,
+    color: colors.arcadeGold,
+  },
+  capGoldModern: {
+    color: colors.arcadeGold,
+  },
+  capMintModern: {
+    color: colors.arcadeMint,
+  },
+  capRedModern: {
+    fontFamily: fonts.monoMedium,
+    color: colors.arcadeLoss,
+    letterSpacing: 0.5,
+  },
+  keepPlayingModern: {
+    alignSelf: 'stretch',
   },
 });

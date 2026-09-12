@@ -6,10 +6,12 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { useModernUi } from '../../hooks/useModernUi';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { useGameSessionStore } from '../../stores/gameSessionStore';
 import { colors, durations, fontSizes, fontWeights, layout, radii, spacing } from '../../theme';
 import { BetAdvice } from '../../utils/countCoach';
+import { ArcadeTag } from '../arcade';
 import { BetCallout } from './BetCallout';
 
 /** Visual meter clamps to ±10; stored count is never clamped. */
@@ -19,6 +21,16 @@ const RAIL_WIDTH = 58;
 const INDICATOR_HEIGHT = 24;
 const MIN_RAIL_HEIGHT = 220;
 const MAX_RAIL_HEIGHT = 280;
+/** Modern: the ink-outlined track, its drop to the right, and the plaque tag beside it. */
+const MODERN_TRACK_WIDTH = 16;
+const MODERN_TRACK_DROP = 3;
+const MODERN_HEAD_HEIGHT = 3;
+const MODERN_TAG_LEFT = 24;
+const MODERN_TAG_MIN_WIDTH = 38;
+/** ArcadeTag: 24 line + 2 pad + 2×2 outline = 30 face (centred at 15) over a 3 drop. */
+const MODERN_TAG_HALF = 15;
+const MODERN_TAG_HEIGHT = 33;
+const MODERN_RAIL_STOPS = [0, 0.45, 0.7, 1] as const;
 
 /** Horizontal space the count rail occupies (padding + bar + value tag). */
 export const COUNT_RAIL_CLEARANCE = layout.screenPaddingH + RAIL_WIDTH;
@@ -145,6 +157,86 @@ function VerticalCountMeter({
   );
 }
 
+/**
+ * Modern: the bevel track (ink outline, ink drop to the right) with the
+ * green→red gradient, a cream head riding the count and a plaque tag beside
+ * it. Fogged, the gradient dims, the head parks at zero and the tag reads "?".
+ */
+function ModernCountMeter({
+  runningCount,
+  railHeight,
+  advice,
+  masked,
+}: {
+  runningCount: number;
+  railHeight: number;
+  advice: BetAdvice | null;
+  masked: boolean;
+}) {
+  const reducedMotion = useReducedMotion();
+  const trackHeight = useSharedValue(railHeight);
+  const yRatio = useSharedValue(masked ? 0.5 : countToYRatio(runningCount));
+
+  useEffect(() => {
+    trackHeight.value = railHeight;
+  }, [railHeight, trackHeight]);
+
+  useEffect(() => {
+    const target = masked ? 0.5 : countToYRatio(runningCount);
+    yRatio.value =
+      reducedMotion || masked ? target : withTiming(target, { duration: durations.normal });
+  }, [runningCount, masked, reducedMotion, yRatio]);
+
+  const headStyle = useAnimatedStyle(() => {
+    const centerY = yRatio.value * trackHeight.value;
+    const top = Math.min(
+      Math.max(centerY - MODERN_HEAD_HEIGHT / 2, 0),
+      Math.max(0, trackHeight.value - MODERN_HEAD_HEIGHT),
+    );
+    return { top };
+  });
+
+  const tagStyle = useAnimatedStyle(() => {
+    const centerY = yRatio.value * trackHeight.value;
+    const top = Math.min(
+      Math.max(centerY - MODERN_TAG_HALF, 0),
+      Math.max(0, trackHeight.value - MODERN_TAG_HEIGHT),
+    );
+    return { top };
+  });
+
+  const label = masked ? '?' : formatCountLabel(runningCount);
+
+  return (
+    <View
+      style={[styles.modernBox, { height: railHeight }]}
+      accessibilityLabel={masked ? undefined : `Count meter at ${runningCount}`}
+    >
+      <View style={styles.modernDrop} />
+      <View style={styles.modernTrack}>
+        <LinearGradient
+          colors={[colors.meterFull, colors.meterHigh, colors.meterMid, colors.meterLow]}
+          locations={[...MODERN_RAIL_STOPS]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={[styles.modernGradient, masked && styles.modernGradientMasked]}
+        />
+        <View style={styles.modernTick} pointerEvents="none" />
+        <Animated.View style={[styles.modernHead, headStyle]} />
+      </View>
+      <Animated.View style={[styles.modernTagSlot, tagStyle]}>
+        <ArcadeTag label={label} style={styles.modernTag} />
+        {/* The coach's bet tip hangs off the tag's right edge and rides with it. */}
+        {advice && !masked ? (
+          <View style={styles.modernCalloutAnchor}>
+            <BetCallout advice={advice} left={spacing.xs} centerY={MODERN_TAG_HALF} />
+          </View>
+        ) : null}
+      </Animated.View>
+    </View>
+  );
+}
+
 interface CountRailProps {
   /** Fog of war: the meter tracks the count but shows "?" until it is proven. */
   readonly masked?: boolean;
@@ -159,6 +251,33 @@ export function CountRail({ masked = false, onPressMasked, advice = null }: Coun
   const runningCount = useGameSessionStore((state) => state.runningCount);
   const { height: windowHeight } = useWindowDimensions();
   const railHeight = Math.min(MAX_RAIL_HEIGHT, Math.max(MIN_RAIL_HEIGHT, windowHeight * 0.36));
+  const modern = useModernUi();
+
+  if (modern) {
+    if (masked) {
+      return (
+        <View style={[styles.rail, styles.railModern]}>
+          <Pressable
+            onPress={onPressMasked}
+            accessibilityLabel="Count meter hidden — tap to prove your count and reveal it"
+            accessibilityRole="button"
+          >
+            <ModernCountMeter runningCount={runningCount} railHeight={railHeight} advice={null} masked />
+          </Pressable>
+        </View>
+      );
+    }
+    return (
+      <View style={[styles.rail, styles.railModern]} pointerEvents="none">
+        <ModernCountMeter
+          runningCount={runningCount}
+          railHeight={railHeight}
+          advice={advice}
+          masked={false}
+        />
+      </View>
+    );
+  }
 
   if (masked) {
     return (
@@ -296,5 +415,74 @@ const styles = StyleSheet.create({
     fontWeight: fontWeights.heavy,
     fontVariant: ['tabular-nums'],
     lineHeight: fontSizes.subtitle,
+  },
+  /* Modern */
+  railModern: {
+    zIndex: 2,
+  },
+  modernBox: {
+    width: MODERN_TRACK_WIDTH,
+  },
+  /** The track's ink drop, cast to the right rather than down. */
+  modernDrop: {
+    position: 'absolute',
+    left: MODERN_TRACK_DROP,
+    top: 0,
+    bottom: 0,
+    width: MODERN_TRACK_WIDTH,
+    borderRadius: MODERN_TRACK_WIDTH / 2,
+    backgroundColor: colors.arcadeInk,
+  },
+  modernTrack: {
+    flex: 1,
+    width: MODERN_TRACK_WIDTH,
+    borderRadius: MODERN_TRACK_WIDTH / 2,
+    borderWidth: 2,
+    borderColor: colors.arcadeInk,
+    backgroundColor: colors.overlay,
+    overflow: 'hidden',
+  },
+  modernGradient: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: MODERN_TRACK_WIDTH / 2 - 2,
+    opacity: 0.9,
+  },
+  modernGradientMasked: {
+    opacity: 0.3,
+  },
+  modernTick: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: '50%',
+    height: 1,
+    backgroundColor: colors.arcadeInk,
+    opacity: 0.45,
+  },
+  modernHead: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: MODERN_HEAD_HEIGHT,
+    borderRadius: MODERN_HEAD_HEIGHT / 2,
+    backgroundColor: colors.arcadeCream,
+    shadowColor: colors.arcadeCream,
+    shadowOpacity: 0.9,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  modernTagSlot: {
+    position: 'absolute',
+    left: MODERN_TAG_LEFT,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    zIndex: 1,
+  },
+  modernTag: {
+    minWidth: MODERN_TAG_MIN_WIDTH,
+  },
+  modernCalloutAnchor: {
+    width: 0,
+    height: MODERN_TAG_HEIGHT,
   },
 });

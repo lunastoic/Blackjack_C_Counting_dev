@@ -55,6 +55,15 @@ export const TABLE_FELTS: Record<string, number> = {
 };
 
 /**
+ * The Modern look's felts: the same suede nap over one base colour per map,
+ * vignette baked in, keyed by the engine's feltKey. A map without one here
+ * falls back to its Classic felt.
+ */
+export const MODERN_TABLE_FELTS: Record<string, number> = {
+  'gray-suede': require('../../assets/tables/modern/graphite-suede.jpg'),
+};
+
+/**
  * Level-node art on the ladder, keyed by casino id then level. A casino
  * without a set here (or a level missing from its set) shows chip art.
  */
