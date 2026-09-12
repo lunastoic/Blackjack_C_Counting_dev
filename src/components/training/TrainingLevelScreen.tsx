@@ -66,7 +66,7 @@ import { StarBankToast } from './StarBankToast';
 import { TableStage } from './TableStage';
 import { TRAINING_METER_HEIGHT, TrainingMeter } from './TrainingMeter';
 import { TrueCountStage } from './TrueCountStage';
-import { StatusCell, TrainingStatusStrip } from './TrainingStatusStrip';
+import { StatusCell, TRAINING_STRIP_HEIGHT, TrainingStatusStrip } from './TrainingStatusStrip';
 import {
   deckLabel,
   formatAnswer,
@@ -216,7 +216,6 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
     }
   }, [settled]);
 
-
   if (!map || !isFlashLevel(level)) {
     return <Redirect href="/" />;
   }
@@ -243,8 +242,11 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   const inSlides = status === 'idle' && idleStage === 'slides';
   // The brief is up: the table behind it goes a shade darker until Start.
   const briefUp = status === 'idle' && idleStage === 'spread';
-  // After the primer the deck stays gathered under the slides; without it the ribbon stays out.
-  const gathered = inSlides && showPrimer;
+  // After the primer the deck stays gathered under the slides; without it the
+  // ribbon stays out. The stage is reset to spread only on the way back to
+  // idle, so this holds through the run: the print stays under the deck it
+  // was dealt from.
+  const gathered = idleStage === 'slides' && showPrimer;
   const seated = status !== 'idle';
   // While the table idles the brief and the tutorial are cards on the felt,
   // not a keyboard: the stage keeps only the felt the deck asks for and the
@@ -255,7 +257,12 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   const letteringHeight = feltLetteringHeight(map.name, width);
   const idleStageHeight =
     inPrimer || gathered ? tutorialStageHeight(width) : SPREAD_DECK_BOTTOM + letteringHeight;
-  const idleDeckBottom = gathered ? pileBottom(width) : SPREAD_DECK_BOTTOM;
+  const deckBottom = gathered ? pileBottom(width) : SPREAD_DECK_BOTTOM;
+  // Sitting down pushes the felt under the meter — and, in Modern, under the
+  // status strip the brief kept hidden. The print climbs by the same amount
+  // so it never moves on screen.
+  const seatedDrop = TRAINING_METER_HEIGHT + (modern ? TRAINING_STRIP_HEIGHT : 0);
+  const letteringInset = seated ? deckBottom - seatedDrop : deckBottom;
 
   function startTutorial() {
     setTutorialStep(0);
@@ -827,13 +834,9 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
               entering={FadeIn.duration(300)}
               exiting={FadeOut.duration(200)}
             >
-              {/* The house print is where the spread ribbon left it, run or not: in
-                  play the meter pushes the felt down, so the print climbs to match. */}
-              <FeltMarkings
-                casinoName={map.name}
-                align="top"
-                topInset={seated ? SPREAD_DECK_BOTTOM - TRAINING_METER_HEIGHT : idleDeckBottom}
-              />
+              {/* The house print is where the deck left it, run or not: in play
+                  the dashboard pushes the felt down, so the print climbs to match. */}
+              <FeltMarkings casinoName={map.name} align="top" topInset={letteringInset} />
             </Animated.View>
           )}
           {renderStage()}

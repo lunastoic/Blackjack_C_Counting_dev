@@ -23,6 +23,18 @@ interface TrainingStatusStripProps {
 
 const PLAQUE_COLORS = [colors.surfaceRaised, colors.surface, colors.backgroundElevated] as const;
 
+// Fixed line heights, so the strip's height is a known number: the Modern
+// brief hides it, and the felt print has to climb by exactly this much once
+// it is out.
+const LABEL_LINE = 12;
+const VALUE_LINE = 22;
+const CELL_GAP = 1;
+const STRIP_PADDING_V = spacing.xs + spacing.xxs;
+const STRIP_BORDER = 1;
+/** The strip's full height: the felt below drops by this much once it is shown. */
+export const TRAINING_STRIP_HEIGHT =
+  LABEL_LINE + CELL_GAP + VALUE_LINE + (STRIP_PADDING_V + STRIP_BORDER) * 2;
+
 /**
  * The drill's dashboard above the felt: streak or checks, misses, deck, pace.
  * A burgundy plaque with a gold rim and hairlines between the cells. The clock
@@ -73,9 +85,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginHorizontal: layout.screenPaddingH,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + spacing.xxs,
+    paddingVertical: STRIP_PADDING_V,
     borderRadius: radii.md,
-    borderWidth: 1,
+    borderWidth: STRIP_BORDER,
     borderColor: colors.gold,
     overflow: 'hidden',
     shadowColor: colors.chipShadow,
@@ -100,12 +112,13 @@ const styles = StyleSheet.create({
   },
   cell: {
     alignItems: 'center',
-    gap: 1,
+    gap: CELL_GAP,
     minWidth: 56,
   },
   label: {
     color: colors.goldDim,
     fontSize: 10,
+    lineHeight: LABEL_LINE,
     fontWeight: fontWeights.bold,
     letterSpacing: 1.5,
   },
@@ -117,6 +130,7 @@ const styles = StyleSheet.create({
   value: {
     color: colors.goldBright,
     fontSize: fontSizes.subtitle,
+    lineHeight: VALUE_LINE,
     fontWeight: fontWeights.heavy,
     fontVariant: ['tabular-nums'],
     textShadowColor: 'rgba(0, 0, 0, 0.6)',
