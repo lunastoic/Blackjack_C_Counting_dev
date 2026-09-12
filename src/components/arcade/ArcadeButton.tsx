@@ -43,6 +43,15 @@ const PALETTES: Readonly<Record<ArcadeButtonVariant, Palette>> = {
   locked: { face: colors.arcadeLocked, deep: colors.arcadeLockedDeep, label: colors.arcadeMuted },
 };
 
+/**
+ * The grey bevel lights up gold under the finger — the touch confirmation on
+ * answer pads, steppers and other quiet controls. The coloured variants
+ * already read as pressed from the drop alone.
+ */
+const PRESS_HIGHLIGHT: Readonly<Partial<Record<ArcadeButtonVariant, ArcadeButtonVariant>>> = {
+  neutral: 'gold',
+};
+
 const SIZES: Readonly<
   Record<ArcadeButtonSize, { fontSize: number; minHeight: number; paddingH: number; radius: number }>
 > = {
@@ -140,53 +149,62 @@ export function ArcadeButton({
         }}
         style={[styles.root, round && { width: metrics.minHeight }]}
       >
-        {glow ? <View style={[styles.glow, { borderRadius: radius + 2 }]} /> : null}
-        <View style={[styles.base, { borderRadius: radius }]} />
-        <Animated.View
-          style={[
-            styles.face,
-            {
-              backgroundColor: palette.face,
-              borderRadius: radius,
-              minHeight: metrics.minHeight,
-              paddingHorizontal: round ? 0 : metrics.paddingH,
-            },
-            round && { width: metrics.minHeight, height: metrics.minHeight },
-            faceStyle,
-          ]}
-        >
-          <View style={[styles.band, { backgroundColor: palette.deep }]} />
-          <View style={styles.row}>
-            {leading ? (
-              <View style={styles.leading}>
-                {leading === PLAY ? <PlayGlyph color={palette.label} fontSize={metrics.fontSize} /> : leading}
-              </View>
-            ) : null}
-            <Text
-              style={[
-                styles.label,
-                { color: palette.label, fontSize: metrics.fontSize },
-                variant === 'gold' && styles.labelOnLight,
-              ]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.7}
-            >
-              {label.toUpperCase()}
-              {trailing && trailing !== PLAY ? ` ${trailing}` : ''}
-            </Text>
-            {trailing === PLAY ? <PlayGlyph color={palette.label} fontSize={metrics.fontSize} /> : null}
-          </View>
-          {sublabel ? (
-            <Text
-              style={[styles.sublabel, { color: palette.label }, variant === 'gold' && styles.labelOnLight]}
-              numberOfLines={1}
-            >
-              {sublabel.toUpperCase()}
-            </Text>
-          ) : null}
-          {overlay}
-        </Animated.View>
+        {({ pressed: touched }) => {
+          const highlight = touched ? PRESS_HIGHLIGHT[variant] : undefined;
+          const shown = highlight ? PALETTES[highlight] : palette;
+          const onLight = (highlight ?? variant) === 'gold';
+          return (
+            <>
+              {glow ? <View style={[styles.glow, { borderRadius: radius + 2 }]} /> : null}
+              <View style={[styles.base, { borderRadius: radius }]} />
+              <Animated.View
+                style={[
+                  styles.face,
+                  {
+                    backgroundColor: shown.face,
+                    borderRadius: radius,
+                    minHeight: metrics.minHeight,
+                    paddingHorizontal: round ? 0 : metrics.paddingH,
+                  },
+                  round && { width: metrics.minHeight, height: metrics.minHeight },
+                  faceStyle,
+                ]}
+              >
+                <View style={[styles.band, { backgroundColor: shown.deep }]} />
+                <View style={styles.row}>
+                  {leading ? (
+                    <View style={styles.leading}>
+                      {leading === PLAY ? <PlayGlyph color={shown.label} fontSize={metrics.fontSize} /> : leading}
+                    </View>
+                  ) : null}
+                  <Text
+                    style={[
+                      styles.label,
+                      { color: shown.label, fontSize: metrics.fontSize },
+                      onLight && styles.labelOnLight,
+                    ]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.7}
+                  >
+                    {label.toUpperCase()}
+                    {trailing && trailing !== PLAY ? ` ${trailing}` : ''}
+                  </Text>
+                  {trailing === PLAY ? <PlayGlyph color={shown.label} fontSize={metrics.fontSize} /> : null}
+                </View>
+                {sublabel ? (
+                  <Text
+                    style={[styles.sublabel, { color: shown.label }, onLight && styles.labelOnLight]}
+                    numberOfLines={1}
+                  >
+                    {sublabel.toUpperCase()}
+                  </Text>
+                ) : null}
+                {overlay}
+              </Animated.View>
+            </>
+          );
+        }}
       </Pressable>
     </View>
   );
