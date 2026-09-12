@@ -877,12 +877,8 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
               rules={requirementChips(spec, { starTargets: false })}
               startLabel={hasBegun ? 'Start again' : 'Start training'}
               onStart={handleBegin}
-              // Start plays the tutorial itself on a first attempt; otherwise it is a tap away.
-              onHow={
-                (showPrimer || slides.length > 0) && (hasBegun || !autoTutorial)
-                  ? startTutorial
-                  : undefined
-              }
+              // Always a tap away, even when Start plays it itself on a first attempt.
+              onHow={showPrimer || slides.length > 0 ? startTutorial : undefined}
             />
           </Animated.View>
         ) : null}
