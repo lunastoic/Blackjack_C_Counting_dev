@@ -42,7 +42,8 @@ export function ArcadeTutorialPanel({
         <ArcadeTab label={kicker} />
         <Text style={styles.progress}>{progress.toUpperCase()}</Text>
       </View>
-      <Text style={[styles.title, { color: titleColor }]} adjustsFontSizeToFit numberOfLines={2}>
+      {/* Wraps, never shrinks — see ArcadePlaque. */}
+      <Text style={[styles.title, { color: titleColor }]} numberOfLines={2}>
         {title.toUpperCase()}
       </Text>
       <ArcadeInfoBox>{body}</ArcadeInfoBox>

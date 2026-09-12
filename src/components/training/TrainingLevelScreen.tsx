@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TABLE_FELTS } from '../../assets/registry';
+import { MODERN_TABLE_FELTS, TABLE_FELTS } from '../../assets/registry';
 import { mapById } from '../../engine/betting/casino';
 import { hiLoValue } from '../../engine/cards/card';
 import { CARDS_PER_DECK } from '../../engine/cards/deck';
@@ -777,12 +777,19 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
+      {/* The same felt as the game table: Modern's carries its own vignette, Classic's takes the tint. */}
       <Image
-        source={TABLE_FELTS[map.feltKey] ?? TABLE_FELTS['gray-suede']}
+        source={
+          (modern ? MODERN_TABLE_FELTS[map.feltKey] : undefined) ??
+          TABLE_FELTS[map.feltKey] ??
+          TABLE_FELTS['gray-suede']
+        }
         style={styles.felt}
         contentFit="cover"
       />
-      <View style={styles.feltTint} pointerEvents="none" />
+      {modern && MODERN_TABLE_FELTS[map.feltKey] ? null : (
+        <View style={styles.feltTint} pointerEvents="none" />
+      )}
 
       <GameTableHud
         mapName={map.name}
@@ -832,7 +839,8 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
           {renderStage()}
         </TableCamera>
 
-        {briefUp ? (
+        {/* Modern skips the scrim: the felt stays the table's own, edge to edge. */}
+        {briefUp && !modern ? (
           <Animated.View
             style={styles.briefScrim}
             pointerEvents="none"

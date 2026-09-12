@@ -52,7 +52,9 @@ export function ArcadePlaque({ kicker, title, footer, style }: ArcadePlaqueProps
         <Text style={styles.plaqueKicker}>{kicker.toUpperCase()}</Text>
       </View>
       <View style={styles.plaque}>
-        <Text style={styles.plaqueTitle} adjustsFontSizeToFit numberOfLines={2}>
+        {/* Wraps rather than shrinks: adjustsFontSizeToFit with a fixed lineHeight
+            leaves a tall empty box and a microscopic title on iOS. */}
+        <Text style={styles.plaqueTitle} numberOfLines={2}>
           {title.toUpperCase()}
         </Text>
       </View>
