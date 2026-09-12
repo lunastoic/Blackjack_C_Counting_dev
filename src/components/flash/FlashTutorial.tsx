@@ -25,9 +25,11 @@ import { FlashPanel } from './FlashPanel';
 /**
  * Five-beat Hi-Lo primer, dealt from a real deck. While the table idles, all
  * 52 cards lie fanned in a ribbon across the felt. Begin sweeps them into one
- * pile at the dealer spot; each beat then pulls its cards out of the pile,
- * lets them breathe their glow, and slides them back before the next group
- * comes out.
+ * pile at the dealer spot; each beat then pulls its cards out of the pile —
+ * the value beats every card of their ranks, all four suits, fanned across
+ * the felt so each index corner shows; the betting beats a bunched hand of
+ * five — lets them breathe their glow, and slides them back before the next
+ * group comes out.
  */
 export const TUTORIAL_STEPS = 5;
 
@@ -55,10 +57,20 @@ const PILE_TOP = spacing.md;
 const FAN_GAP = spacing.sm;
 /** The dealt row is capped so the felt under the print still fits it on a 6.1" phone. */
 const BEAT_CARD_MAX_WIDTH = 52;
-/** Felt between the cards of a value beat, so every rank and suit reads whole. */
+/**
+ * A value beat fans every card of its ranks across the felt, this far in from
+ * each edge: 20 cards show an index corner each, 12 show half a face. Never
+ * further apart than this gap, whatever the felt's width.
+ */
+const VALUE_ROW_INSET = spacing.lg;
 const VALUE_BEAT_GAP = spacing.md;
 /** The betting beats bunch their cards — the count's worth of them, together — with the flag alongside. */
 const BET_BEAT_OVERLAP = 6;
+/** Per-card deal stagger, shortened so a 20-card fan lands in about the time a hand does. */
+const PULL_STAGGER_MS = 90;
+const PULL_STAGGER_BUDGET_MS = 900;
+const RETURN_STAGGER_MS = 60;
+const RETURN_STAGGER_BUDGET_MS = 600;
 /** The ribbon's end cards lean this far. */
 const RIBBON_TILT_DEG = 26;
 /** The ribbon's ends rise this far above its middle card. */
@@ -144,6 +156,34 @@ const SUIT_CYCLE: readonly Suit[] = ['spades', 'hearts', 'clubs', 'diamonds'];
 
 export function tutorialBeat(step: number): TutorialBeat {
   return BEATS[Math.min(Math.max(step, 0), BEATS.length - 1)];
+}
+
+interface BeatCard {
+  readonly rank: Rank;
+  readonly suit: Suit;
+}
+
+/**
+ * The cards a beat deals: a value beat every card of its ranks, rank by rank
+ * with the suits alternating colour; a betting beat one of each rank.
+ */
+export function tutorialBeatCards(step: number): readonly BeatCard[] {
+  const spec = tutorialBeat(step);
+  if (spec.badge) {
+    return spec.ranks.map((rank, index) => ({ rank, suit: SUIT_CYCLE[index % SUIT_CYCLE.length] }));
+  }
+  return spec.ranks.flatMap((rank) => SUIT_CYCLE.map((suit) => ({ rank, suit })));
+}
+
+/** Left-to-right pitch of a beat's row: the betting hand bunched, a value fan filling the felt. */
+export function tutorialBeatStep(step: number, cardWidth: number, width: number): number {
+  const spec = tutorialBeat(step);
+  if (spec.badge) {
+    return cardWidth - BET_BEAT_OVERLAP;
+  }
+  const cards = tutorialBeatCards(step).length;
+  const fanStep = (width - 2 * VALUE_ROW_INSET - cardWidth) / Math.max(1, cards - 1);
+  return Math.min(cardWidth + VALUE_BEAT_GAP, fanStep);
 }
 
 interface Point {
@@ -311,14 +351,16 @@ function BeatCards({
   const reducedMotion = useReducedMotion();
   const faces = CARD_FACES[useSettingsStore((state) => state.cardDeck)];
   const spec = tutorialBeat(beat);
+  const cards = tutorialBeatCards(beat);
   const cardWidth = beatCardWidth(width);
   const cardHeight = cardFrameHeight(cardWidth, BEAT_RING);
   // Dealt from the pile onto the open felt under the house print.
   const fanY = fanCentreY(letteringHeight, cardHeight);
-  // Value beats lay their cards out with felt between; the betting beats keep the bunched row.
-  const stepX = spec.badge ? cardWidth - BET_BEAT_OVERLAP : cardWidth + VALUE_BEAT_GAP;
+  const stepX = tutorialBeatStep(beat, cardWidth, width);
   // The count flag sits just past the row's last card, on the same line.
-  const flagLeft = width / 2 + ((spec.ranks.length - 1) / 2) * stepX + cardWidth / 2 + spacing.md;
+  const flagLeft = width / 2 + ((cards.length - 1) / 2) * stepX + cardWidth / 2 + spacing.md;
+  const pullStagger = Math.min(PULL_STAGGER_MS, PULL_STAGGER_BUDGET_MS / cards.length);
+  const returnStagger = Math.min(RETURN_STAGGER_MS, RETURN_STAGGER_BUDGET_MS / cards.length);
 
   // One shared pulse so the whole fan breathes together.
   const pulse = useSharedValue(0.5);
@@ -343,9 +385,8 @@ function BeatCards({
 
   return (
     <>
-      {spec.ranks.map((rank, index) => {
-        const suit = SUIT_CYCLE[index % SUIT_CYCLE.length];
-        const x = width / 2 + (index - (spec.ranks.length - 1) / 2) * stepX;
+      {cards.map(({ rank, suit }, index) => {
+        const x = width / 2 + (index - (cards.length - 1) / 2) * stepX;
         const dx = pile.x - x;
         const dy = pile.y - fanY;
         const glow = glowColor(rank);
@@ -358,7 +399,7 @@ function BeatCards({
               100: { opacity: 1, transform: [{ translateX: 0 }, { translateY: 0 }] },
             })
               .duration(PULL_MS)
-              .delay(PULL_START_DELAY_MS + index * 90);
+              .delay(PULL_START_DELAY_MS + index * pullStagger);
         const exiting = reducedMotion
           ? undefined
           : new Keyframe({
@@ -367,7 +408,7 @@ function BeatCards({
               100: { opacity: 0, transform: [{ translateX: dx }, { translateY: dy }] },
             })
               .duration(PULL_MS)
-              .delay(index * 60);
+              .delay(index * returnStagger);
 
         return (
           <Animated.View
