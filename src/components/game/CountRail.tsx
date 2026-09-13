@@ -27,6 +27,14 @@ const MODERN_TRACK_DROP = 3;
 const MODERN_HEAD_HEIGHT = 3;
 const MODERN_TAG_LEFT = 24;
 const MODERN_TAG_MIN_WIDTH = 38;
+/**
+ * Room for the widest label ("−12" in the display face). The slot hangs off a
+ * track only MODERN_TRACK_WIDTH wide, and an absolute child with no width is
+ * bounded by its parent's — the tag would hold its minimum and clip "+1" to "+".
+ */
+const MODERN_TAG_SLOT_WIDTH = 120;
+/** Modern rail sits this much below centre, clear of the discard pile's count. */
+const MODERN_RAIL_DROP = spacing.lg;
 /** ArcadeTag: 24 line + 2 pad + 2×2 outline = 30 face (centred at 15) over a 3 drop. */
 const MODERN_TAG_HALF = 15;
 const MODERN_TAG_HEIGHT = 33;
@@ -224,7 +232,7 @@ function ModernCountMeter({
         <View style={styles.modernTick} pointerEvents="none" />
         <Animated.View style={[styles.modernHead, headStyle]} />
       </View>
-      <Animated.View style={[styles.modernTagSlot, tagStyle]}>
+      <Animated.View style={[styles.modernTagSlot, tagStyle]} pointerEvents="box-none">
         <ArcadeTag label={label} style={styles.modernTag} />
         {/* The coach's bet tip hangs off the tag's right edge and rides with it. */}
         {advice && !masked ? (
@@ -419,6 +427,7 @@ const styles = StyleSheet.create({
   /* Modern */
   railModern: {
     zIndex: 2,
+    transform: [{ translateY: MODERN_RAIL_DROP }],
   },
   modernBox: {
     width: MODERN_TRACK_WIDTH,
@@ -474,6 +483,7 @@ const styles = StyleSheet.create({
   modernTagSlot: {
     position: 'absolute',
     left: MODERN_TAG_LEFT,
+    width: MODERN_TAG_SLOT_WIDTH,
     flexDirection: 'row',
     alignItems: 'flex-start',
     zIndex: 1,
