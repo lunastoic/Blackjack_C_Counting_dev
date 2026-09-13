@@ -126,7 +126,7 @@ function levelNodeState(
  * decks each drill is about); elsewhere chip art climbs the denominations
  * as the ladder climbs.
  */
-function artForLevel(map: CasinoMap, level: number): { source: number; scale: number } {
+export function artForLevel(map: CasinoMap, level: number): { source: number; scale: number } {
   const art = LEVEL_ART[map.id]?.[level];
   if (art !== undefined) {
     return { source: art, scale: LEVEL_ART_SCALE };
@@ -139,7 +139,8 @@ function artForLevel(map: CasinoMap, level: number): { source: number; scale: nu
   return { source: set[denomination], scale: 1 };
 }
 
-function nodeState(progress: FlashProgress, mapId: number, level: number): LevelNodeState {
+/** Done, the one to play next, or still locked — the ladder's and the map menu's read of a level. */
+export function nodeState(progress: FlashProgress, mapId: number, level: number): LevelNodeState {
   if (isFlashLevelDone(progress, mapId, level)) {
     return 'done';
   }

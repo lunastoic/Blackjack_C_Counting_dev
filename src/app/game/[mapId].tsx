@@ -24,6 +24,7 @@ import { HandChips } from '../../components/game/HandChips';
 import { HandView } from '../../components/game/HandView';
 import { LearnCountBar } from '../../components/game/LearnCountBar';
 import { MapCoverflow, QuizOrGameMode } from '../../components/game/MapCoverflow';
+import { MapMenuSheet } from '../../components/game/MapMenuSheet';
 import { ModernPlaque } from '../../components/game/ModernPlaque';
 import { PayoutBanner } from '../../components/game/PayoutBanner';
 import { RegularInfoBar } from '../../components/game/RegularInfoBar';
@@ -167,6 +168,7 @@ export default function GameScreen() {
   const [strategyOpen, setStrategyOpen] = useState(false);
   const [chartsOpen, setChartsOpen] = useState(false);
   const [mapsOpen, setMapsOpen] = useState(false);
+  const [mapMenuOpen, setMapMenuOpen] = useState(false);
 
   const justShuffled = useGameSessionStore((state) => state.justShuffled);
   useEffect(() => {
@@ -279,16 +281,20 @@ export default function GameScreen() {
         mapName={map.name}
         modeLabel={guidedMode ? 'Guided Dojo Table' : modeLabel}
         // The control opens the casino fan (globe) or the level map (map), so
-        // it wears the same glyph the training screens use for the map.
+        // it wears the same glyph the training screens use for the map. Modern
+        // drops the level menu out of the square instead of leaving the table.
         leftIcon={FEATURES.casinoFan ? 'globe-outline' : 'map-outline'}
         leftAccessibilityLabel={FEATURES.casinoFan ? 'Switch casino or mode' : 'Level map'}
         onOpenMaps={() =>
           FEATURES.casinoFan
             ? setMapsOpen(true)
-            : router.push({ pathname: '/levels/[mapId]', params: { mapId: String(map.id) } })
+            : modern
+              ? setMapMenuOpen(true)
+              : router.push({ pathname: '/levels/[mapId]', params: { mapId: String(map.id) } })
         }
         onOpenSettings={() => setSettingsOpen(true)}
         menuOpen={settingsOpen}
+        mapOpen={mapMenuOpen}
       />
 
       {guidedMode ? (
@@ -595,6 +601,12 @@ export default function GameScreen() {
         visible={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         mapId={map.id}
+      />
+      <MapMenuSheet
+        visible={mapMenuOpen}
+        onClose={() => setMapMenuOpen(false)}
+        mapId={map.id}
+        atTable
       />
       <StrategyChartModal visible={strategyOpen} onClose={() => setStrategyOpen(false)} />
       <DistributionChartModal visible={chartsOpen} onClose={() => setChartsOpen(false)} />
