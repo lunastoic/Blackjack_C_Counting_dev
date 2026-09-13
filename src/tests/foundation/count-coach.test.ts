@@ -50,14 +50,19 @@ describe('Count Coach levels', () => {
     expect(caps.allowFullTools).toBe(false);
   });
 
-  it('Full turns on the rail, glows, the training skin, the tools — and carries the fogged meter with its checks', () => {
+  it('Full turns on the live rail, glows, the training skin, the tools and the post-round checks — no fog', () => {
     const caps = countCoachCapabilities('full');
     expect(caps.showLiveCounts).toBe(true);
     expect(caps.showCardValueGlow).toBe(true);
     expect(caps.useTrainingSkin).toBe(true);
     expect(caps.allowFullTools).toBe(true);
     expect(caps.showCountCheck).toBe(true);
-    expect(caps.showMaskedCounts).toBe(true);
+    expect(caps.showMaskedCounts).toBe(false);
+  });
+
+  it('only Learn fogs the meter', () => {
+    expect(countCoachCapabilities('learn').showMaskedCounts).toBe(true);
+    expect(countCoachCapabilities('off').showMaskedCounts).toBe(false);
   });
 
   it('the dial flips Off ↔ Full; legacy Learn steps onto it at Full', () => {

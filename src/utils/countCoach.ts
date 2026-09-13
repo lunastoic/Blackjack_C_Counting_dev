@@ -6,16 +6,17 @@ import { formatChips } from './format';
  * Count Coach — the single dial for counting help at the table.
  *
  * Off   → pure casino play, no aids.
- * Full  → the coach in one piece. The count meter and rail ride along fogged
- *         ("?") until the player proves the count with a check — one answer
- *         lights the running count, a second the true count, a miss fogs a
- *         tier back — and around them the old Training Mode kit: Hi-Lo card
- *         underglow, strategy hints, card charts, and, once the count shows,
- *         the bet tip beside the rail (see the bet advice below).
- * Learn → the fogged meter and its checks on their own, without the Full kit.
- *         Folded into Full in schema v16 and off the dial; the level stays
- *         wired so the flag-less Training switch (and any old code path) can
- *         still run it.
+ * Full  → the coach in one piece. The count meter and rail run live — the
+ *         running count of every card shown, the true count beside it — and
+ *         around them the old Training Mode kit: Hi-Lo card underglow,
+ *         strategy hints, card charts, and the bet tip beside the rail (see
+ *         the bet advice below). The post-round count checks still run
+ *         behind their flag.
+ * Learn → the meter fogged ("?") until the player proves the count with a
+ *         check — one answer lights the running count, a second the true
+ *         count, a miss fogs a tier back — without the Full kit. Off the
+ *         dial since schema v16; the level stays wired so the flag-less
+ *         Training switch (and any old code path) can still run it.
  */
 export interface CountCoachCapabilities {
   readonly level: CountCoachLevel;
@@ -25,9 +26,9 @@ export interface CountCoachCapabilities {
   readonly showCardValueGlow: boolean;
   /** Card faces printed with their Hi-Lo values (Full). */
   readonly useTrainingSkin: boolean;
-  /** Multiple-choice count checks: tap-to-prove, and post-round behind its flag (Learn, Full). */
+  /** Multiple-choice count checks: tap-to-prove (Learn), and post-round behind its flag (Learn, Full). */
   readonly showCountCheck: boolean;
-  /** Fogged count meter: "?" until a check is answered correctly (Learn, Full). */
+  /** Fogged count meter: "?" until a check is answered correctly (Learn). */
   readonly showMaskedCounts: boolean;
   /** Strategy chart/hints, distribution charts, count pulse, autoplay drill (Full). */
   readonly allowFullTools: boolean;
@@ -44,7 +45,7 @@ export const COUNT_COACH_LABELS: Record<CountCoachLevel, string> = {
 export const COUNT_COACH_BLURBS: Record<CountCoachLevel, string> = {
   off: 'Pure casino play — counts stay hidden. Just you and the shoe.',
   learn: 'The count meter rides along fogged ("?"). Tap it or pass the post-round checks to reveal the numbers — a miss fogs them again, a shuffle resets everything.',
-  full: 'The coach rides along. The count meter starts fogged ("?") — tap it between hands to prove your count and light it up. Hi-Lo card glows, strategy hints, the card charts, and bet tips off the meter once the count shows.',
+  full: 'The coach rides along: the live count meter and rail, Hi-Lo card glows, strategy hints, the card charts, and bet tips off the count.',
 };
 
 /** The one-and-only cycle order of the felt's coach tab: Off → Full → Off. */
@@ -58,14 +59,14 @@ export function nextCountCoachLevel(level: CountCoachLevel): CountCoachLevel {
 
 export function countCoachCapabilities(level: CountCoachLevel): CountCoachCapabilities {
   const full = level === 'full';
-  const fogged = full || level === 'learn';
+  const learn = level === 'learn';
   return {
     level,
     showLiveCounts: full,
     showCardValueGlow: full,
     useTrainingSkin: full,
-    showCountCheck: fogged,
-    showMaskedCounts: fogged,
+    showCountCheck: full || learn,
+    showMaskedCounts: learn,
     allowFullTools: full,
     showShoeProgress: true,
   };

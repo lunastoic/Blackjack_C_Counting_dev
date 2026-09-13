@@ -99,12 +99,11 @@ const MODERN_DEALT_CARD_WIDTH = 76;
 /**
  * Blackjack table for every casino. One experience, one dial: the Count
  * Coach tab on the right rail flips Off / Full. Full is the coach in one
- * piece — the count rail and meter ride along fogged ("?") until the player
- * taps them between hands and proves the count, then light up live; around
- * them the card underglow, strategy hints, card charts, and the bet tip that
- * hangs off the rail once the count shows. Off is the bare casino. (Legacy
- * Learn — the fogged meter alone — and the old on/off Training switch sit
- * behind FEATURES.countCoachDial = false.)
+ * piece — the count rail and meter live from the first card, and around them
+ * the card underglow, strategy hints, card charts, and the bet tip that hangs
+ * off the rail. Off is the bare casino. (Legacy Learn — the meter fogged
+ * ("?") until the player taps it between hands and proves the count — and
+ * the old on/off Training switch sit behind FEATURES.countCoachDial = false.)
  */
 export default function GameScreen() {
   const router = useRouter();
@@ -251,9 +250,9 @@ export default function GameScreen() {
   /** The hand is over but still on the felt: the buttons stay, greyed. */
   const actionsStayPut = phase === 'dealerTurn' || phase === 'payout' || phase === 'collecting';
 
-  // Fog of war: the rail shows "?" until the running count is proven (tier
-  // 1); the strip's true count needs tier 2. A live meter (no fog) is the
-  // legacy Training switch's Full.
+  // Full runs the rail and strip live. Legacy Learn fogs them: the rail
+  // shows "?" until the running count is proven (tier 1); the strip's true
+  // count needs tier 2.
   const railMasked = coach.showMaskedCounts && revealTier < 1;
   const trueCountShown = !coach.showMaskedCounts || revealTier >= 2;
   /** The coach's bet tip: only while sizing a bet, off a count the player can see. */

@@ -27,15 +27,15 @@ function countColor(value: number): string {
 
 interface LearnCountBarProps {
   /**
-   * Training Mode on: both counts print live and the strip is inert. Off, the
+   * Full coach: both counts print live and the strip is inert. Learn, the
    * fog-of-war below applies.
    */
   readonly live?: boolean;
 }
 
 /**
- * Table stats strip: running count, true count, cards left. With Training
- * Mode off the counts ride along fogged ("?") until the player proves them.
+ * Table stats strip: running count, true count, cards left. On Learn the
+ * counts ride along fogged ("?") until the player proves them.
  * Tier 1 reveals the running count, tier 2 the true count; a shuffle fogs
  * everything again. Tapping the strip (between hands) fires a count check
  * for the next tier.
@@ -69,7 +69,7 @@ export function LearnCountBar({ live = false }: LearnCountBarProps) {
             ? 'Tap to prove the running count and reveal it'
             : 'Running count live — tap to unlock the true count'
           : live
-            ? 'Training Mode — counts live'
+            ? 'Count Coach — counts live'
             : '';
     const footColor = justShuffled
       ? colors.arcadeMint
@@ -154,8 +154,8 @@ export function LearnCountBar({ live = false }: LearnCountBarProps) {
         </View>
       </View>
       {/* Fixed two-line footer: the strip keeps one size and one centre
-          whichever message it carries, so toggling Training Mode never
-          shifts the numbers. */}
+          whichever message it carries, so flipping the coach never shifts
+          the numbers. */}
       <View style={styles.footer}>
         {justShuffled ? (
           <Text style={styles.shuffleNotice} numberOfLines={2}>
@@ -173,7 +173,7 @@ export function LearnCountBar({ live = false }: LearnCountBarProps) {
           </Text>
         ) : live ? (
           <Text style={styles.liveNote} numberOfLines={2}>
-            Training Mode — counts live
+            Count Coach — counts live
           </Text>
         ) : null}
       </View>
