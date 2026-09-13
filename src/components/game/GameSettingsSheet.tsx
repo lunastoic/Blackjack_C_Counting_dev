@@ -1072,6 +1072,9 @@ const styles = StyleSheet.create({
   },
   panelModern: {
     width: '100%',
+    // Ink, not the felt edge: the ≡ tab's outline runs straight into the
+    // panel's, so the menu reads as one piece hanging from the tab.
+    borderColor: colors.arcadeInk,
     borderTopLeftRadius: 22,
     borderTopRightRadius: 0,
     borderBottomLeftRadius: 22,
