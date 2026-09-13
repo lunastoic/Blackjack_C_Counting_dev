@@ -27,8 +27,9 @@ import { FlashPanel } from './FlashPanel';
  * 52 cards lie fanned in a ribbon across the felt. Begin sweeps them into one
  * pile at the dealer spot; each beat then pulls its cards out of the pile —
  * the value beats every card of their ranks, all four suits, laid out apart
- * in a two-row grid; the betting beats a bunched hand of five — lets them
- * breathe their glow, and slides them back before the next group comes out.
+ * in a grid over the house print; the betting beats a bunched hand of five
+ * under it — lets them breathe their glow, and slides them back before the
+ * next group comes out.
  */
 export const TUTORIAL_STEPS = 5;
 
@@ -47,25 +48,26 @@ const PULL_START_DELAY_MS = 350;
 /**
  * Deck geometry, top-down in points so the deck is the same size on any felt:
  * the pile sits just under the dealer's rail, the house print under it, and
- * each beat's cards are dealt out of the pile onto the open felt below the
- * print — the deck and the print stay in view the whole time. Every beat
- * starts at the same line under the print; the felt runs to the foot of the
- * tallest layout so nothing shifts between beats. The count flag sits at the
- * end of the dealt row on the betting beats.
+ * each beat's cards are dealt out of the pile — the betting hand onto the
+ * open felt below the print, a value grid over the print itself, right under
+ * the pile — so the deck stays in view the whole time. The felt runs to the
+ * foot of the tallest layout so nothing shifts between beats. The count flag
+ * sits at the end of the dealt row on the betting beats.
  */
 const PILE_TOP = spacing.md;
-/** Open felt between the print's foot and the dealt cards, and under them. */
+/** Open felt between the print's foot and the dealt cards, under the pile, and under them. */
 const FAN_GAP = spacing.sm;
 /** The dealt row is capped so the felt under the print still fits it on a 6.1" phone. */
 const BEAT_CARD_MAX_WIDTH = 52;
 /**
- * A value beat lays every card of its ranks out apart in a two-row grid, the
- * cards sized so the widest grid — twenty cards, ten across — fits between
- * these insets. They come out ribbon-sized on a 6.1" phone.
+ * A value beat lays every card of its ranks out apart, hand-sized, in three
+ * rows over the print — twenty cards go seven across, which just fits a
+ * 6.1" phone between these insets; on anything narrower the cards give a
+ * little. Each row is centred on the table's axis.
  */
-const GRID_ROWS = 2;
-const GRID_INSET = spacing.lg;
-const GRID_GAP = spacing.xs + spacing.xxs;
+const GRID_ROWS = 3;
+const GRID_INSET = spacing.md;
+const GRID_GAP = spacing.xs;
 /** The betting beats bunch their cards — the count's worth of them, together — with the flag alongside. */
 const BET_BEAT_OVERLAP = 6;
 /** Per-card deal stagger, shortened so a 20-card grid lands in about the time a hand does. */
@@ -97,9 +99,14 @@ function beatCardWidth(width: number): number {
   return Math.min((width - 72) / 5 - 4, BEAT_CARD_MAX_WIDTH);
 }
 
-/** Top edge of every beat's cards: under the print, a strip of felt between. */
-function beatTop(letteringHeight: number): number {
+/** Top edge of the betting hand: under the print, a strip of felt between. */
+function handTop(letteringHeight: number): number {
   return SPREAD_DECK_BOTTOM + letteringHeight + FAN_GAP;
+}
+
+/** Top edge of a value grid: right under the pile, over the print. */
+function gridTop(width: number): number {
+  return PILE_TOP + cardFrameHeight(beatCardWidth(width), SPREAD_RING) + FAN_GAP;
 }
 
 /** Felt the primer wants: the deck's band, the house print, the tallest beat, a margin. */
@@ -160,14 +167,14 @@ export function tutorialBeat(step: number): TutorialBeat {
   return BEATS[Math.min(Math.max(step, 0), BEATS.length - 1)];
 }
 
-/** Columns of the widest value grid: its twenty cards over two rows. */
+/** Columns of the widest value grid: its twenty cards over the rows. */
 const GRID_COLUMNS = Math.ceil(
   Math.max(...BEATS.filter((beat) => !beat.badge).map((beat) => beat.ranks.length)) *
     SUIT_CYCLE.length /
     GRID_ROWS,
 );
 
-/** Grid cards fill the insets ten across, never bigger than the betting hand's. */
+/** Grid cards match the betting hand's, giving only when the widest grid would not fit. */
 function gridCardWidth(width: number): number {
   return Math.min(
     (width - 2 * GRID_INSET - (GRID_COLUMNS - 1) * GRID_GAP) / GRID_COLUMNS,
@@ -193,13 +200,14 @@ interface BeatLayout {
 
 /**
  * Where a beat's cards land. A betting beat: one of each rank, bunched in a
- * row. A value beat: every card of its ranks, suit by suit so each row reads
- * as two runs of ranks, laid out apart over two rows.
+ * row under the print. A value beat: every card of its ranks, rank by rank
+ * with the suits alternating colour, laid out apart in centred rows over
+ * the print.
  */
 export function beatLayout(step: number, width: number, letteringHeight: number): BeatLayout {
   const spec = tutorialBeat(step);
-  const top = beatTop(letteringHeight);
   if (spec.badge) {
+    const top = handTop(letteringHeight);
     const cardWidth = beatCardWidth(width);
     const cardHeight = cardFrameHeight(cardWidth, BEAT_RING);
     const stepX = cardWidth - BET_BEAT_OVERLAP;
@@ -211,20 +219,26 @@ export function beatLayout(step: number, width: number, letteringHeight: number)
     }));
     return { cardWidth, cardHeight, slots, bottom: top + cardHeight };
   }
+  const top = gridTop(width);
   const cardWidth = gridCardWidth(width);
   const cardHeight = cardFrameHeight(cardWidth, BEAT_RING);
-  const cards = SUIT_CYCLE.flatMap((suit) => spec.ranks.map((rank) => ({ rank, suit })));
+  const cards = spec.ranks.flatMap((rank) => SUIT_CYCLE.map((suit) => ({ rank, suit })));
   const columns = Math.ceil(cards.length / GRID_ROWS);
-  const slots = cards.map((card, index) => ({
-    ...card,
-    x: width / 2 + ((index % columns) - (columns - 1) / 2) * (cardWidth + GRID_GAP),
-    y: top + Math.floor(index / columns) * (cardHeight + GRID_GAP) + cardHeight / 2,
-  }));
+  const slots = cards.map((card, index) => {
+    const row = Math.floor(index / columns);
+    const inRow = Math.min(columns, cards.length - row * columns);
+    return {
+      ...card,
+      x: width / 2 + ((index % columns) - (inRow - 1) / 2) * (cardWidth + GRID_GAP),
+      y: top + row * (cardHeight + GRID_GAP) + cardHeight / 2,
+    };
+  });
+  const rows = Math.ceil(cards.length / columns);
   return {
     cardWidth,
     cardHeight,
     slots,
-    bottom: top + GRID_ROWS * cardHeight + (GRID_ROWS - 1) * GRID_GAP,
+    bottom: top + rows * cardHeight + (rows - 1) * GRID_GAP,
   };
 }
 
