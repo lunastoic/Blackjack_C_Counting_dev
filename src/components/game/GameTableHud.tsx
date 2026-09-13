@@ -25,8 +25,6 @@ interface GameTableHudProps {
   readonly onOpenSettings: () => void;
   /** When true, the ≡ control reads as the open dropdown tab. */
   readonly menuOpen?: boolean;
-  /** Likewise the left control, while the Modern level menu hangs from it. */
-  readonly mapOpen?: boolean;
   /** Left control glyph — globe for casinos, map for the level ladder. */
   readonly leftIcon?: React.ComponentProps<typeof Ionicons>['name'];
   readonly leftAccessibilityLabel?: string;
@@ -39,7 +37,6 @@ export function GameTableHud({
   onOpenMaps,
   onOpenSettings,
   menuOpen = false,
-  mapOpen = false,
   leftIcon = 'globe-outline',
   leftAccessibilityLabel = 'Switch casino or mode',
 }: GameTableHudProps) {
@@ -68,12 +65,7 @@ export function GameTableHud({
     return (
       <View style={styles.container}>
         <View style={styles.topRow}>
-          <ArcadeSquare
-            onPress={onOpenMaps}
-            open={mapOpen}
-            accessibilityLabel={leftAccessibilityLabel}
-            accessibilityState={{ expanded: mapOpen }}
-          >
+          <ArcadeSquare onPress={onOpenMaps} accessibilityLabel={leftAccessibilityLabel}>
             <Ionicons name={leftIcon} size={22} color={colors.arcadeGold} />
           </ArcadeSquare>
           <ArcadeMarquee title={mapName} subtitle={modeLabel} style={styles.marquee} />

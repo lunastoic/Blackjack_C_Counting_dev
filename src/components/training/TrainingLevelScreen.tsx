@@ -52,7 +52,6 @@ import {
 import { FeltMarkings, feltLetteringHeight } from '../game/FeltMarkings';
 import { DEALT_CARD_WIDTH } from '../game/PlayingCard';
 import { GameSettingsSheet } from '../game/GameSettingsSheet';
-import { MapMenuSheet } from '../game/MapMenuSheet';
 import { GameTableHud } from '../game/GameTableHud';
 import { TableCamera } from '../game/TableCamera';
 import { AccuracyRows, accuracyRows } from './AccuracyRows';
@@ -165,7 +164,6 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   const cleared = useDojoStore((state) => isFlashLevelDone(state.flashLevels, mapId, level));
 
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [mapMenuOpen, setMapMenuOpen] = useState(false);
   const modern = useModernUi();
   const tutorialEveryLevel = useFlashDebugStore((state) => state.tutorialEveryLevel);
   // Idle felt: the ribbon spread, the Hi-Lo primer beats, or the level's own slides.
@@ -806,11 +804,9 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
         modeLabel={`Level ${level} · ${spec.title}`}
         leftIcon="map-outline"
         leftAccessibilityLabel="Level map"
-        // Modern drops the level menu out of the square; Classic goes to the map.
-        onOpenMaps={modern ? () => setMapMenuOpen(true) : openLevelMap}
+        onOpenMaps={openLevelMap}
         onOpenSettings={() => setSettingsOpen(true)}
         menuOpen={settingsOpen}
-        mapOpen={mapMenuOpen}
       />
 
       {/* The Modern brief carries the stars, strikes and pace itself, and needs
@@ -932,12 +928,6 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
         visible={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         mapId={mapId}
-      />
-      <MapMenuSheet
-        visible={mapMenuOpen}
-        onClose={() => setMapMenuOpen(false)}
-        mapId={mapId}
-        currentLevel={level}
       />
     </View>
   );
