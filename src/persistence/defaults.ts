@@ -32,7 +32,8 @@ export function createDefaultSave(): SaveData {
       level: INITIAL_PROGRESS.level,
       xpIntoLevel: INITIAL_PROGRESS.xpIntoLevel,
       unlockedMapIds: [1],
-      licenses: {},
+      // Luna Luxe's table is open from the first launch (tables open with their casino).
+      licenses: { '1': 'licensed' },
     },
     settings: {
       soundEnabled: DEFAULT_SETTINGS.soundEnabled,

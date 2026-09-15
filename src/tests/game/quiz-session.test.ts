@@ -406,32 +406,34 @@ describe('manual advance', () => {
 });
 
 describe('table licenses (quiz-first progression)', () => {
+  // Luna Luxe's table is open from the start, so the sprint's licenses are
+  // exercised at a casino whose table is still closed.
   it('grants a permit at 3 in a row and the full license at 9', () => {
     const progression = useProgressionStore.getState();
-    expect(quiz().startSession(1)).toBe(true);
-    expect(progression.licenseForMap(1)).toBe('none');
+    expect(quiz().startSession(2)).toBe(true);
+    expect(progression.licenseForMap(2)).toBe('none');
 
     buildStreak(3);
-    expect(useProgressionStore.getState().licenseForMap(1)).toBe('permit');
+    expect(useProgressionStore.getState().licenseForMap(2)).toBe('permit');
     expect(quiz().licenseEarned).toBe('permit');
 
     buildStreak(QUIZ_STREAK_TARGET);
-    expect(useProgressionStore.getState().licenseForMap(1)).toBe('licensed');
+    expect(useProgressionStore.getState().licenseForMap(2)).toBe('licensed');
     expect(quiz().licenseEarned).toBe('licensed');
   });
 
   it('licenses are per casino and never re-announced or downgraded', () => {
-    expect(quiz().startSession(1)).toBe(true);
+    expect(quiz().startSession(2)).toBe(true);
     buildStreak(QUIZ_STREAK_TARGET);
     expect(quiz().claimGrandPrize()).toBe(true);
 
     // A second run over the same milestones announces nothing new.
     buildStreak(3);
     expect(quiz().licenseEarned).toBeNull();
-    expect(useProgressionStore.getState().licenseForMap(1)).toBe('licensed');
+    expect(useProgressionStore.getState().licenseForMap(2)).toBe('licensed');
 
     // Other casinos still need their own sprint.
-    expect(useProgressionStore.getState().licenseForMap(2)).toBe('none');
+    expect(useProgressionStore.getState().licenseForMap(3)).toBe('none');
   });
 
   it('deals the quiz from the casino shoe (Luna Luxe 1 deck, Kepler 8)', () => {

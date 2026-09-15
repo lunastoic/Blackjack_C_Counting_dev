@@ -73,21 +73,27 @@ export function debugCompleteAllMaps(): void {
   }
 }
 
-/** Wipes level progress and the licenses it earned; map unlocks stay. */
+/** Every open casino fully licensed — tables open with their casino. */
+function licensesForMaps(mapIds: readonly number[]): Record<number, 'licensed'> {
+  return Object.fromEntries(mapIds.map((mapId) => [mapId, 'licensed']));
+}
+
+/** Wipes level progress; map unlocks (and so their tables) stay. */
 export function debugResetLevels(): void {
   if (!FLASH_DEBUG_AVAILABLE) {
     return;
   }
   useDojoStore.setState({ flashLevels: {} });
-  useProgressionStore.setState({ licenses: {} });
+  useProgressionStore.setState((state) => ({ licenses: licensesForMaps(state.unlockedMapIds) }));
 }
 
-/** Opens every casino, saved like a real unlock (bypasses the licence gate). */
+/** Opens every casino and its table, saved like a real unlock. */
 export function debugUnlockAllMaps(): void {
   if (!FLASH_DEBUG_AVAILABLE) {
     return;
   }
-  useProgressionStore.setState({ unlockedMapIds: CASINO_MAPS.map((map) => map.id) });
+  const unlockedMapIds = CASINO_MAPS.map((map) => map.id);
+  useProgressionStore.setState({ unlockedMapIds, licenses: licensesForMaps(unlockedMapIds) });
 }
 
 /** Locks every casino but the first; level progress stays. */
@@ -95,16 +101,16 @@ export function debugResetMaps(): void {
   if (!FLASH_DEBUG_AVAILABLE) {
     return;
   }
-  useProgressionStore.setState({ unlockedMapIds: [1] });
+  useProgressionStore.setState({ unlockedMapIds: [1], licenses: licensesForMaps([1]) });
 }
 
-/** Wipes level progress, licenses, and map unlocks back to a fresh ladder. */
+/** Wipes level progress and map unlocks back to a fresh ladder. */
 export function debugResetLevelsAndMaps(): void {
   if (!FLASH_DEBUG_AVAILABLE) {
     return;
   }
   useDojoStore.setState({ flashLevels: {} });
-  useProgressionStore.setState({ unlockedMapIds: [1], licenses: {} });
+  useProgressionStore.setState({ unlockedMapIds: [1], licenses: licensesForMaps([1]) });
 }
 
 export const DEBUG_CHIP_GRANT = 1_000;

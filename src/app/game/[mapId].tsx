@@ -40,7 +40,6 @@ import { effectiveDealerSpeed, mapById } from '../../engine/betting/casino';
 import { useModernUi } from '../../hooks/useModernUi';
 import { playSound, warmTableSounds } from '../../services/audio';
 import { initialDealVisibleCounts } from '../../utils/dealSequence';
-import { useDojoStore } from '../../stores/dojoStore';
 import { useEconomyStore } from '../../stores/economyStore';
 import { FLASH_DEBUG_AVAILABLE, useFlashDebugStore } from '../../stores/flashDebugStore';
 import { useGameSessionStore } from '../../stores/gameSessionStore';
@@ -60,6 +59,8 @@ import {
   effectiveTrainingAids,
 } from '../../utils/countCoach';
 import { FEATURES } from '../../constants/features';
+import { mapUnlockCost } from '../../constants/mapUnlockCosts';
+import { formatChips } from '../../utils/format';
 
 const RESULT_BADGE: Record<HandResult, { text: string; color: string }> = {
   blackjack: { text: 'BLACKJACK', color: colors.goldBright },
@@ -151,7 +152,12 @@ export default function GameScreen() {
   const license = useProgressionStore((state) =>
     map ? state.licenseForMap(map.id) : 'none',
   );
-  const nextFlashLevel = useDojoStore((state) => (map ? state.nextFlashLevel(map.id) : 1));
+  // A table opens with its casino, so a closed table means a locked casino —
+  // only a deep link lands here. Point at the two ways in.
+  const unlockPrice = map ? mapUnlockCost(map.id) : null;
+  const lockedGateBody = `Clear the six training levels at ${
+    map ? (mapById(map.id - 1)?.name ?? 'the previous casino') : 'the previous casino'
+  }${unlockPrice !== null ? `, or unlock it for ${formatChips(unlockPrice)} chips on the level map` : ''}.`;
   const debugUnlockAll = useFlashDebugStore((state) => FLASH_DEBUG_AVAILABLE && state.unlockAll);
 
   const autoplay = useGameSessionStore((state) => state.autoplay);
@@ -537,27 +543,13 @@ export default function GameScreen() {
         <View style={styles.licenseGate}>
           {modern ? (
             <ArcadePanel style={styles.licensePanelModern}>
-              <ModernPlaque tab="Table closed" title={`Earn your seat at ${map.name}`} small />
-              <Text style={arcadeText.caption}>
-                This floor opens to counters. Clear the six training levels at this casino and the
-                table is yours.
-              </Text>
-              <ArcadeButton
-                label={`Play level ${nextFlashLevel ?? 1}`}
-                trailing="▶"
-                onPress={() =>
-                  router.replace({
-                    pathname: '/flash/[mapId]/[level]',
-                    params: { mapId: String(map.id), level: String(nextFlashLevel ?? 1) },
-                  })
-                }
-                style={styles.licenseButtonModern}
-              />
+              <ModernPlaque tab="Table closed" title={`${map.name} is locked`} small />
+              <Text style={arcadeText.caption}>{lockedGateBody}</Text>
               <ArcadeButton
                 label="Level map"
-                variant="neutral"
+                trailing="▶"
                 onPress={() =>
-                  router.push({ pathname: '/levels/[mapId]', params: { mapId: String(map.id) } })
+                  router.replace({ pathname: '/levels/[mapId]', params: { mapId: String(map.id) } })
                 }
                 style={styles.licenseButtonModern}
               />
@@ -565,24 +557,12 @@ export default function GameScreen() {
           ) : (
           <View style={styles.licenseCard}>
             <Text style={styles.licenseKicker}>TABLE CLOSED</Text>
-            <Text style={styles.licenseTitle}>Earn your seat at {map.name}</Text>
-            <Text style={styles.licenseBody}>
-              This floor opens to counters. Clear the six training levels at this casino and the
-              table is yours.
-            </Text>
+            <Text style={styles.licenseTitle}>{map.name} is locked</Text>
+            <Text style={styles.licenseBody}>{lockedGateBody}</Text>
             <PrimaryButton
-              label={`Play level ${nextFlashLevel ?? 1}`}
-              onPress={() =>
-                router.replace({
-                  pathname: '/flash/[mapId]/[level]',
-                  params: { mapId: String(map.id), level: String(nextFlashLevel ?? 1) },
-                })
-              }
-            />
-            <SecondaryButton
               label="Level map"
               onPress={() =>
-                router.push({ pathname: '/levels/[mapId]', params: { mapId: String(map.id) } })
+                router.replace({ pathname: '/levels/[mapId]', params: { mapId: String(map.id) } })
               }
             />
           </View>

@@ -356,6 +356,27 @@ function migrateV16toV17(data: unknown): unknown {
   };
 }
 
+/**
+ * v18: a casino's table opens with the casino. Every unlocked casino gets the
+ * full license so no one is locked out of a table they could already reach;
+ * licenses a player had already earned stay as they were.
+ */
+function migrateV17toV18(data: unknown): unknown {
+  const save = (data ?? {}) as Record<string, unknown>;
+  const progression = (save.progression ?? {}) as Record<string, unknown>;
+  const unlockedMapIds = Array.isArray(progression.unlockedMapIds)
+    ? progression.unlockedMapIds
+    : [1];
+  const licenses = { ...((progression.licenses ?? {}) as Record<string, unknown>) };
+  for (const mapId of unlockedMapIds) {
+    licenses[String(mapId)] = 'licensed';
+  }
+  return {
+    ...save,
+    progression: { ...progression, unlockedMapIds, licenses },
+  };
+}
+
 export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -373,6 +394,7 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   14: migrateV14toV15,
   15: migrateV15toV16,
   16: migrateV16toV17,
+  17: migrateV17toV18,
 };
 
 export class MigrationError extends Error {

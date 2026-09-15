@@ -56,7 +56,7 @@ describe('v2 → v3 migration', () => {
 
 describe('v1 → v2 migration', () => {
   it('is registered and the current version is 17', () => {
-    expect(SAVE_SCHEMA_VERSION).toBe(17);
+    expect(SAVE_SCHEMA_VERSION).toBe(18);
     expect(MIGRATIONS[1]).toBeDefined();
     expect(MIGRATIONS[2]).toBeDefined();
     expect(MIGRATIONS[3]).toBeDefined();
@@ -106,10 +106,12 @@ describe('v5 → v6 migration (table licenses)', () => {
     return { ...save, progression };
   }
 
-  it('starts fresh saves with no licenses (quiz-first for new players)', () => {
-    const migrated = runMigrations(v5Save(), 5);
-    const parsed = saveDataSchema.parse(migrated);
-    expect(parsed.progression.licenses).toEqual({});
+  it('starts fresh saves with no licenses at v6; v18 then opens the first table', () => {
+    const v6 = MIGRATIONS[5](v5Save()) as { progression: { licenses: unknown } };
+    expect(v6.progression.licenses).toEqual({});
+
+    const parsed = saveDataSchema.parse(runMigrations(v5Save(), 5));
+    expect(parsed.progression.licenses).toEqual({ '1': 'licensed' });
   });
 
   it('grandfathers veterans: table hands played → full license on unlocked maps', () => {

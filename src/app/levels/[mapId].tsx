@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   FlatList,
   LayoutChangeEvent,
   NativeScrollEvent,
@@ -27,7 +28,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { appAssets, MAP_ART, MODERN_TABLE_FELTS } from '../../assets/registry';
 import {
   ARCADE_SQUARE,
-  ArcadeBar,
   ArcadeButton,
   ArcadeMarquee,
   arcadeShadow,
@@ -35,6 +35,7 @@ import {
 } from '../../components/arcade';
 import { PressableScale } from '../../components/common/PressableScale';
 import { FEATURES } from '../../constants/features';
+import { mapUnlockCost } from '../../constants/mapUnlockCosts';
 import { LevelPath } from '../../components/levels/LevelPath';
 import { CASINO_MAPS, CasinoMap, mapById } from '../../engine/betting/casino';
 import { FLASH_LEVELS_PER_MAP, FlashProgress, nextFlashLevel } from '../../engine/dojo';
@@ -43,6 +44,7 @@ import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { playSound } from '../../services/audio';
 import { haptics } from '../../services/haptics';
 import { useDojoStore } from '../../stores/dojoStore';
+import { useEconomyStore } from '../../stores/economyStore';
 import {
   debugCompleteMap,
   debugCompleteNextLevel,
@@ -93,7 +95,8 @@ const PULSE_MS = 1100;
 /**
  * Select Map: one casino card at a time, swipe to slide between them. Each
  * card carries its art, its bet ceiling, and the six-level training ladder;
- * table + quiz open once the ladder is cleared.
+ * the table opens with the casino. The next casino opens when the ladder is
+ * cleared, or early for its chip price.
  */
 export default function LevelMapScreen() {
   const router = useRouter();
@@ -134,6 +137,9 @@ export default function LevelMapScreen() {
   const progress = useDojoStore((state) => state.flashLevels);
   const pace = useDojoStore((state) => state.flashPace);
   const unlockedMapIds = useProgressionStore((state) => state.unlockedMapIds);
+  const canUnlockMap = useProgressionStore((state) => state.canUnlockMap);
+  const buyMap = useProgressionStore((state) => state.buyMap);
+  const chips = useEconomyStore((state) => state.chips);
   const debugUnlockAll = useFlashDebugStore((state) => FLASH_DEBUG_AVAILABLE && state.unlockAll);
 
   // A casino that unlocked since the last visit keeps its locked look until
@@ -183,6 +189,41 @@ export default function LevelMapScreen() {
   // swaps this screen for it.
   function openTable(map: CasinoMap) {
     router.dismissTo({ pathname: '/game/[mapId]', params: { mapId: String(map.id) } });
+  }
+
+  // Buying the next casino: confirm the price, then the store debits once and
+  // opens the casino and its table. The unlock reveal plays through
+  // pendingRevealMapId like an earned unlock. Returns false when the tap
+  // should rattle the lock instead (not next in line, or short on chips).
+  function offerUnlock(map: CasinoMap): boolean {
+    const cost = mapUnlockCost(map.id);
+    if (cost === null || !canUnlockMap(map.id)) {
+      return false;
+    }
+    if (chips < cost) {
+      Alert.alert(
+        'Not enough chips',
+        `${map.name} opens for ${formatChips(cost)} chips. You have ${formatChips(chips)}.`,
+      );
+      return false;
+    }
+    Alert.alert(
+      `Unlock ${map.name}?`,
+      `${formatChips(cost)} chips opens the casino, its training levels and its table now. Your progress at ${mapById(map.id - 1)?.name ?? 'the previous casino'} stays as it is.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unlock',
+          onPress: () => {
+            if (buyMap(map.id)) {
+              playSound('achievementUnlock');
+              void haptics.success();
+            }
+          },
+        },
+      ],
+    );
+    return true;
   }
 
   return (
@@ -273,6 +314,8 @@ export default function LevelMapScreen() {
             pace={pace}
             unlocked={unlockedMapIds.includes(item.id) || debugUnlockAll}
             unlockAll={debugUnlockAll}
+            price={canUnlockMap(item.id) ? mapUnlockCost(item.id) : null}
+            onUnlock={() => offerUnlock(item)}
             reveal={item.id === revealing || item.id === pendingReveal}
             onRevealed={finishReveal}
             onSelectLevel={(level) => openLevel(item, level)}
@@ -339,6 +382,10 @@ interface MapCardProps {
   readonly pace: Readonly<Record<string, number>>;
   readonly unlocked: boolean;
   readonly unlockAll: boolean;
+  /** Chip price when this is the next casino and can be bought early; null otherwise. */
+  readonly price: number | null;
+  /** Tap on a buyable lock. Returns false when the lock should just rattle. */
+  readonly onUnlock: () => boolean;
   /** Just unlocked: keep the locked look and play the reveal once centred. */
   readonly reveal: boolean;
   readonly onRevealed: () => void;
@@ -358,6 +405,8 @@ function MapCard({
   pace,
   unlocked,
   unlockAll,
+  price,
+  onUnlock,
   reveal,
   onRevealed,
   onSelectLevel,
@@ -366,7 +415,8 @@ function MapCard({
 }: MapCardProps) {
   const reducedMotion = useReducedMotion();
   const next = nextFlashLevel(progress, map.id);
-  const tableOpen = next === null;
+  // The table opens with the casino; the ladder only tracks training progress.
+  const cleared = next === null;
   const remaining = next === null ? 0 : FLASH_LEVELS_PER_MAP - next + 1;
   const previous = mapById(map.id - 1);
   // Modern: the ladder spans the card face inside its outline.
@@ -472,11 +522,13 @@ function MapCard({
   const contentStyle = useAnimatedStyle(() => ({ opacity: contentOpacity.value }));
 
   const locked = stage === 'locked';
-  const levelsDone = next === null ? FLASH_LEVELS_PER_MAP : next - 1;
+  const lockLabel =
+    `${map.name} locked — finish level ${FLASH_LEVELS_PER_MAP} at ${previous?.name ?? 'the previous casino'}` +
+    (price !== null ? ` or unlock for ${formatChips(price)} chips` : '');
 
   // The open table breathes a soft gold glow so it's the obvious next tap.
   const pulse = useSharedValue(0);
-  const playable = tableOpen && stage === 'open';
+  const playable = stage === 'open';
   useEffect(() => {
     if (playable && !reducedMotion) {
       pulse.set(
@@ -501,11 +553,15 @@ function MapCard({
     transform: [{ scale: 1 + pulse.value * 0.015 }],
   }));
 
-  // Tapping a lock that can't open yet rattles it side to side.
+  // Tapping a lock that can't open yet rattles it side to side. The next
+  // casino in line offers its chip price first.
   const shakeX = useSharedValue(0);
   const shakeStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shakeX.value }] }));
 
   function rattleLock() {
+    if (price !== null && onUnlock()) {
+      return;
+    }
     void haptics.warning();
     if (reducedMotion) {
       return;
@@ -526,9 +582,9 @@ function MapCard({
     const levelsLabel = `${remaining} level${remaining === 1 ? '' : 's'}`;
     const status = locked
       ? `Locked · finish ${previous?.name ?? 'the previous casino'}`
-      : tableOpen
+      : cleared
         ? `All ${FLASH_LEVELS_PER_MAP} levels cleared · max bet ${formatChips(map.maxBet)}`
-        : `${levelsLabel} to open the table · max bet ${formatChips(map.maxBet)}`;
+        : `${levelsLabel} to clear · max bet ${formatChips(map.maxBet)}`;
     // The ink base shows under the face; the wrapper stays unclipped for its shadow.
     return (
       <View style={{ width, height: height + MODERN_CARD_DROP, marginRight: isLast ? 0 : CARD_GAP }}>
@@ -557,7 +613,7 @@ function MapCard({
             <Animated.View style={[styles.lockPane, styles.lockPaneModern, paneStyle]} pointerEvents="box-none">
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`${map.name} locked — finish level ${FLASH_LEVELS_PER_MAP} at ${previous?.name ?? 'the previous casino'}`}
+                accessibilityLabel={lockLabel}
                 disabled={!locked}
                 hitSlop={spacing.md}
                 onPress={rattleLock}
@@ -575,7 +631,9 @@ function MapCard({
                       contentFit="contain"
                     />
                   </View>
-                  <Text style={styles.lockTextModern}>{locked ? 'TABLE LOCKED' : 'UNLOCKED'}</Text>
+                  <Text style={styles.lockTextModern}>
+                    {!locked ? 'UNLOCKED' : price !== null ? `UNLOCK · ${formatChips(price)}` : 'TABLE LOCKED'}
+                  </Text>
                 </Animated.View>
               </Pressable>
             </Animated.View>
@@ -601,41 +659,19 @@ function MapCard({
             ) : null}
           </View>
 
-          {/* The foot keeps one height whichever button shows, so the ladder never shifts. */}
           {!locked ? (
             <Animated.View style={[styles.footModern, contentStyle]}>
-              {tableOpen ? (
-                <ArcadeButton
-                  label="Play Table"
-                  leading="▶"
-                  sublabel={`max bet ${formatChips(map.maxBet)}`}
-                  variant="gold"
-                  size="large"
-                  disabled={!playable}
-                  dimDisabled={false}
-                  onPress={onTable}
-                  accessibilityLabel={`Play blackjack at ${map.name}, max bet ${formatChips(map.maxBet)}`}
-                />
-              ) : (
-                <ArcadeButton
-                  label={`Table opens in ${levelsLabel}`}
-                  leading={<Ionicons name="lock-closed" size={16} color={colors.arcadeMuted} />}
-                  variant="locked"
-                  size="medium"
-                  disabled
-                  dimDisabled={false}
-                  onPress={onTable}
-                  accessibilityLabel={`${map.name} table opens in ${levelsLabel}, ${levelsDone} of ${FLASH_LEVELS_PER_MAP} done`}
-                  overlay={
-                    <ArcadeBar
-                      thin
-                      progress={levelsDone / FLASH_LEVELS_PER_MAP}
-                      accessibilityLabel={`${levelsDone} of ${FLASH_LEVELS_PER_MAP} levels done`}
-                      style={styles.footProgressModern}
-                    />
-                  }
-                />
-              )}
+              <ArcadeButton
+                label="Play Table"
+                leading="▶"
+                sublabel={`max bet ${formatChips(map.maxBet)}`}
+                variant="gold"
+                size="large"
+                disabled={!playable}
+                dimDisabled={false}
+                onPress={onTable}
+                accessibilityLabel={`Play blackjack at ${map.name}, max bet ${formatChips(map.maxBet)}`}
+              />
             </Animated.View>
           ) : null}
         </View>
@@ -664,7 +700,7 @@ function MapCard({
         <Animated.View style={[styles.lockPane, paneStyle]} pointerEvents="box-none">
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${map.name} locked — finish level ${FLASH_LEVELS_PER_MAP} at ${previous?.name ?? 'the previous casino'}`}
+            accessibilityLabel={lockLabel}
             disabled={!locked}
             hitSlop={spacing.md}
             onPress={rattleLock}
@@ -682,7 +718,9 @@ function MapCard({
                   contentFit="contain"
                 />
               </View>
-              <Text style={styles.lockText}>{locked ? 'Table locked' : 'Unlocked'}</Text>
+              <Text style={styles.lockText}>
+                {!locked ? 'Unlocked' : price !== null ? `Unlock · ${formatChips(price)}` : 'Table locked'}
+              </Text>
             </Animated.View>
           </Pressable>
         </Animated.View>
@@ -696,7 +734,7 @@ function MapCard({
           </Text>
         </View>
 
-        {tableOpen && !locked && FEATURES.mapCardQuiz ? (
+        {cleared && !locked && FEATURES.mapCardQuiz ? (
           <View style={styles.modeRow}>
             <PressableScale
               accessibilityLabel={`Quiz mode at ${map.name}`}
@@ -711,9 +749,9 @@ function MapCard({
           <Text style={styles.meta} numberOfLines={1}>
             {locked
               ? `Finish level ${FLASH_LEVELS_PER_MAP} at ${previous?.name ?? 'the previous casino'}`
-              : tableOpen
+              : cleared
                 ? `All ${FLASH_LEVELS_PER_MAP} levels cleared · max bet ${formatChips(map.maxBet)}`
-                : `${remaining} level${remaining === 1 ? '' : 's'} to open the table · max bet ${formatChips(map.maxBet)}`}
+                : `${remaining} level${remaining === 1 ? '' : 's'} to clear · max bet ${formatChips(map.maxBet)}`}
           </Text>
         )}
       </View>
@@ -735,42 +773,20 @@ function MapCard({
       </View>
 
       {/* The table button runs edge to edge along the foot of the card: a
-          glowing gold hero once the table is open, a progress bar until then. */}
+          glowing gold hero — the table is open as soon as the casino is. */}
       {!locked ? (
-        <Animated.View style={[contentStyle, tableOpen && styles.tableGlow, tableOpen && pulseStyle]}>
+        <Animated.View style={[contentStyle, styles.tableGlow, pulseStyle]}>
           <PressableScale
-            accessibilityLabel={
-              tableOpen
-                ? `Play blackjack at ${map.name}, max bet ${formatChips(map.maxBet)}`
-                : `${map.name} table opens in ${remaining} level${remaining === 1 ? '' : 's'}, ${levelsDone} of ${FLASH_LEVELS_PER_MAP} done`
-            }
+            accessibilityLabel={`Play blackjack at ${map.name}, max bet ${formatChips(map.maxBet)}`}
             onPress={onTable}
             disabled={!playable}
-            style={[styles.tableButton, !tableOpen && styles.tableButtonLocked]}
+            style={styles.tableButton}
           >
-            <Ionicons
-              name={tableOpen ? 'play' : 'lock-closed'}
-              size={tableOpen ? 22 : 16}
-              color={tableOpen ? colors.textOnGold : colors.textMuted}
-            />
+            <Ionicons name="play" size={22} color={colors.textOnGold} />
             <View style={styles.tableButtonCopy}>
-              <Text style={[styles.tableButtonText, !tableOpen && styles.tableButtonTextLocked]}>
-                {tableOpen ? 'PLAY TABLE' : `Table opens in ${remaining} level${remaining === 1 ? '' : 's'}`}
-              </Text>
-              {tableOpen ? (
-                <Text style={styles.tableButtonSub}>max bet {formatChips(map.maxBet)}</Text>
-              ) : null}
+              <Text style={styles.tableButtonText}>PLAY TABLE</Text>
+              <Text style={styles.tableButtonSub}>max bet {formatChips(map.maxBet)}</Text>
             </View>
-            {!tableOpen ? (
-              <View style={styles.tableProgressTrack} pointerEvents="none">
-                <View
-                  style={[
-                    styles.tableProgressFill,
-                    { width: `${(levelsDone / FLASH_LEVELS_PER_MAP) * 100}%` },
-                  ]}
-                />
-              </View>
-            ) : null}
           </PressableScale>
         </Animated.View>
       ) : null}
@@ -938,12 +954,6 @@ const styles = StyleSheet.create({
     borderColor: colors.gold,
     overflow: 'hidden',
   },
-  tableButtonLocked: {
-    minHeight: 44,
-    backgroundColor: colors.overlayLight,
-    borderWidth: 1.5,
-    borderColor: colors.borderSubtle,
-  },
   tableButtonCopy: {
     alignItems: 'center',
   },
@@ -953,30 +963,12 @@ const styles = StyleSheet.create({
     fontWeight: fontWeights.heavy,
     letterSpacing: 1.5,
   },
-  tableButtonTextLocked: {
-    color: colors.textMuted,
-    fontSize: fontSizes.small,
-    letterSpacing: 1,
-  },
   tableButtonSub: {
     color: colors.textOnGold,
     opacity: 0.75,
     fontSize: fontSizes.caption,
     fontWeight: fontWeights.bold,
     letterSpacing: 0.5,
-  },
-  /** Thin fill along the foot of the locked bar: levels cleared so far. */
-  tableProgressTrack: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 4,
-    backgroundColor: colors.overlayLight,
-  },
-  tableProgressFill: {
-    height: '100%',
-    backgroundColor: colors.gold,
   },
   devRow: {
     flexDirection: 'row',
@@ -1073,13 +1065,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     paddingHorizontal: spacing.md,
     paddingBottom: 10,
-  },
-  /** Levels cleared so far, along the locked button's foot. */
-  footProgressModern: {
-    position: 'absolute',
-    left: 10,
-    right: 10,
-    bottom: 0,
   },
   lockPaneModern: {
     backgroundColor: colors.overlay,

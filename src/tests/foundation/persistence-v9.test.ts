@@ -11,12 +11,13 @@ import { SAVE_SCHEMA_VERSION, saveDataSchema } from '../../persistence/schema';
 function v8Save(): Record<string, unknown> {
   const save = createDefaultSave();
   const { flashLevels: _dropped, flashCountTipSeen: _dropped2, ...dojo } = save.dojo;
-  return { ...save, dojo };
+  // A fresh v8 save had no licenses yet (tables opened with the casino only from v18).
+  return { ...save, dojo, progression: { ...save.progression, licenses: {} } };
 }
 
 describe('v8 → v9 migration', () => {
-  it('is registered and the current version is 17', () => {
-    expect(SAVE_SCHEMA_VERSION).toBe(17);
+  it('is registered and the current version is 18', () => {
+    expect(SAVE_SCHEMA_VERSION).toBe(18);
     expect(MIGRATIONS[8]).toBeDefined();
     expect(MIGRATIONS[9]).toBeDefined();
     expect(MIGRATIONS[10]).toBeDefined();
@@ -33,7 +34,11 @@ describe('v8 → v9 migration', () => {
     expect(parsed.dojo.flashCountTipSeen).toBe(false);
     expect(parsed.dojo.onboardingDone).toBe(false);
     expect(parsed.economy).toEqual(original.economy);
-    expect(parsed.progression).toEqual(original.progression);
+    // v18 opens the first table along the way; nothing else moves.
+    expect(parsed.progression).toEqual({
+      ...(original.progression as object),
+      licenses: { '1': 'licensed' },
+    });
   });
 
   it('grandfathers licensed casinos as fully cleared ladders', () => {

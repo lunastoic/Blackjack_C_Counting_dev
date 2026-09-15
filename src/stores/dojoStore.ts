@@ -74,7 +74,7 @@ export interface TrainingLevelOutcome {
   readonly stars: number;
   /** True the first time this level is cleared (XP is only paid once). */
   readonly firstClear: boolean;
-  /** True when this clear completed the ladder and opened the table. */
+  /** True when this clear completed the ladder (and so opened the next casino). */
   readonly tableUnlocked: boolean;
   /** Chips paid for the stars this run earned for the first time. */
   readonly chipsAwarded: number;
@@ -260,9 +260,8 @@ export const useDojoStore = create<DojoState>()((set, get) => ({
     const nowComplete = isMapFlashComplete(get().flashLevels, mapId);
     const tableUnlocked = nowComplete && !wasComplete;
     if (nowComplete) {
-      const progress = useProgressionStore.getState();
-      progress.grantLicense(mapId, 'licensed');
-      progress.unlockMap(mapId + 1);
+      // The free path to the next casino; buying it early is progressionStore.buyMap.
+      useProgressionStore.getState().unlockMap(mapId + 1);
     }
     return { stars, firstClear, tableUnlocked, chipsAwarded, progression };
   },

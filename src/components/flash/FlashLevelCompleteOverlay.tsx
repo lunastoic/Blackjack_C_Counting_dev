@@ -28,8 +28,9 @@ interface FlashLevelCompleteOverlayProps {
   readonly body: string;
   /** Exam scorecard (per-kind accuracies), when the level keeps one. */
   readonly scorecard?: readonly AccuracyRow[];
-  /** This clear opened the casino's table. */
+  /** This clear finished the ladder and opened the next casino (`nextMapName`). */
   readonly tableUnlocked: boolean;
+  readonly nextMapName?: string;
   /** The whole ladder is done (now or earlier) — the table is open. */
   readonly tableOpen: boolean;
   readonly onNextLevel: () => void;
@@ -52,6 +53,7 @@ export function FlashLevelCompleteOverlay({
   body,
   scorecard,
   tableUnlocked,
+  nextMapName,
   tableOpen,
   onNextLevel,
   onSitAtTable,
@@ -86,7 +88,7 @@ export function FlashLevelCompleteOverlay({
         {scorecard && scorecard.length > 0 ? <AccuracyRows rows={scorecard} /> : null}
         {tableUnlocked ? (
           <>
-            <Text style={styles.title}>{mapName} is open</Text>
+            <Text style={styles.title}>{nextMapName ?? mapName} is open</Text>
             <View style={styles.unlockList}>
               <UnlockRow icon="cash-outline" text="Table — real hands, your chips on the line." />
               <UnlockRow

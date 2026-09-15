@@ -776,12 +776,13 @@ describe('training store — live tables', () => {
     jest.useRealTimers();
   });
 
-  it('Map 1 level 6 is the blackjack count test and completing it opens the table and the next casino', () => {
+  it('Map 1 level 6 is the blackjack count test and completing it opens the next casino', () => {
     const dojo = useDojoStore.getState();
     for (let level = 1; level < FLASH_LEVELS_PER_MAP; level++) {
       expect(dojo.completeTrainingLevel(1, level, 3).tableUnlocked).toBe(false);
     }
-    expect(useProgressionStore.getState().licenseForMap(1)).toBe('none');
+    // Luna Luxe's table is open from the start; the ladder opens Io Inferno.
+    expect(useProgressionStore.getState().licenseForMap(1)).toBe('licensed');
     expect(useProgressionStore.getState().isMapUnlocked(2)).toBe(false);
 
     store().load(1, 6);
@@ -795,15 +796,15 @@ describe('training store — live tables', () => {
       expect(frame?.table.dealer).not.toBeNull();
       answerCorrectly();
     }
-    // Two stars on the sixth level open the table; the third is optional.
+    // Two stars on the sixth level clear the casino; the third is optional.
     expect(store().status).toBe('cleared');
     expect(store().outcome?.tableUnlocked).toBe(true);
     store().stopRun();
     expect(store().status).toBe('levelComplete');
     expect(useDojoStore.getState().isMapFlashComplete(1)).toBe(true);
     expect(useDojoStore.getState().nextFlashLevel(1)).toBeNull();
-    expect(useProgressionStore.getState().licenseForMap(1)).toBe('licensed');
     expect(useProgressionStore.getState().isMapUnlocked(2)).toBe(true);
+    expect(useProgressionStore.getState().licenseForMap(2)).toBe('licensed');
   });
 
   it('paces table beats from the speed preset, not the settings dealer speed', () => {

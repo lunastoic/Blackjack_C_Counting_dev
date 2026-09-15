@@ -128,6 +128,8 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const map = mapById(mapId);
+  // Clearing the ladder opens the next casino; this one's table was open all along.
+  const nextMap = mapById(mapId + 1);
   const valid = map !== undefined && isFlashLevel(level);
 
   const load = useTrainingStore((state) => state.load);
@@ -912,7 +914,8 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
           title={completeTitle}
           body={completeBody}
           scorecard={isExam ? accuracyRows(tally) : undefined}
-          tableUnlocked={outcome?.tableUnlocked ?? false}
+          tableUnlocked={(outcome?.tableUnlocked ?? false) && nextMap !== undefined}
+          nextMapName={nextMap?.name}
           tableOpen={tableOpen}
           onNextLevel={() => goToLevel(level + 1)}
           onSitAtTable={sitAtTable}

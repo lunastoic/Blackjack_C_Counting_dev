@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { FEATURES } from '../constants/features';
+import { mapUnlockCost } from '../constants/mapUnlockCosts';
 import { mapById, TableLicense } from '../engine/betting/casino';
 import {
   awardXp as engineAwardXp,
@@ -7,6 +8,7 @@ import {
   ProgressionResult,
 } from '../engine/progression/progression';
 import { SaveData } from '../persistence/schema';
+import { useEconomyStore } from './economyStore';
 
 /**
  * Level/XP state. ALL XP math lives in the engine (`awardXp`); this store just
@@ -14,8 +16,9 @@ import { SaveData } from '../persistence/schema';
  * orchestrator (stores/orchestration.ts), not credited here, so the economy
  * store remains the single owner of the balance.
  *
- * Table licenses (earned in the Count Sprint) live here too: they gate table
- * play per casino and only ever upgrade (none → permit → licensed).
+ * Table licenses live here too: they gate table play per casino and only ever
+ * upgrade (none → permit → licensed). A casino's table opens with the casino —
+ * every unlock (earned or bought) lands the full license at the same time.
  */
 const LICENSE_RANK: Record<TableLicense, number> = { none: 0, permit: 1, licensed: 2 };
 
@@ -33,14 +36,25 @@ interface ProgressionState {
   /** Applies engine progression; returns the structured result for orchestration. */
   awardXp(amount: number): ProgressionResult;
   isMapUnlocked(mapId: number): boolean;
-  /** True when the unlock requirement (see canUnlockMap) is currently met. */
+  /**
+   * True when `mapId` is the next casino on the ladder: still locked, with the
+   * previous casino open. (The old level requirement sits behind
+   * FEATURES.levelMapGating.)
+   */
   canUnlockMap(mapId: number): boolean;
   /**
-   * Unlocks when the requirement is met. One ladder: a casino opens once the
-   * PREVIOUS casino's full license is earned in the Count Sprint. (The old
-   * level requirement sits behind FEATURES.levelMapGating.)
+   * Opens the next casino and its table. The free path — the caller (dojoStore)
+   * has just cleared the previous casino's six training levels. Buying the
+   * casino early is `buyMap`.
    */
   unlockMap(mapId: number): boolean;
+  /**
+   * Opens the next casino early for its chip price (constants/mapUnlockCosts).
+   * Only access changes hands: the previous casino's levels, stars and XP stay
+   * exactly where they were. Chips are debited once, and only when the unlock
+   * goes through — a casino already open never charges again.
+   */
+  buyMap(mapId: number): boolean;
   /** The Select Map screen has taken the pending reveal (played or skipped). */
   clearMapReveal(): void;
   licenseForMap(mapId: number): TableLicense;
@@ -53,7 +67,7 @@ export const useProgressionStore = create<ProgressionState>()((set, get) => ({
   level: INITIAL_PROGRESS.level,
   xpIntoLevel: INITIAL_PROGRESS.xpIntoLevel,
   unlockedMapIds: [1],
-  licenses: {},
+  licenses: { 1: 'licensed' },
   pendingRevealMapId: null,
 
   awardXp: (amount) => {
@@ -75,9 +89,9 @@ export const useProgressionStore = create<ProgressionState>()((set, get) => ({
     if (FEATURES.levelMapGating) {
       return get().level >= map.unlockLevel;
     }
-    // Map ids are sequential (1…6): licensing a casino opens the next one.
+    // Map ids are sequential (1…6): casinos open one after another.
     const previous = mapById(mapId - 1);
-    return !previous || get().licenseForMap(previous.id) === 'licensed';
+    return !previous || get().isMapUnlocked(previous.id);
   },
 
   unlockMap: (mapId) => {
@@ -86,6 +100,23 @@ export const useProgressionStore = create<ProgressionState>()((set, get) => ({
     }
     set((state) => ({
       unlockedMapIds: [...state.unlockedMapIds, mapId],
+      licenses: { ...state.licenses, [mapId]: 'licensed' },
+      pendingRevealMapId: mapId,
+    }));
+    return true;
+  },
+
+  buyMap: (mapId) => {
+    const cost = mapUnlockCost(mapId);
+    if (cost === null || !get().canUnlockMap(mapId)) {
+      return false;
+    }
+    if (!useEconomyStore.getState().debitChips(cost)) {
+      return false;
+    }
+    set((state) => ({
+      unlockedMapIds: [...state.unlockedMapIds, mapId],
+      licenses: { ...state.licenses, [mapId]: 'licensed' },
       pendingRevealMapId: mapId,
     }));
     return true;
