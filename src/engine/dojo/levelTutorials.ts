@@ -36,11 +36,12 @@ const LEVEL_TUTORIALS: Readonly<Record<string, readonly TutorialSlide[]>> = {
     ['Cancel first, then count', 'Pair every high with a low. Whatever is left over is the answer.'],
   ),
   '1:4': slides(
-    ['The count is yours to keep', 'Cards come one at a time and the total is never shown. Start at 0 and add each card.'],
-    ['When the deal pauses', 'Tap the running count. Ten checks, all correct — one miss restarts the deck.'],
+    ['Four cards, one number', 'Add all four values and tap the total.'],
+    ['Cancel first, then count', 'Pair every high with a low. Whatever is left over is the answer.'],
   ),
   '1:5': slides(
-    ['All 52 cards', 'Same drill, a little quicker. Eight checks along the way.'],
+    ['The count is yours to keep', 'Cards come one at a time and the total is never shown. Start at 0 and add each card.'],
+    ['When the deal pauses', 'Tap the running count. Eight checks, all correct — one miss restarts the deck.'],
     ['Finish at zero', 'A full deck has as many highs as lows, so it always ends at 0. That is the final question.'],
   ),
   '1:6': slides(

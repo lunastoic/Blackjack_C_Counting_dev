@@ -95,17 +95,12 @@ describe('training ladder — configuration', () => {
     }
   });
 
-  it('Map 1 follows the spec: values → combos → groups → drill → full deck → blackjack test', () => {
+  it('Map 1 follows the spec: values → pairs → three cards → four cards → full deck → blackjack test', () => {
     const [l1, l2, l3, l4, l5, l6] = trainingLevelsForMap(1);
     expect(l1).toMatchObject({ mode: 'cardValue', streakTarget: 21, strikes: 3 });
     expect(l2).toMatchObject({ mode: 'cardGroup', groupSizes: [2], streakTarget: 21, strikes: 3 });
     expect(l3).toMatchObject({ mode: 'cardGroup', groupSizes: [3], streakTarget: 21, strikes: 3 });
-    expect(l4).toMatchObject({
-      mode: 'countStream',
-      deckCount: 1,
-      checkpoints: 10,
-      pass: { minCorrect: 10, maxRunningCountMisses: 0 },
-    });
+    expect(l4).toMatchObject({ mode: 'cardGroup', groupSizes: [4], streakTarget: 21, strikes: 3 });
     expect(l5).toMatchObject({
       mode: 'countStream',
       deckCount: 1,

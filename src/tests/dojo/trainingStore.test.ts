@@ -503,14 +503,14 @@ describe('training store — answer meter', () => {
   });
 
   it('on a count stream it waits while the cards deal and only runs at the checks', () => {
-    store().load(1, 4);
+    store().load(2, 4);
     store().begin();
     expect(store().meter).toMatchObject({ fill: 1, draining: false });
     advanceUntil('asking');
     expect(meterFill()).toBe(1);
     expect(store().meter.draining).toBe(true);
     const drainMs = store().meterDrainMs;
-    expect(drainMs).toBe(11_400);
+    expect(drainMs).toBe(9_500);
     jest.advanceTimersByTime(drainMs / 2);
     answerCorrectly();
     expect(store().status).toBe('feedback');
@@ -547,7 +547,7 @@ describe('training store — count streams', () => {
     jest.useFakeTimers();
     resetStores();
     __setTrainingRandomForTests(seededRng(7), seededRng(7));
-    store().load(1, 4);
+    store().load(2, 4);
   });
 
   afterEach(() => {
@@ -594,8 +594,8 @@ describe('training store — count streams', () => {
     expect(store().status).toBe('cleared');
     expect(store().stars).toBe(2);
     expect(store().stretch).toBe(false);
-    expect(useDojoStore.getState().flashLevels[flashLevelKey(1, 4)]).toBe(2);
-    expect(useDojoStore.getState().isFlashLevelUnlocked(1, 5)).toBe(true);
+    expect(useDojoStore.getState().flashLevels[flashLevelKey(2, 4)]).toBe(2);
+    expect(useDojoStore.getState().isFlashLevelUnlocked(2, 5)).toBe(true);
 
     // The stretch: a fresh shoe, five more checks, the count from 0 again.
     store().keepGoing();
@@ -615,7 +615,7 @@ describe('training store — count streams', () => {
     expect(store().status).toBe('levelComplete');
     expect(store().stars).toBe(3);
     expect(store().tally.asked).toBe(15);
-    expect(useDojoStore.getState().flashLevels[flashLevelKey(1, 4)]).toBe(3);
+    expect(useDojoStore.getState().flashLevels[flashLevelKey(2, 4)]).toBe(3);
   });
 
   it('a miss on the stretch of an all-correct level ends the run cleared at two stars', () => {
@@ -631,7 +631,7 @@ describe('training store — count streams', () => {
     expect(store().stars).toBe(2);
     expect(store().question?.wasCorrect).toBe(false);
     expect(jest.getTimerCount()).toBe(0);
-    expect(useDojoStore.getState().flashLevels[flashLevelKey(1, 4)]).toBe(2);
+    expect(useDojoStore.getState().flashLevels[flashLevelKey(2, 4)]).toBe(2);
   });
 
   it('a wrong count on an all-correct level fails the run, shows the review, and can restart from zero', () => {
@@ -647,7 +647,7 @@ describe('training store — count streams', () => {
     expect(
       before + store().cardsSinceCheck.reduce((sum, card) => sum + hiLoValue(card.rank), 0),
     ).toBe(store().question?.correct);
-    expect(useDojoStore.getState().flashLevels[flashLevelKey(1, 4)]).toBeUndefined();
+    expect(useDojoStore.getState().flashLevels[flashLevelKey(2, 4)]).toBeUndefined();
 
     store().begin();
     expect(store().status).toBe('running');
