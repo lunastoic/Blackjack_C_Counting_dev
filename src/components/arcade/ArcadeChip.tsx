@@ -1,13 +1,17 @@
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { MODERN_CHIP_SETS } from '../../assets/registry';
 import { colors, fonts } from '../../theme';
 
 /**
- * The Modern look's chip, drawn in code in the same bevel as the buttons:
+ * The Modern look's chip: the casino's disc from MODERN_CHIP_SETS (ink
+ * outline baked in) sitting proud of an ink base, like the buttons. Where a
+ * casino has no art for a denomination the chip is drawn in code instead —
  * ink outline, edge dashes, an inner ring with a deeper band, a gold crescent
  * behind the denomination and the number in ink with a white hairline. The
- * PNG sets stay for the Classic look.
+ * Classic PNG sets are untouched.
  */
 
 interface ChipPalette {
@@ -49,6 +53,8 @@ const HAIRLINE: ReadonlyArray<readonly [number, number]> = [
 
 export interface ArcadeChipProps {
   readonly value: number;
+  /** The casino's set in MODERN_CHIP_SETS; omitted (or unknown) draws the code chip. */
+  readonly chipSetKey?: string;
   /** Diameter of the face; the ink drop adds to the height. */
   readonly size?: number;
   /** Drop the soft shadow (chips in a stack sit tight on their ink base). */
@@ -56,9 +62,26 @@ export interface ArcadeChipProps {
   readonly style?: StyleProp<ViewStyle>;
 }
 
-export function ArcadeChip({ value, size = 56, flat = false, style }: ArcadeChipProps) {
+export function ArcadeChip({
+  value,
+  chipSetKey,
+  size = 56,
+  flat = false,
+  style,
+}: ArcadeChipProps) {
   const palette = PALETTES[value] ?? FALLBACK;
   const radius = size / 2;
+  const art = chipSetKey ? MODERN_CHIP_SETS[chipSetKey]?.[value] : undefined;
+
+  if (art != null) {
+    return (
+      <View style={[{ width: size, height: size + ARCADE_CHIP_DROP }, !flat && styles.shadow, style]}>
+        <View style={[styles.base, { top: ARCADE_CHIP_DROP, borderRadius: radius }]} />
+        <Image source={art} style={{ width: size, height: size }} contentFit="contain" />
+      </View>
+    );
+  }
+
   // The inner circle sits `inset` in from the outline, and the crescent fills
   // it flush to its own ring.
   const inset = size * 0.15;

@@ -1,11 +1,23 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useCallback, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Switch, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import { CARD_FACES } from '../../assets/cards.generated';
+import { DECK_COVER_ART } from '../../assets/registry';
+import { CASINO_MAPS, LUNA_LUXE } from '../../engine/betting/casino';
 import { GameMode } from '../../engine/blackjack/rules';
-import { CARD_DECKS, CardDeck, CountCoachLevel, UI_STYLES, UiStyle } from '../../engine/types';
+import { DECK_COVER_UNLOCK_LEVEL, deckCoverEarnedCount, FlashProgress } from '../../engine/dojo';
+import {
+  CARD_DECKS,
+  CardDeck,
+  CountCoachLevel,
+  DECK_COVERS,
+  DeckCover,
+  UI_STYLES,
+  UiStyle,
+} from '../../engine/types';
 import { DECK_COUNTS } from '../../engine/shoe/shoe';
 import { clampDealerSpeed } from '../../stores/settingsStore';
 import { colors, fontSizes, fontWeights, layout, radii, spacing } from '../../theme';
@@ -231,7 +243,11 @@ export const UI_STYLE_BLURBS: Readonly<Record<UiStyle, string>> = {
   classic: 'The original button art and burgundy intros.',
 };
 
-/** UI style: Modern (arcade look) / Classic (original assets). */
+/**
+ * UI style: Modern (arcade look) / Classic (original assets). Shelved — the
+ * Look sections show the deck cover instead and Modern is the look; the row
+ * stays for the Classic code and art behind it.
+ */
 export function UiStyleRow({
   selected,
   onSelect,
@@ -271,6 +287,91 @@ export const CARD_DECK_LABELS: Readonly<Record<CardDeck, string>> = {
 };
 
 const DECK_PREVIEW_WIDTH = 56;
+
+export const DECK_COVER_LABELS: Readonly<Record<DeckCover, string>> = {
+  d: 'D',
+  e: 'E',
+  f: 'F',
+};
+
+export const DECK_COVER_BLURB =
+  'One cover for every casino, each in its own colours. A casino earns E when you clear its level 2 and F at level 4 — until then it stays on D.';
+
+/**
+ * "Default", or the level that earns the cover and how many casinos have.
+ * `compact` is the short form for the narrow in-game sheet ("Lv 2 · 3/6").
+ */
+export function deckCoverCaption(cover: DeckCover, earned: number, compact = false): string {
+  const level = DECK_COVER_UNLOCK_LEVEL[cover];
+  if (level === 0) {
+    return 'Default';
+  }
+  return compact
+    ? `Lv ${level} · ${earned}/${CASINO_MAPS.length}`
+    : `Level ${level} · ${earned} of ${CASINO_MAPS.length}`;
+}
+
+/**
+ * Deck cover: D / E / F, each shown in Luna Luxe's colours with how many
+ * casinos have earned it. A cover no casino has earned yet is locked.
+ */
+export function DeckCoverRow({
+  selected,
+  progress,
+  onSelect,
+}: {
+  selected: DeckCover;
+  progress: FlashProgress;
+  onSelect: (cover: DeckCover) => void;
+}) {
+  return (
+    <View style={styles.deckRow}>
+      <Text style={styles.toggleLabel}>Deck cover</Text>
+      <View style={styles.deckOptions}>
+        {DECK_COVERS.map((cover) => {
+          const earned = deckCoverEarnedCount(progress, cover);
+          const locked = earned === 0;
+          const active = selected === cover;
+          const caption = deckCoverCaption(cover, earned);
+          return (
+            <PressableScale
+              key={cover}
+              onPress={() => onSelect(cover)}
+              disabled={locked}
+              accessibilityLabel={`Deck cover ${DECK_COVER_LABELS[cover]}: ${caption}`}
+              accessibilityState={{ selected: active, disabled: locked }}
+              style={[
+                styles.deckOption,
+                styles.deckPreviewOption,
+                active && styles.deckOptionActive,
+                locked && styles.deckOptionLocked,
+              ]}
+            >
+              <View>
+                <Image
+                  source={DECK_COVER_ART[cover][LUNA_LUXE.id]}
+                  style={styles.deckPreview}
+                  contentFit="cover"
+                  accessibilityIgnoresInvertColors
+                />
+                {locked ? (
+                  <View style={styles.deckLock}>
+                    <Ionicons name="lock-closed" size={16} color={colors.textPrimary} />
+                  </View>
+                ) : null}
+              </View>
+              <Text style={[styles.deckOptionText, active && styles.deckOptionTextActive]}>
+                {DECK_COVER_LABELS[cover]}
+              </Text>
+              <Text style={styles.deckCaption}>{caption}</Text>
+            </PressableScale>
+          );
+        })}
+      </View>
+      <Text style={styles.coachBlurb}>{DECK_COVER_BLURB}</Text>
+    </View>
+  );
+}
 
 /** Card deck: Classic (Public Domain Deck) / Luna (the original art), each with its ace of spades. */
 export function CardDeckRow({
@@ -416,6 +517,22 @@ const styles = StyleSheet.create({
     height: DECK_PREVIEW_WIDTH / CARD_ASPECT,
     borderRadius: cardCornerRadius(DECK_PREVIEW_WIDTH),
     backgroundColor: colors.surface,
+  },
+  deckOptionLocked: {
+    opacity: 0.45,
+  },
+  deckLock: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deckCaption: {
+    color: colors.textMuted,
+    fontSize: fontSizes.caption - 1,
   },
   deckOptionText: {
     color: colors.textSecondary,

@@ -1,8 +1,17 @@
-import { appAssets, CHIP_SETS, LEVEL_ART, MAP_ART, TABLE_FELTS } from '../../assets/registry';
+import {
+  appAssets,
+  CHIP_SETS,
+  DECK_COVER_ART,
+  LEVEL_ART,
+  MAP_ART,
+  MODERN_CHIP_SETS,
+  TABLE_FELTS,
+} from '../../assets/registry';
 import { CARD_BACK, CARD_FACES } from '../../assets/cards.generated';
 import { CASINO_MAPS } from '../../engine/betting/casino';
 import { RANKS, SUITS } from '../../engine/cards/card';
 import { trainingLevelsForMap } from '../../engine/dojo';
+import { DECK_COVERS } from '../../engine/types';
 
 /**
  * Completeness check: every registry entry must resolve to a bundleable
@@ -48,6 +57,35 @@ describe('asset registry', () => {
       expect(chipSet).toBeDefined();
       for (const value of map.chipDenominations) {
         expect(chipSet[value]).toBeDefined();
+      }
+    }
+  });
+
+  it('gives every casino a Modern chip for each of its denominations', () => {
+    for (const map of CASINO_MAPS) {
+      const chipSet = MODERN_CHIP_SETS[map.chipSetKey];
+      expect(chipSet).toBeDefined();
+      expect(Object.keys(chipSet).map(Number).sort((a, b) => a - b)).toEqual([
+        ...map.chipDenominations,
+      ]);
+      for (const value of map.chipDenominations) {
+        expect(chipSet[value]).toBeDefined();
+      }
+    }
+  });
+
+  it('gives Kepler its own Modern chips on the Titan denominations', () => {
+    const kepler = CASINO_MAPS.find((map) => map.name === 'Kepler Fortune');
+    const titan = CASINO_MAPS.find((map) => map.name === 'Titan Methane Mirage');
+    expect(kepler?.chipSetKey).toBe('kepler');
+    expect(kepler?.chipDenominations).toEqual(titan?.chipDenominations);
+    expect(MODERN_CHIP_SETS.kepler).not.toBe(MODERN_CHIP_SETS.titan);
+  });
+
+  it('resolves every casino in every deck cover style', () => {
+    for (const cover of DECK_COVERS) {
+      for (const map of CASINO_MAPS) {
+        expect(DECK_COVER_ART[cover][map.id]).toBeDefined();
       }
     }
   });

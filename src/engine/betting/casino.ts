@@ -2,9 +2,9 @@ import { DeckCount } from '../shoe/shoe';
 
 /**
  * Casino map data (REBUILD_SPEC §8). Pure data — artwork keys resolve to real
- * assets in later milestones. Kepler's themed chip art does not exist yet; it
- * uses the Titan denominations pending the owner decision recorded in
- * docs/IMPLEMENTATION_PLAN.md.
+ * assets in later milestones. Kepler deals the Titan denominations (the owner
+ * decision recorded in docs/IMPLEMENTATION_PLAN.md) with its own chip art in
+ * the Modern look; its Classic set is Titan's.
  */
 export interface CasinoMap {
   readonly id: number;
@@ -101,7 +101,7 @@ export const CASINO_MAPS: readonly CasinoMap[] = [
     unlockLevel: 25,
     maxBet: 1_000_000,
     chipDenominations: [250, 1000, 2500, 10000, 25000],
-    chipSetKey: 'titan',
+    chipSetKey: 'kepler',
     feltKey: 'yellow-suede',
     artKey: 'kepler',
     deckCount: 8,

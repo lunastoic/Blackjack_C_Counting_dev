@@ -52,7 +52,7 @@ export function RegularInfoBar() {
         : colors.arcadeGold;
     return (
       <View style={styles.modernContainer}>
-        <ArcadeStrip compact style={styles.modernStrip}>
+        <ArcadeStrip compact mapId={map?.id} style={styles.modernStrip}>
           <ArcadeStripCell label="Dealt" value={dealt} compact />
           <ArcadeStripDivider />
           <ArcadeStripCell label="Remaining" value={remaining} compact />

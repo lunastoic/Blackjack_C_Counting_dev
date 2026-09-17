@@ -11,8 +11,8 @@ import {
   CardDeckRow,
   CountCoachRow,
   DealerSpeedStepper,
+  DeckCoverRow,
   ToggleRow,
-  UiStyleRow,
 } from '../components/settings/SettingsRows';
 import { FEATURES } from '../constants/features';
 import { CASINO_MAPS } from '../engine/betting/casino';
@@ -67,6 +67,7 @@ export default function SettingsScreen() {
     ]);
   }
 
+  const flashLevels = useDojoStore((state) => state.flashLevels);
   const resetDojoProgress = useDojoStore((state) => state.resetProgress);
   const startOnboarding = useDojoStore((state) => state.startOnboarding);
 
@@ -156,7 +157,11 @@ export default function SettingsScreen() {
         </SectionCard>
 
         <SectionCard title="Look">
-          <UiStyleRow selected={settings.uiStyle} onSelect={settings.setUiStyle} />
+          <DeckCoverRow
+            selected={settings.deckCover}
+            progress={flashLevels}
+            onSelect={settings.setDeckCover}
+          />
         </SectionCard>
 
         <SectionCard title="Cards">

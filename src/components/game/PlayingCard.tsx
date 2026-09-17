@@ -9,7 +9,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { Card, hiLoValue, cardLabel, isFaceUp } from '../../engine/cards/card';
-import { CARD_BACK, CARD_FACES, CardSkin } from '../../assets/cards.generated';
+import { CARD_FACES, CardSkin } from '../../assets/cards.generated';
+import { useCardBack } from '../../hooks/useCardBack';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { playSound } from '../../services/audio';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -84,6 +85,7 @@ export function PlayingCard({
   speed = 1,
   glowHalo = true,
 }: PlayingCardProps) {
+  const cardBack = useCardBack();
   const reducedMotion = useReducedMotion();
   const cardDeck = useSettingsStore((state) => state.cardDeck);
   const face = CARD_FACES[skin === 'regular' ? cardDeck : skin][card.suit][card.rank];
@@ -194,7 +196,7 @@ export function PlayingCard({
       ]}
     >
       <Animated.View style={[styles.face, { borderRadius: radius }, backStyle]}>
-        <Image source={CARD_BACK} style={styles.image} contentFit="cover" />
+        <Image source={cardBack} style={styles.image} contentFit="cover" />
       </Animated.View>
       <Animated.View style={[styles.face, { borderRadius: radius }, faceStyle]}>
         <Image source={face} style={styles.image} contentFit="cover" />

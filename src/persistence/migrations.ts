@@ -377,6 +377,20 @@ function migrateV17toV18(data: unknown): unknown {
   };
 }
 
+/**
+ * v19: the deck cover becomes a setting (every save starts on D) and the
+ * Modern / Classic switch leaves the settings screens — a save on Classic
+ * comes back on Modern so nobody is stranded on a look they can no longer change.
+ */
+function migrateV18toV19(data: unknown): unknown {
+  const save = (data ?? {}) as Record<string, unknown>;
+  const settings = (save.settings ?? {}) as Record<string, unknown>;
+  return {
+    ...save,
+    settings: { ...settings, uiStyle: 'modern', deckCover: 'd' },
+  };
+}
+
 export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -395,6 +409,7 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   15: migrateV15toV16,
   16: migrateV16toV17,
   17: migrateV17toV18,
+  18: migrateV18toV19,
 };
 
 export class MigrationError extends Error {

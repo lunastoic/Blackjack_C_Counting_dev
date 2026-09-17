@@ -52,6 +52,18 @@ export function isUiStyle(value: unknown): value is UiStyle {
   return (UI_STYLES as readonly unknown[]).includes(value);
 }
 
+/**
+ * The Modern look's card back. One choice for the whole app: every casino
+ * deals its own colours of the style picked. `d` is on every casino from the
+ * start; a casino earns `e` and `f` on its flash ladder (see engine/dojo/deckCovers).
+ */
+export const DECK_COVERS = ['d', 'e', 'f'] as const;
+export type DeckCover = (typeof DECK_COVERS)[number];
+
+export function isDeckCover(value: unknown): value is DeckCover {
+  return (DECK_COVERS as readonly unknown[]).includes(value);
+}
+
 export interface GameSettings {
   readonly soundEnabled: boolean;
   readonly hapticsEnabled: boolean;
@@ -59,6 +71,8 @@ export interface GameSettings {
   readonly cardDeck: CardDeck;
   /** Intro panels and buttons: the arcade look, or the original assets. */
   readonly uiStyle: UiStyle;
+  /** The Modern card back, worn per casino in its own colours (default `d`). */
+  readonly deckCover: DeckCover;
   /** Multiplier applied to all deal/flip/dealer timings: 0.5–2.0 (default 1.0). */
   readonly dealerSpeed: number;
   /** Decks per mode, user-selectable in in-game settings (default 6). */
@@ -82,6 +96,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
   hapticsEnabled: true,
   cardDeck: 'regular',
   uiStyle: 'modern',
+  deckCover: 'd',
   dealerSpeed: 1.0,
   deckCounts: { regular: 6, quiz: 6 },
   trainingAids: {

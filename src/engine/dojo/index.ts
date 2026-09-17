@@ -8,6 +8,7 @@ export * from './hiLoDrill';
 export * from './progression';
 export * from './objectives';
 export * from './countFlash';
+export * from './deckCovers';
 export * from './training';
 export * from './levelTutorials';
 export * from './dailyGoal';

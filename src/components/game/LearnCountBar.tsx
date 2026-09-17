@@ -41,6 +41,7 @@ interface LearnCountBarProps {
  * for the next tier.
  */
 export function LearnCountBar({ live = false }: LearnCountBarProps) {
+  const map = useGameSessionStore((state) => state.map);
   const runningCount = useGameSessionStore((state) => state.runningCount);
   const revealTier = useGameSessionStore((state) => state.revealTier);
   const phase = useGameSessionStore((state) => state.phase);
@@ -87,7 +88,7 @@ export function LearnCountBar({ live = false }: LearnCountBarProps) {
         }
         style={styles.modernContainer}
       >
-        <ArcadeStrip compact style={styles.modernStrip}>
+        <ArcadeStrip compact mapId={map?.id} style={styles.modernStrip}>
           <ArcadeStripCell
             label="Running"
             value={runningShown ? runningLabel : '?'}

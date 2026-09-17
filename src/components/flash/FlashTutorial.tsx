@@ -11,8 +11,9 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import { CARD_BACK, CARD_FACES } from '../../assets/cards.generated';
+import { CARD_FACES } from '../../assets/cards.generated';
 import { hiLoValue, Rank, RANKS, Suit, SUITS } from '../../engine/cards/card';
+import { useCardBack } from '../../hooks/useCardBack';
 import { useModernUi } from '../../hooks/useModernUi';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -360,6 +361,7 @@ function RibbonSpread({ width, pile }: { width: number; pile: Point }) {
 /** The gathered deck at the dealer spot — three offset backs reading as a pile. */
 function DeckPile({ pile, cardWidth }: { pile: Point; cardWidth: number }) {
   const reducedMotion = useReducedMotion();
+  const cardBack = useCardBack();
   const cardHeight = cardFrameHeight(cardWidth, SPREAD_RING);
   return (
     <Animated.View
@@ -373,7 +375,7 @@ function DeckPile({ pile, cardWidth }: { pile: Point; cardWidth: number }) {
       {[2, 1, 0].map((offset) => (
         <Image
           key={offset}
-          source={CARD_BACK}
+          source={cardBack}
           style={[
             styles.cardImage,
             styles.pileCard,

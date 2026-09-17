@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { CARD_BACK } from '../../assets/cards.generated';
+import { useCardBack } from '../../hooks/useCardBack';
 import { colors, fontWeights, radii } from '../../theme';
 import { CARD_ASPECT } from './PlayingCard';
 
@@ -47,6 +47,7 @@ export function CardStack({
   cardWidth,
   showCutCard = false,
 }: CardStackProps) {
+  const cardBack = useCardBack();
   const layers = useMemo(() => {
     if (count <= 0) {
       return 0;
@@ -89,7 +90,7 @@ export function CardStack({
       {Array.from({ length: layers }, (_, index) => (
         <Image
           key={`${variant}-${index}`}
-          source={CARD_BACK}
+          source={cardBack}
           style={{
             position: 'absolute',
             bottom: index * rise,

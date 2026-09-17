@@ -7,6 +7,8 @@ import { formatChips } from '../../utils/format';
 import { QuizRank } from './QuizMilestoneBadge';
 
 interface QuizSprintStripProps {
+  /** The casino, for the strip's tint. */
+  readonly mapId: number;
   readonly streak: number;
   readonly target: number;
   /** Streak floors a miss falls back to — ticks on the meter, a star once banked. */
@@ -26,6 +28,7 @@ interface QuizSprintStripProps {
  * with a tick at each checkpoint, and a mono caption for the state.
  */
 export function QuizSprintStrip({
+  mapId,
   streak,
   target,
   checkpoints,
@@ -46,7 +49,7 @@ export function QuizSprintStrip({
 
   return (
     <View>
-      <ArcadeStrip style={styles.strip}>
+      <ArcadeStrip mapId={mapId} style={styles.strip}>
         <ArcadeStripCell
           label="Streak"
           value={

@@ -155,18 +155,33 @@ export function ArcadeMarquee({ title, subtitle, subtitleSpacing = 2, style }: A
   );
 }
 
+/** Each casino's strip face, by casino id; Luna Luxe (and any casino not here) keeps the black. */
+const ARCADE_STRIP_FACES: Readonly<Record<number, string>> = {
+  2: colors.arcadeStripIo,
+  3: colors.arcadeStripEuropa,
+  4: colors.arcadeStripGanymede,
+  5: colors.arcadeStripTitan,
+  6: colors.arcadeStripKepler,
+};
+
 interface ArcadeStripProps {
   readonly children: React.ReactNode;
   /** The table's count strip is a touch tighter than the quiz's. */
   readonly compact?: boolean;
+  /** The casino whose tint the face takes; omitted is the 50% black. */
+  readonly mapId?: number;
   readonly style?: StyleProp<ViewStyle>;
 }
 
-/** The 50% black bevel strip: RUNNING · TRUE · CARDS LEFT, STREAK · RANK · FLASH. */
-export function ArcadeStrip({ children, compact = false, style }: ArcadeStripProps) {
+/**
+ * The 50% bevel strip: RUNNING · TRUE · CARDS LEFT, STREAK · RANK · FLASH.
+ * Black on Luna Luxe, the casino's own colour elsewhere; the ink outline and
+ * the darker band under it stay, so it is the same bevel, just tinted.
+ */
+export function ArcadeStrip({ children, compact = false, mapId, style }: ArcadeStripProps) {
   return (
     <ArcadeBevel
-      face={colors.arcadeStripFace}
+      face={(mapId != null ? ARCADE_STRIP_FACES[mapId] : undefined) ?? colors.arcadeStripFace}
       deep={colors.arcadeStripDeep}
       drop={5}
       outline={3}

@@ -8,7 +8,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { CARD_BACK } from '../../assets/cards.generated';
+import { useCardBack } from '../../hooks/useCardBack';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { layers, radii, durations } from '../../theme';
 import { CARD_ASPECT } from './PlayingCard';
@@ -91,6 +91,7 @@ function ShuffleFlyer({
   centerX: number;
   reducedMotion: boolean;
 }) {
+  const cardBack = useCardBack();
   const fromDiscard = index % 2 === 0;
   const startX = fromDiscard ? discardX : deckX;
   const startY = 8 + (index % 5) * 3;
@@ -141,7 +142,7 @@ function ShuffleFlyer({
 
   return (
     <AnimatedImage
-      source={CARD_BACK}
+      source={cardBack}
       style={[styles.card, style]}
       contentFit="cover"
     />

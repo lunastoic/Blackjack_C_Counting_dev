@@ -78,7 +78,7 @@ export function ChipStack({
             }}
           >
             {modern ? (
-              <ArcadeChip value={value} size={chipSize} flat />
+              <ArcadeChip value={value} chipSetKey={chipSetKey} size={chipSize} flat />
             ) : (
               <Image
                 source={chipSet[value]}

@@ -1,10 +1,10 @@
 import { Image } from 'expo-image';
 import React from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { CARD_BACK } from '../../assets/cards.generated';
 import { hiLoValue } from '../../engine/cards/card';
 import { QuizFlashCard } from '../../stores/quizSessionStore';
 import { CARD_ASPECT, PlayingCard } from '../game/PlayingCard';
+import { useCardBack } from '../../hooks/useCardBack';
 import { useModernUi } from '../../hooks/useModernUi';
 import { colors, fonts, fontSizes, fontWeights, spacing } from '../../theme';
 import { formatCount } from '../../utils/countCoach';
@@ -25,6 +25,7 @@ interface QuizCountReviewProps {
 export function QuizCountReview({ flashCards }: QuizCountReviewProps) {
   const { width } = useWindowDimensions();
   const modern = useModernUi();
+  const cardBack = useCardBack();
   const count = Math.max(flashCards.length, 1);
   const cardWidth = modern
     ? Math.min((width - ARCADE_PANEL_INSET) / count - 4, ARCADE_CARD_WIDTH)
@@ -56,7 +57,7 @@ export function QuizCountReview({ flashCards }: QuizCountReviewProps) {
           <View key={item.card.id} style={[styles.column, modern && styles.arcadeColumn]}>
             {item.faceDown ? (
               <Image
-                source={CARD_BACK}
+                source={cardBack}
                 style={{
                   width: cardWidth,
                   height: cardWidth / CARD_ASPECT,

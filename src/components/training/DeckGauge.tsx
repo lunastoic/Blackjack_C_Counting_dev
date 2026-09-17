@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { CARD_BACK } from '../../assets/cards.generated';
+import { useCardBack } from '../../hooks/useCardBack';
 import { CARDS_PER_DECK } from '../../engine/cards/deck';
 import { colors, fontWeights, radii } from '../../theme';
 import { CARD_ASPECT } from '../game/PlayingCard';
@@ -28,6 +28,7 @@ interface DeckGaugeProps {
  * tray to estimate the decks left. Never prints a number.
  */
 export function DeckGauge({ variant, count, totalCards, showScale, label }: DeckGaugeProps) {
+  const cardBack = useCardBack();
   const fraction = totalCards > 0 ? Math.max(0, Math.min(1, count / totalCards)) : 0;
   const stack = count > 0 ? Math.max(3, Math.round(fraction * TRAY_HEIGHT)) : 0;
   const stripes = Math.max(0, Math.floor(stack / STRIPE_PITCH) - 1);
@@ -52,7 +53,7 @@ export function DeckGauge({ variant, count, totalCards, showScale, label }: Deck
               <View key={index} style={[styles.stripe, { bottom: (index + 1) * STRIPE_PITCH }]} />
             ))}
             <Image
-              source={CARD_BACK}
+              source={cardBack}
               style={[styles.back, { height: backHeight }]}
               contentFit="cover"
             />

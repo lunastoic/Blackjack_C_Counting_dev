@@ -82,13 +82,21 @@ export const colors = {
   arcadeInkOnLight: '#1E1607',
   // Table chrome — the HUD marquee, count strip, toggles and the map card
   arcadePlaqueDeep: '#3B1219', // the deeper band under a burgundy bevel
-  arcadeStripFace: '#00000080', // 50% black — the count and streak strips
+  arcadeStripFace: '#00000080', // 50% black — Luna Luxe's count and streak strips
   arcadeStripDeep: '#00000066',
+  // The other casinos' strips: the felt's hue, saturated, still at 50% so the nap shows
+  arcadeStripIo: '#8A3A1280',
+  arcadeStripEuropa: '#1F4F8A80',
+  arcadeStripGanymede: '#5A3A8A80',
+  arcadeStripTitan: '#1E6E4A80',
+  arcadeStripKepler: '#8A6A1480',
   arcadeLocked: '#3A3532', // a locked bevel's face (Play Table before the ladder is done)
   arcadeLockedDeep: '#1F1B19',
   arcadeLoss: '#FF8A80', // losses, misses and "NOT QUITE" on the dark bevels
   arcadeToastFill: '#0C0A09E6',
   arcadeGlow: '#F2C445B3', // the gold halo on the current level and the book move
+  arcadeGoldTint: '#F2C44522', // the picked option's fill in a Modern picker
+  arcadeGoldEdge: '#F2C44555', // an available-but-not-picked option's edge
   arcadeNight: '#0B1424', // the map card's ground behind the art
   arcadeNightShade: '#0B1424D9',
   arcadeNightVeil: '#0B142433',

@@ -54,7 +54,7 @@ export function ChipTray() {
             style={[styles.chip, !affordable && styles.chipDisabled]}
           >
             {modern ? (
-              <ArcadeChip value={value} size={CHIP_SIZE} />
+              <ArcadeChip value={value} chipSetKey={map.chipSetKey} size={CHIP_SIZE} />
             ) : (
               <View style={styles.chipFace}>
                 {image != null ? (

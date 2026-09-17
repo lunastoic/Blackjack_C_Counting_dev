@@ -73,6 +73,7 @@ export function collectSaveFromStores(): SaveData {
       hapticsEnabled: settings.hapticsEnabled,
       cardDeck: settings.cardDeck,
       uiStyle: settings.uiStyle,
+      deckCover: settings.deckCover,
       dealerSpeed: settings.dealerSpeed,
       deckCounts: { ...settings.deckCounts },
       trainingAids: { ...settings.trainingAids },

@@ -263,6 +263,7 @@ export default function QuizScreen() {
         // Rank, streak and flash pace in one strip; the meter takes the nine
         // circles' place, so the medallion goes.
         <QuizSprintStrip
+          mapId={map.id}
           streak={streak}
           target={QUIZ_STREAK_TARGET}
           checkpoints={QUIZ_CHECKPOINTS}

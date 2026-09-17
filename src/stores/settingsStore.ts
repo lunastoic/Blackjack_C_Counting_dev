@@ -4,8 +4,10 @@ import { DECK_COUNTS, DeckCount } from '../engine/shoe/shoe';
 import {
   CardDeck,
   CountCoachLevel,
+  DeckCover,
   DEFAULT_SETTINGS,
   isCardDeck,
+  isDeckCover,
   isUiStyle,
   TrainingAidSettings,
   UiStyle,
@@ -22,8 +24,14 @@ interface SettingsState {
   readonly hapticsEnabled: boolean;
   /** Plain deck art dealt wherever a card is not coach-annotated. */
   readonly cardDeck: CardDeck;
-  /** Modern (arcade, drawn in code) or Classic (original assets) intros and buttons. */
+  /**
+   * Modern (arcade, drawn in code) or Classic (original assets) intros and
+   * buttons. The switch is off the settings screens — Modern is the look and
+   * Classic stays shelved behind it — but the field and setter remain.
+   */
   readonly uiStyle: UiStyle;
+  /** The Modern card back; a casino that has not earned it deals `d`. */
+  readonly deckCover: DeckCover;
   readonly dealerSpeed: number;
   readonly deckCounts: Readonly<Record<GameMode, DeckCount>>;
   readonly trainingAids: TrainingAidSettings;
@@ -38,6 +46,8 @@ interface SettingsState {
   setCardDeck(deck: CardDeck): void;
   /** Ignored unless the style is a known look. */
   setUiStyle(style: UiStyle): void;
+  /** Ignored unless the cover is one of D / E / F. */
+  setDeckCover(cover: DeckCover): void;
   /** Clamped to 0.5×–2.0×. */
   setDealerSpeed(speed: number): void;
   /** Ignored unless the count is one of 1/2/4/6/8. */
@@ -65,6 +75,7 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
   hapticsEnabled: DEFAULT_SETTINGS.hapticsEnabled,
   cardDeck: DEFAULT_SETTINGS.cardDeck,
   uiStyle: DEFAULT_SETTINGS.uiStyle,
+  deckCover: DEFAULT_SETTINGS.deckCover,
   dealerSpeed: DEFAULT_SETTINGS.dealerSpeed,
   deckCounts: { ...DEFAULT_SETTINGS.deckCounts },
   trainingAids: { ...DEFAULT_SETTINGS.trainingAids },
@@ -76,6 +87,7 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
   setHapticsEnabled: (enabled) => set({ hapticsEnabled: enabled }),
   setCardDeck: (deck) => set((state) => (isCardDeck(deck) ? { cardDeck: deck } : state)),
   setUiStyle: (style) => set((state) => (isUiStyle(style) ? { uiStyle: style } : state)),
+  setDeckCover: (cover) => set((state) => (isDeckCover(cover) ? { deckCover: cover } : state)),
   setDealerSpeed: (speed) => set({ dealerSpeed: clampDealerSpeed(speed) }),
   setDeckCount: (mode, count) =>
     set((state) =>
@@ -94,6 +106,7 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
       hapticsEnabled: data.hapticsEnabled,
       cardDeck: isCardDeck(data.cardDeck) ? data.cardDeck : DEFAULT_SETTINGS.cardDeck,
       uiStyle: isUiStyle(data.uiStyle) ? data.uiStyle : DEFAULT_SETTINGS.uiStyle,
+      deckCover: isDeckCover(data.deckCover) ? data.deckCover : DEFAULT_SETTINGS.deckCover,
       dealerSpeed: clampDealerSpeed(data.dealerSpeed),
       deckCounts: { ...data.deckCounts },
       trainingAids: { ...data.trainingAids },

@@ -2,9 +2,10 @@ import { Image } from 'expo-image';
 import React from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { Keyframe } from 'react-native-reanimated';
-import { CARD_BACK, CardSkin } from '../../assets/cards.generated';
+import { CardSkin } from '../../assets/cards.generated';
 import { ArcadeBevel, ArcadeTab } from '../arcade';
 import { PlayingCard, CARD_ASPECT, cardCornerRadius } from '../game/PlayingCard';
+import { useCardBack } from '../../hooks/useCardBack';
 import { useModernUi } from '../../hooks/useModernUi';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { QuizFlashStep } from '../../stores/quizSessionStore';
@@ -48,6 +49,7 @@ export function QuizFlashStage({
   const { width } = useWindowDimensions();
   const reducedMotion = useReducedMotion();
   const modern = useModernUi();
+  const cardBack = useCardBack();
 
   const entering = reducedMotion ? undefined : FLASH_ENTERING;
 
@@ -78,7 +80,7 @@ export function QuizFlashStage({
                   {item.faceDown ? (
                     <View>
                       <Image
-                        source={CARD_BACK}
+                        source={cardBack}
                         style={{
                           width: flashCardWidth,
                           height: flashCardWidth / CARD_ASPECT,
@@ -136,7 +138,7 @@ export function QuizFlashStage({
                 {item.faceDown ? (
                   <View>
                     <Image
-                      source={CARD_BACK}
+                      source={cardBack}
                       style={{
                         width: flashCardWidth,
                         height: flashCardWidth / CARD_ASPECT,

@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { Href, useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
@@ -14,13 +15,16 @@ import {
   ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { mapById } from '../../engine/betting/casino';
+import { DECK_COVER_ART } from '../../assets/registry';
+import { LUNA_LUXE, mapById } from '../../engine/betting/casino';
 import { progressFor } from '../../engine/achievements/engine';
 import { achievementsForMap } from '../../engine/achievements/mapDefinitions';
 import { INITIAL_STATS } from '../../engine/achievements/stats';
-import { UI_STYLES } from '../../engine/types';
+import { deckCoverEarnedCount } from '../../engine/dojo';
+import { DECK_COVERS } from '../../engine/types';
 import { useModernUi } from '../../hooks/useModernUi';
 import { useAchievementStore } from '../../stores/achievementStore';
+import { useDojoStore } from '../../stores/dojoStore';
 import {
   debugCompleteAllMaps,
   debugCompleteMap,
@@ -65,17 +69,21 @@ import {
 import { Divider } from '../common/Divider';
 import { PressableScale } from '../common/PressableScale';
 import { ProgressBar } from '../common/ProgressBar';
+import { CARD_ASPECT, cardCornerRadius } from './PlayingCard';
 import {
   CountCoachRow,
   DealerSpeedStepper,
-  UI_STYLE_BLURBS,
-  UI_STYLE_LABELS,
-  UiStyleRow,
+  DECK_COVER_BLURB,
+  DECK_COVER_LABELS,
+  deckCoverCaption,
+  DeckCoverRow,
   ToggleRow,
 } from '../settings/SettingsRows';
 
 const TAB_SIZE = layout.touchTarget;
 const MENU_WIDTH = 380;
+/** The deck cover picker's thumbnail, the mock-up's 46pt card. */
+const COVER_THUMB_WIDTH = 46;
 /** The Modern panel is narrower — it hangs from the HUD's ≡ square, inside the felt margin. */
 const MODERN_MENU_WIDTH = 353;
 
@@ -550,6 +558,7 @@ function SettingsTab({
   modern?: boolean;
 }) {
   const settings = useSettingsStore();
+  const flashLevels = useDojoStore((state) => state.flashLevels);
   const map = useGameSessionStore((state) => state.map);
   const deckCount = map?.deckCount ?? 6;
   const pace = map?.dealerPace ?? 1;
@@ -577,14 +586,53 @@ function SettingsTab({
           </MenuRow>
         </View>
         <View style={styles.cardModern}>
-          <MenuSegment
-            name="Look"
-            options={UI_STYLES}
-            labels={UI_STYLE_LABELS}
-            selected={settings.uiStyle}
-            onSelect={settings.setUiStyle}
-          />
-          <Text style={styles.noteModern}>{UI_STYLE_BLURBS[settings.uiStyle]}</Text>
+          <MenuRow label="Look" sub="Deck cover" style={styles.rowFlatModern} />
+          <View style={styles.coverOptionsModern}>
+            {DECK_COVERS.map((cover) => {
+              const earned = deckCoverEarnedCount(flashLevels, cover);
+              const locked = earned === 0;
+              const active = cover === settings.deckCover;
+              const caption = deckCoverCaption(cover, earned, true);
+              return (
+                <Pressable
+                  key={cover}
+                  onPress={() => settings.setDeckCover(cover)}
+                  disabled={locked}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Deck cover ${DECK_COVER_LABELS[cover]}: ${caption}`}
+                  accessibilityState={{ selected: active, disabled: locked }}
+                  style={({ pressed }) => [
+                    styles.coverOptionModern,
+                    active && styles.coverOptionOnModern,
+                    !active && !locked && styles.coverOptionOpenModern,
+                    locked && styles.coverOptionLockedModern,
+                    pressed && !locked && styles.linkPillPressedModern,
+                  ]}
+                >
+                  <View>
+                    <Image
+                      source={DECK_COVER_ART[cover][LUNA_LUXE.id]}
+                      style={styles.coverThumbModern}
+                      contentFit="cover"
+                      accessibilityIgnoresInvertColors
+                    />
+                    {locked ? (
+                      <View style={styles.coverLockModern}>
+                        <Ionicons name="lock-closed" size={16} color={colors.arcadeCream} />
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text style={[styles.coverTitleModern, active && styles.coverTitleOnModern]}>
+                    {DECK_COVER_LABELS[cover]}
+                  </Text>
+                  <Text style={styles.coverCaptionModern} numberOfLines={1}>
+                    {caption}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Text style={styles.noteModern}>{DECK_COVER_BLURB}</Text>
         </View>
         <View style={styles.cardModern}>
           <MenuRow label="Dealer speed" style={styles.rowFlatModern} />
@@ -645,7 +693,11 @@ function SettingsTab({
         />
       </View>
       <View style={styles.card}>
-        <UiStyleRow selected={settings.uiStyle} onSelect={settings.setUiStyle} />
+        <DeckCoverRow
+          selected={settings.deckCover}
+          progress={flashLevels}
+          onSelect={settings.setDeckCover}
+        />
       </View>
       <View style={styles.card}>
         <Text style={styles.sectionLabel}>Dealer speed</Text>
@@ -1166,6 +1218,66 @@ const styles = StyleSheet.create({
     fontFamily: fonts.mono,
     fontSize: fontSizes.caption - 1,
     lineHeight: fontSizes.caption + 3,
+    color: colors.arcadeMuted,
+  },
+  // The deck cover picker: three thumbs, the pick on a gold edge, a cover no
+  // casino has earned yet dimmed under a lock.
+  coverOptionsModern: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  coverOptionModern: {
+    flex: 1,
+    alignItems: 'center',
+    gap: spacing.xxs,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+    paddingHorizontal: spacing.xs,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.arcadeInfoEdge,
+    backgroundColor: colors.arcadeInfoFill,
+  },
+  coverOptionOnModern: {
+    borderColor: colors.arcadeGold,
+    backgroundColor: colors.arcadeGoldTint,
+  },
+  coverOptionOpenModern: {
+    borderColor: colors.arcadeGoldEdge,
+  },
+  coverOptionLockedModern: {
+    opacity: 0.45,
+  },
+  coverThumbModern: {
+    width: COVER_THUMB_WIDTH,
+    height: COVER_THUMB_WIDTH / CARD_ASPECT,
+    borderRadius: cardCornerRadius(COVER_THUMB_WIDTH),
+    backgroundColor: colors.arcadeNight,
+  },
+  coverLockModern: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  coverTitleModern: {
+    fontFamily: fonts.display,
+    fontSize: 20,
+    lineHeight: 22,
+    color: colors.arcadeCream,
+    includeFontPadding: false,
+    marginTop: spacing.xxs,
+  },
+  coverTitleOnModern: {
+    color: colors.arcadeGold,
+  },
+  coverCaptionModern: {
+    fontFamily: fonts.mono,
+    fontSize: fontSizes.caption - 2,
+    lineHeight: fontSizes.caption + 1,
     color: colors.arcadeMuted,
   },
   speedModern: {
