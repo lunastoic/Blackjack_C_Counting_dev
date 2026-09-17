@@ -1,11 +1,16 @@
 import { create } from 'zustand';
 import { Card } from '../engine/cards/card';
+import { mapById } from '../engine/betting/casino';
 import { BET_SPREAD_MAX } from '../engine/betting/betRamp';
 import {
   BetSizeItem,
   buildNumberChoices,
   buildTrainingScript,
   canStillPass,
+  comboChips,
+  comboFastMs,
+  comboMultiplier,
+  flashLevelKey,
   CheckpointTally,
   DeckEstimateItem,
   drawCardGroupItem,
@@ -43,6 +48,7 @@ import {
 import { defaultRng, Rng } from '../engine/shoe/rng';
 import { Shoe } from '../engine/shoe/shoe';
 import { useDailyGoalStore } from './dailyGoalStore';
+import { useEconomyStore } from './economyStore';
 import { useDojoStore, TrainingLevelOutcome } from './dojoStore';
 
 /**
@@ -187,6 +193,24 @@ export interface TrainingState {
   /** That pace set a new best for the level. */
   readonly paceIsBest: boolean;
 
+  /** Fast right answers in a row; a miss drops it, a slow right answer holds it. */
+  readonly combo: number;
+  /** The run's longest combo. */
+  readonly comboBest: number;
+  /** Bonus chips the run's combos have built — paid when the run ends. */
+  readonly comboChips: number;
+  /** Bumps when the multiplier steps up, so the felt can call it out. */
+  readonly comboSerial: number;
+  /** The level's best run before this one (null on a first run). */
+  readonly bestRun: number | null;
+  /** This run has gone past `bestRun`. */
+  readonly bestBeaten: boolean;
+  /** Bumps each time a run passes its best, so the felt calls out every one. */
+  readonly bestSerial: number;
+  /** Set when the run ends: it beat the level's best run / best combo. */
+  readonly runIsBest: boolean;
+  readonly comboIsBest: boolean;
+
   /** Point the felt at a level. Clears any run in progress. */
   readonly load: (mapId: number, level: number) => void;
   /** Begin / restart the level from scratch with fresh cards. */
@@ -213,6 +237,7 @@ let meterTimer: Timer | null = null;
 let rng: Rng = defaultRng;
 let random: Rng = Math.random;
 let bankSerial = 0;
+let bestSerial = 0;
 
 function clearAllTimers(): void {
   for (const timer of timers) {
@@ -304,9 +329,12 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
   let practice: Shoe = practiceShoe(rng);
   /** Per-part results at the checkpoint in progress. */
   let partResults: boolean[] = [];
+  /** The run's bonus is paid and its bests recorded — once per run. */
+  let runSettled = false;
 
   function idleState(mapId: number, level: number) {
     const spec = trainingLevelSpec(mapId, level);
+    runSettled = false;
     return {
       mapId,
       level,
@@ -340,7 +368,77 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
       rightAnswers: 0,
       pace: null,
       paceIsBest: false,
+      combo: 0,
+      comboBest: 0,
+      comboChips: 0,
+      comboSerial: 0,
+      bestRun: useDojoStore.getState().flashBests[flashLevelKey(mapId, level)]?.run ?? null,
+      bestBeaten: false,
+      bestSerial: 0,
+      runIsBest: false,
+      comboIsBest: false,
     };
+  }
+
+  // -------------------------------------------------------------------------
+  // Combo and bests
+  // -------------------------------------------------------------------------
+
+  /** How long the open question has been up (ms); read before the meter is held. */
+  function questionOpenFor(): number {
+    const { meter } = get();
+    return meter.draining ? Math.max(0, Date.now() - meter.at) : Number.POSITIVE_INFINITY;
+  }
+
+  /** One answer into the combo: fast and right grows it (and its bonus), a miss drops it. */
+  function noteCombo(wasCorrect: boolean, openFor: number): void {
+    const { combo, comboBest, comboChips: bonus, comboSerial, meterDrainMs: drainMs, mapId } = get();
+    if (!wasCorrect) {
+      if (combo > 0) {
+        set({ combo: 0 });
+      }
+      return;
+    }
+    if (openFor > comboFastMs(drainMs)) {
+      return;
+    }
+    const next = combo + 1;
+    const multiplier = comboMultiplier(next);
+    set({
+      combo: next,
+      comboBest: Math.max(comboBest, next),
+      comboChips: bonus + comboChips(mapById(mapId)?.maxBet ?? 0, multiplier),
+      comboSerial: multiplier > comboMultiplier(combo) ? comboSerial + 1 : comboSerial,
+    });
+  }
+
+  /** The run's length so far: right answers on a streak drill, checks right on a checkpoint level. */
+  function runLength(): number {
+    const { spec, streak, tally } = get();
+    return isCheckpointLevel(spec) ? tally.correct : streak;
+  }
+
+  /** Call out the moment the run passes the level's previous best. */
+  function noteBest(): void {
+    const { bestRun, bestBeaten } = get();
+    if (!bestBeaten && bestRun !== null && bestRun > 0 && runLength() > bestRun) {
+      bestSerial += 1;
+      set({ bestBeaten: true, bestSerial });
+    }
+  }
+
+  /** The run is over: pay the combo bonus and fold the run into the level's bests. */
+  function settleRun(): void {
+    if (runSettled) {
+      return;
+    }
+    runSettled = true;
+    const { mapId, level, comboChips: bonus, comboBest } = get();
+    if (bonus > 0) {
+      useEconomyStore.getState().creditChips(bonus);
+    }
+    const best = useDojoStore.getState().recordTrainingBest(mapId, level, runLength(), comboBest);
+    set({ runIsBest: best.runIsBest, comboIsBest: best.comboIsBest });
   }
 
   // -------------------------------------------------------------------------
@@ -428,6 +526,7 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
   /** The run is over: complete once cleared, failed before that. */
   function endRun(): void {
     clearAllTimers();
+    settleRun();
     set({ status: isClearingStars(get().stars) ? 'levelComplete' : 'failed' });
   }
 
@@ -497,6 +596,7 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
     }
     const correct = streakCorrect(state.item);
     const wasCorrect = value === correct;
+    noteCombo(wasCorrect, questionOpenFor());
     holdMeter();
     if (wasCorrect) {
       feedMeter();
@@ -516,6 +616,7 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
     if (wasCorrect) {
       const streak = state.streak + 1;
       set({ question, streak });
+      noteBest();
       const reached = starsReached(state.targets, streak);
       if (reached > state.stars && !reachStars(reached)) {
         return true;
@@ -626,6 +727,7 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
     }
     const checkpoint = script.checkpoints[state.checkpointIndex];
     const wasCorrect = value === question.correct;
+    noteCombo(wasCorrect, questionOpenFor());
     holdMeter();
     if (wasCorrect) {
       feedMeter();
@@ -647,6 +749,7 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
     const tally = recordCheckpoint(state.tally, askedParts, partResults);
     const isLast = state.checkpointIndex + 1 >= script.checkpoints.length;
     set({ question: answered, tally });
+    noteBest();
 
     // The level's misses are the whole run's strikes, stretch included.
     if (!canStillPass(spec.pass, tally, totalCheckpoints(spec))) {
@@ -761,6 +864,7 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
       if (get().status !== 'cleared') {
         return;
       }
+      settleRun();
       set({ status: 'levelComplete' });
     },
 
@@ -775,6 +879,10 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
 
     reset: () => {
       clearAllTimers();
+      // Leaving a cleared run at its pause still banks what it built.
+      if (get().status === 'cleared') {
+        settleRun();
+      }
       const { mapId, level } = get();
       set(idleState(mapId, level));
     },

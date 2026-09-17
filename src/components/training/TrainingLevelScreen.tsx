@@ -11,6 +11,7 @@ import { CARDS_PER_DECK } from '../../engine/cards/deck';
 import {
   CLEAR_STARS,
   decksRemainingEstimate,
+  flashLevelKey,
   trueCountFromDecks,
   DOJO_XP,
   isCheckpointLevel,
@@ -32,7 +33,7 @@ import { BET_SPREAD_MAX } from '../../engine/betting/betRamp';
 import { useModernUi } from '../../hooks/useModernUi';
 import { playSound } from '../../services/audio';
 import { haptics } from '../../services/haptics';
-import { useDojoStore } from '../../stores/dojoStore';
+import { TrainingBest, useDojoStore } from '../../stores/dojoStore';
 import { FLASH_DEBUG_AVAILABLE, useFlashDebugStore } from '../../stores/flashDebugStore';
 import { StreakItem, TrainingQuestion, useTrainingStore } from '../../stores/trainingStore';
 import { colors, fontSizes, fontWeights, layout, spacing } from '../../theme';
@@ -60,6 +61,7 @@ import { AccuracyRows, accuracyRows } from './AccuracyRows';
 import { BetSizeStage } from './BetSizeStage';
 import { ChoiceGrid, CountPad } from './AnswerPads';
 import { CardsStage } from './CardsStage';
+import { ComboCallout } from './ComboCallout';
 import { CountEntry } from './CountEntry';
 import { CountStreamStage } from './CountStreamStage';
 import { DeckEstimateStage } from './DeckEstimateStage';
@@ -130,6 +132,12 @@ function streakKind(item: StreakItem | null): QuestionKind {
   }
 }
 
+/** The brief's personal-best pill: "Best 27 right · combo 12". */
+function bestLine(best: TrainingBest, checkpoints: boolean): string {
+  const run = `Best ${best.run} ${checkpoints ? 'checks' : 'right'}`;
+  return best.combo > 0 ? `${run} · combo ${best.combo}` : run;
+}
+
 /** A bet's nudge keys read ±1, not "±1 units". */
 function entryKeyFormat(kind: QuestionKind): ((value: number) => string) | undefined {
   return kind === 'betUnits' ? formatCount : undefined;
@@ -180,6 +188,14 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   const meter = useTrainingStore((state) => state.meter);
   const meterDrainMs = useTrainingStore((state) => state.meterDrainMs);
   const timedOut = useTrainingStore((state) => state.timedOut);
+  const combo = useTrainingStore((state) => state.combo);
+  const comboBest = useTrainingStore((state) => state.comboBest);
+  const comboSerial = useTrainingStore((state) => state.comboSerial);
+  const comboChipsEarned = useTrainingStore((state) => state.comboChips);
+  const bestSerial = useTrainingStore((state) => state.bestSerial);
+  const runIsBest = useTrainingStore((state) => state.runIsBest);
+  const comboIsBest = useTrainingStore((state) => state.comboIsBest);
+  const levelBest = useDojoStore((state) => state.flashBests[flashLevelKey(mapId, level)]);
   const tableOpen = useDojoStore((state) => state.isMapFlashComplete(mapId));
   const cleared = useDojoStore((state) => isFlashLevelDone(state.flashLevels, mapId, level));
 
@@ -815,6 +831,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
         {status === 'failed' ? (
           <View style={styles.actionRow}>
             {stars > 0 ? <Text style={styles.banked}>{starGlyphs(stars)} banked</Text> : null}
+            {runSummary ? <Text style={styles.banked}>{runSummary}</Text> : null}
             <PrimaryButton label="Try again" onPress={begin} />
             <Text style={styles.replayLink} onPress={reset} accessibilityRole="button">
               Back to the brief
@@ -837,6 +854,14 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
       ? `${streak} in a row.`
       : `${streak} right, ${misses === 1 ? 'one strike' : `${misses} strikes`}.`;
   const nextUp = nextSpec ? `Next up: ${nextSpec.title}.` : 'The table is already open.';
+  /** "New best run · combo ×12 · +138 combo chips" — what the run's pace earned. */
+  const runSummary = [
+    runIsBest ? 'New best run' : null,
+    comboBest >= 5 ? `best combo ${comboBest}${comboIsBest ? ' (new best)' : ''}` : null,
+    comboChipsEarned > 0 ? `+${formatChips(comboChipsEarned)} combo chips` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
   // Short of the third star, say what it takes; the level map shows the best.
   const completeBody = stars < STAR_COUNT ? `${stretchLine(spec, targets)} ${nextUp}` : nextUp;
 
@@ -917,6 +942,9 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
           ]}
         >
           <StarBankToast bank={passingBank} />
+          {status !== 'idle' ? (
+            <ComboCallout combo={combo} serial={comboSerial} bestSerial={bestSerial} />
+          ) : null}
           {renderPanel()}
         </View>
 
@@ -934,7 +962,10 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
               body={spec.brief}
               starTargets={targets}
               starUnit={checkpointSpec ? 'checks' : 'right'}
-              rules={requirementChips(spec, { starTargets: false })}
+              rules={[
+                ...requirementChips(spec, { starTargets: false }),
+                ...(levelBest ? [bestLine(levelBest, checkpointSpec !== null)] : []),
+              ]}
               startLabel={hasBegun ? 'Start again' : 'Start training'}
               onStart={handleBegin}
               // Always a tap away, even when Start plays it itself on a first attempt.
@@ -966,6 +997,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
           chipsAwarded={outcome?.chipsAwarded ?? 0}
           pace={pace}
           paceIsBest={paceIsBest}
+          runSummary={runSummary}
           title={completeTitle}
           body={completeBody}
           scorecard={isExam ? accuracyRows(tally) : undefined}

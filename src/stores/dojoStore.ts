@@ -45,6 +45,18 @@ export interface DojoState {
    * when this run set a new best for the level.
    */
   readonly recordTrainingPace: (mapId: number, level: number, pace: number) => boolean;
+  /** Personal bests per training level: the longest run and the longest combo. */
+  readonly flashBests: Readonly<Record<string, TrainingBest>>;
+  /**
+   * Folds a finished run into the level's bests (each only ever goes up) and
+   * says which it beat. A level's first run sets a best but beats nothing.
+   */
+  readonly recordTrainingBest: (
+    mapId: number,
+    level: number,
+    run: number,
+    combo: number,
+  ) => { readonly runIsBest: boolean; readonly comboIsBest: boolean };
 
   readonly startOnboarding: () => void;
   readonly finishOnboarding: () => void;
@@ -68,6 +80,13 @@ export interface DojoState {
   readonly nextFlashLevel: (mapId: number) => number | null;
   readonly isMapFlashComplete: (mapId: number) => boolean;
   readonly hydrate: (data: DojoSave) => void;
+}
+
+export interface TrainingBest {
+  /** Right answers (streak drills) or checks right (checkpoint levels) in one run. */
+  readonly run: number;
+  /** Fast right answers in a row. */
+  readonly combo: number;
 }
 
 export interface TrainingLevelOutcome {
@@ -98,6 +117,7 @@ export const useDojoStore = create<DojoState>()((set, get) => ({
   flashLevels: {},
   flashCountTipSeen: false,
   flashPace: {},
+  flashBests: {},
 
   markFlashCountTipSeen: () => set({ flashCountTipSeen: true }),
 
@@ -110,6 +130,22 @@ export const useDojoStore = create<DojoState>()((set, get) => ({
     }
     set({ flashPace: { ...get().flashPace, [key]: rounded } });
     return true;
+  },
+
+  recordTrainingBest: (mapId, level, run, combo) => {
+    const key = flashLevelKey(mapId, level);
+    const previous = get().flashBests[key];
+    const next = {
+      run: Math.max(previous?.run ?? 0, Math.max(0, Math.round(run))),
+      combo: Math.max(previous?.combo ?? 0, Math.max(0, Math.round(combo))),
+    };
+    if (!previous || next.run !== previous.run || next.combo !== previous.combo) {
+      set({ flashBests: { ...get().flashBests, [key]: next } });
+    }
+    return {
+      runIsBest: previous !== undefined && run > previous.run,
+      comboIsBest: previous !== undefined && combo > previous.combo,
+    };
   },
 
   startOnboarding: () => set({ onboardingDone: false }),
@@ -223,6 +259,7 @@ export const useDojoStore = create<DojoState>()((set, get) => ({
       flashLevels: {},
       flashCountTipSeen: false,
       flashPace: {},
+      flashBests: {},
     }),
 
   isLessonUnlocked: (lessonId) =>
@@ -284,5 +321,6 @@ export const useDojoStore = create<DojoState>()((set, get) => ({
       flashLevels: { ...data.flashLevels },
       flashCountTipSeen: data.flashCountTipSeen,
       flashPace: { ...data.flashPace },
+      flashBests: { ...data.flashBests },
     }),
 }));

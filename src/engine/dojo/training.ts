@@ -146,6 +146,41 @@ const METER_MAP_MS: readonly number[] = [12000, 10000, 8500, 7500, 6500, 5500];
  */
 const METER_LEVEL_FACTOR: readonly number[] = [1, 1, 0.95, 0.95, 0.9, 0.9];
 
+// ---------------------------------------------------------------------------
+// Combo
+// ---------------------------------------------------------------------------
+
+/**
+ * Right answers given fast, one after another, build a combo. "Fast" is the
+ * meter's own pace — inside the share of the drain one right answer refills —
+ * so the bar rises with the casino. A slow right answer holds the combo; a
+ * miss drops it.
+ */
+export function comboFastMs(drainMs: number): number {
+  return drainMs * METER_TOP_UP;
+}
+
+/** Combo lengths where the multiplier steps up: ×2 at 5, ×3 at 10, ×4 at 15. */
+export const COMBO_TIERS: readonly { readonly at: number; readonly multiplier: number }[] = [
+  { at: 15, multiplier: 4 },
+  { at: 10, multiplier: 3 },
+  { at: 5, multiplier: 2 },
+];
+
+export function comboMultiplier(combo: number): number {
+  return COMBO_TIERS.find((tier) => combo >= tier.at)?.multiplier ?? 1;
+}
+
+/** Bonus chips for one fast right answer on a multiplier: 0.2% of the casino's max bet per step. */
+const COMBO_CHIP_SHARE = 0.002;
+
+export function comboChips(maxBet: number, multiplier: number): number {
+  if (multiplier < 2) {
+    return 0;
+  }
+  return Math.max(1, Math.round(maxBet * COMBO_CHIP_SHARE)) * (multiplier - 1);
+}
+
 /** Typing an exact answer takes longer than tapping one of four, so typed levels get more meter. */
 export const ENTRY_METER_FACTOR = 1.6;
 

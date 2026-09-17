@@ -6,7 +6,7 @@ import { z } from 'zod';
  * (GameSettings, LifetimeStats, PlayerProgress) rather than duplicating logic.
  */
 
-export const SAVE_SCHEMA_VERSION = 19;
+export const SAVE_SCHEMA_VERSION = 20;
 
 export const MAX_DISPLAY_NAME_LENGTH = 20;
 export const DEFAULT_DISPLAY_NAME = 'Player';
@@ -203,6 +203,14 @@ export const dojoSchema = z.object({
   flashCountTipSeen: z.boolean(),
   /** Best pace per training level (v14): "mapId:level" → right answers per minute. */
   flashPace: z.record(z.string(), z.number().int().min(0)),
+  /**
+   * Personal bests per training level (v20): "mapId:level" → the longest run
+   * (right answers, or checks right) and the longest combo.
+   */
+  flashBests: z.record(
+    z.string(),
+    z.object({ run: z.number().int().min(0), combo: z.number().int().min(0) }),
+  ),
 });
 
 const rankSchema = z.union([

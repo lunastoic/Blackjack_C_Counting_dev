@@ -155,7 +155,11 @@ describe('training store — streak drills', () => {
     expect(store().status).toBe('levelComplete');
     expect(store().stars).toBe(3);
     expect(store().outcome).toMatchObject({ stars: 3, firstClear: true, chipsAwarded: 175 });
-    expect(useEconomyStore.getState().chips).toBe(chipsBefore + 175);
+    // Every answer was instant, so the combo climbed to ×4 and paid its bonus on top:
+    // 5 answers at ×2 (2 chips), 5 at ×3 (4), 18 at ×4 (6) on Luna Luxe's 1,000 table.
+    expect(store().comboBest).toBe(32);
+    expect(store().comboChips).toBe(5 * 2 + 5 * 4 + 18 * 6);
+    expect(useEconomyStore.getState().chips).toBe(chipsBefore + 175 + store().comboChips);
     expect(useDojoStore.getState().flashLevels[flashLevelKey(1, 1)]).toBe(3);
   });
 
@@ -214,6 +218,25 @@ describe('training store — streak drills', () => {
     expect(useDojoStore.getState().flashPace[flashLevelKey(1, 1)]).toBeUndefined();
   });
 
+  it('a slow right answer holds the combo, a miss drops it, and an abandoned run records nothing', () => {
+    store().load(1, 1);
+    store().begin();
+    expect(store().bestRun).toBeNull();
+    for (let n = 1; n <= 6; n++) {
+      answerCorrectly();
+    }
+    expect(store().combo).toBe(6);
+    expect(store().comboSerial).toBe(1); // ×2 at five
+    jest.advanceTimersByTime(store().meterDrainMs * 0.3); // past the fast window, meter still up
+    answerCorrectly();
+    expect(store().combo).toBe(6);
+    answerWrongly();
+    expect(store().combo).toBe(0);
+    expect(store().comboBest).toBe(6);
+    store().reset();
+    expect(useDojoStore.getState().flashBests[flashLevelKey(1, 1)]).toBeUndefined();
+  });
+
   it('a star already paid on a level pays nothing again; a higher one still does', () => {
     const chipsBefore = useEconomyStore.getState().chips;
     store().begin();
@@ -221,7 +244,10 @@ describe('training store — streak drills', () => {
       answerCorrectly();
     }
     store().stopRun();
-    expect(useEconomyStore.getState().chips).toBe(chipsBefore + 75);
+    // Instant answers build the combo: 5 at ×2 (2 chips), 5 at ×3 (4), the rest at ×4 (6).
+    const firstBonus = 5 * 2 + 5 * 4 + 7 * 6;
+    expect(store().comboChips).toBe(firstBonus);
+    expect(useEconomyStore.getState().chips).toBe(chipsBefore + 75 + firstBonus);
 
     store().begin();
     for (let n = 1; n <= 21; n++) {
@@ -230,14 +256,18 @@ describe('training store — streak drills', () => {
     expect(store().status).toBe('cleared');
     expect(store().starBank).toMatchObject({ stars: 2, chips: 0 });
     expect(store().outcome).toMatchObject({ stars: 2, firstClear: false, chipsAwarded: 0 });
-    expect(useEconomyStore.getState().chips).toBe(chipsBefore + 75);
+    // The bonus waits for the run to end.
+    expect(useEconomyStore.getState().chips).toBe(chipsBefore + 75 + firstBonus);
     store().keepGoing();
     for (let n = 22; n <= 32; n++) {
       answerCorrectly();
     }
     expect(store().status).toBe('levelComplete');
     expect(store().outcome).toMatchObject({ stars: 3, firstClear: false, chipsAwarded: 100 });
-    expect(useEconomyStore.getState().chips).toBe(chipsBefore + 175);
+    const secondBonus = 5 * 2 + 5 * 4 + 18 * 6;
+    expect(store().comboChips).toBe(secondBonus);
+    expect(store().runIsBest).toBe(true);
+    expect(useEconomyStore.getState().chips).toBe(chipsBefore + 175 + firstBonus + secondBonus);
   });
 
   it('running out of strikes on the stretch keeps the clear: the run ends complete at two stars', () => {

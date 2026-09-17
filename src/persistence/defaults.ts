@@ -68,6 +68,7 @@ export function createDefaultSave(): SaveData {
       flashLevels: {},
       flashCountTipSeen: false,
       flashPace: {},
+      flashBests: {},
     },
     weakSpots: {
       spots: [],

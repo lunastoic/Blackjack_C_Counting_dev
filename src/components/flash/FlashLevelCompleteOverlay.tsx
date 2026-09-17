@@ -22,6 +22,8 @@ interface FlashLevelCompleteOverlayProps {
   readonly pace?: number | null;
   /** The run's pace beat the level's previous best. */
   readonly paceIsBest?: boolean;
+  /** Bests and combo bonus from the run, one line ("New best run · +138 combo chips"). */
+  readonly runSummary?: string;
   /** Headline for the clear — "21 in a row." / "10 of 10 checks." */
   readonly title: string;
   /** What comes next — "Next up: Card Groups." */
@@ -49,6 +51,7 @@ export function FlashLevelCompleteOverlay({
   chipsAwarded,
   pace = null,
   paceIsBest = false,
+  runSummary,
   title,
   body,
   scorecard,
@@ -118,6 +121,13 @@ export function FlashLevelCompleteOverlay({
             <Text style={[styles.pace, paceIsBest && styles.paceBest]}>
               {pace}/min{paceIsBest ? ' · new best pace' : ''}
             </Text>
+          </View>
+        ) : null}
+
+        {runSummary ? (
+          <View style={styles.paceRow} accessibilityLabel={runSummary}>
+            <Ionicons name="flame" size={14} color={colors.goldBright} />
+            <Text style={[styles.pace, styles.paceBest]}>{runSummary}</Text>
           </View>
         ) : null}
 

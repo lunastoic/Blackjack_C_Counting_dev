@@ -391,6 +391,13 @@ function migrateV18toV19(data: unknown): unknown {
   };
 }
 
+/** v20: training levels keep a personal best — every save starts with none. */
+function migrateV19toV20(data: unknown): unknown {
+  const save = (data ?? {}) as Record<string, unknown>;
+  const dojo = (save.dojo ?? {}) as Record<string, unknown>;
+  return { ...save, dojo: { ...dojo, flashBests: {} } };
+}
+
 export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -410,6 +417,7 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   16: migrateV16toV17,
   17: migrateV17toV18,
   18: migrateV18toV19,
+  19: migrateV19toV20,
 };
 
 export class MigrationError extends Error {
