@@ -5,6 +5,8 @@ import { BET_SPREAD_MAX } from '../engine/betting/betRamp';
 import {
   BetSizeItem,
   buildNumberChoices,
+  IndexPlayItem,
+  makeIndexPlayItem,
   buildTrainingScript,
   canStillPass,
   comboChips,
@@ -98,7 +100,8 @@ export type StreakItem =
   | { readonly kind: 'cards'; readonly cards: readonly Card[]; readonly correct: number }
   | { readonly kind: 'deckEstimate'; readonly item: DeckEstimateItem }
   | { readonly kind: 'trueCount'; readonly item: TrueCountItem }
-  | { readonly kind: 'betSize'; readonly item: BetSizeItem };
+  | { readonly kind: 'betSize'; readonly item: BetSizeItem }
+  | { readonly kind: 'indexPlay'; readonly item: IndexPlayItem };
 
 export interface TrainingQuestion {
   readonly kind: QuestionKind;
@@ -331,6 +334,8 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
   let partResults: boolean[] = [];
   /** The run's bonus is paid and its bests recorded — once per run. */
   let runSettled = false;
+  /** When the open question was asked (null between questions). */
+  let openedAt: number | null = null;
 
   function idleState(mapId: number, level: number) {
     const spec = trainingLevelSpec(mapId, level);
@@ -386,8 +391,7 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
 
   /** How long the open question has been up (ms); read before the meter is held. */
   function questionOpenFor(): number {
-    const { meter } = get();
-    return meter.draining ? Math.max(0, Date.now() - meter.at) : Number.POSITIVE_INFINITY;
+    return openedAt !== null ? Math.max(0, Date.now() - openedAt) : Number.POSITIVE_INFINITY;
   }
 
   /** One answer into the combo: fast and right grows it (and its bonus), a miss drops it. */
@@ -445,11 +449,19 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
   // Answer meter
   // -------------------------------------------------------------------------
 
-  /** A question just opened: drain from wherever the meter stands. */
+  /**
+   * A question just opened: drain from wherever the meter stands. Only the
+   * streak drills race the meter — on a count stream or a table the skill is
+   * keeping the count, so the question waits; speed only feeds the combo.
+   */
   function drainMeter(): void {
-    const { meter, meterDrainMs: drainMs } = get();
+    const { meter, meterDrainMs: drainMs, spec } = get();
     cancelMeterTimer();
     const now = Date.now();
+    openedAt = now;
+    if (isCheckpointLevel(spec)) {
+      return;
+    }
     const fill = meterFillAt(meter, drainMs, now);
     set({ meter: { fill, at: now, draining: true } });
     meterTimer = schedule(meterEmpty, fill * drainMs);
@@ -462,8 +474,9 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
     const now = Date.now();
     set({
       meter: { fill: meterFillAt(meter, drainMs, now), at: now, draining: false },
-      openMs: openMs + (meter.draining ? Math.max(0, now - meter.at) : 0),
+      openMs: openMs + (openedAt !== null ? Math.max(0, now - openedAt) : 0),
     });
+    openedAt = null;
   }
 
   /** A right answer tops the (held) meter up, never past full, and counts for the pace. */
@@ -577,6 +590,9 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
         break;
       case 'betSize':
         item = { kind: 'betSize', item: makeBetSizeItem(spec, random) };
+        break;
+      case 'indexPlay':
+        item = { kind: 'indexPlay', item: makeIndexPlayItem(spec, random) };
         break;
       default:
         return;

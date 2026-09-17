@@ -1,7 +1,8 @@
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import React from 'react';
+import { ShoeRunScreen } from '../../../components/training/ShoeRunScreen';
 import { TrainingLevelScreen } from '../../../components/training/TrainingLevelScreen';
-import { isFlashLevel } from '../../../engine/dojo';
+import { isFlashLevel, trainingLevelSpec } from '../../../engine/dojo';
 import { mapById } from '../../../engine/betting/casino';
 import { useDojoStore } from '../../../stores/dojoStore';
 import { FLASH_DEBUG_AVAILABLE, useFlashDebugStore } from '../../../stores/flashDebugStore';
@@ -24,6 +25,10 @@ export default function FlashLevelRoute() {
   }
   if (!(mapUnlocked && unlocked) && !debugUnlockAll) {
     return <Redirect href={{ pathname: '/levels/[mapId]', params: { mapId: String(mapId) } }} />;
+  }
+  // Each casino's boss is a shoe the trainee plays, not a drill.
+  if (trainingLevelSpec(mapId, level).mode === 'shoeRun') {
+    return <ShoeRunScreen mapId={mapId} level={level} />;
   }
   return <TrainingLevelScreen mapId={mapId} level={level} />;
 }

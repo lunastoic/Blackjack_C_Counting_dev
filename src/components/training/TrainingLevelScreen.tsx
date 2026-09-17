@@ -10,6 +10,7 @@ import { hiLoValue } from '../../engine/cards/card';
 import { CARDS_PER_DECK } from '../../engine/cards/deck';
 import {
   CLEAR_STARS,
+  decisionLabel,
   decksRemainingEstimate,
   flashLevelKey,
   trueCountFromDecks,
@@ -62,6 +63,7 @@ import { BetSizeStage } from './BetSizeStage';
 import { ChoiceGrid, CountPad } from './AnswerPads';
 import { CardsStage } from './CardsStage';
 import { ComboCallout } from './ComboCallout';
+import { IndexPlayStage } from './IndexPlayStage';
 import { CountEntry } from './CountEntry';
 import { CountStreamStage } from './CountStreamStage';
 import { DeckEstimateStage } from './DeckEstimateStage';
@@ -103,8 +105,10 @@ const ENTRY_BOUNDS: Record<QuestionKind, { min: number; max: number }> = {
   betUnits: { min: 1, max: BET_SPREAD_MAX },
 };
 
-function streakPrompt(spec: TrainingLevelSpec): string {
+function streakPrompt(spec: TrainingLevelSpec, item: StreakItem | null): string {
   switch (spec.mode) {
+    case 'indexPlay':
+      return item?.kind === 'indexPlay' && item.item.question === 'insurance' ? 'INSURANCE?' : 'YOUR PLAY?';
     case 'cardValue':
       return 'CARD VALUE?';
     case 'cardGroup':
@@ -486,6 +490,16 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
         return item?.kind === 'trueCount' ? (
           <TrueCountStage item={item.item} reveal={revealing} serial={itemSerial} />
         ) : null;
+      case 'indexPlay':
+        return item?.kind === 'indexPlay' ? (
+          <IndexPlayStage
+            item={item.item}
+            cardWidth={Math.round(SINGLE_CARD_WIDTH * 0.8)}
+            speed={speed.animation}
+            reveal={revealing}
+            serial={itemSerial}
+          />
+        ) : null;
       case 'betSize':
         return item?.kind === 'betSize' ? (
           <BetSizeStage item={item.item} showRamp={spec.showRamp} reveal={revealing} serial={itemSerial} />
@@ -545,6 +559,18 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
             correct={correct}
             disabled={disabled}
             format={formatCount}
+            onPress={handleAnswer}
+          />
+        );
+      }
+      if (item.kind === 'indexPlay') {
+        return (
+          <ChoiceGrid
+            choices={item.item.choices}
+            selected={selected}
+            correct={correct}
+            disabled={disabled}
+            format={decisionLabel}
             onPress={handleAnswer}
           />
         );
@@ -655,7 +681,10 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
 
   function feedbackLine(current: TrainingQuestion): string {
     const kind = checkpointSpec ? current.kind : streakKind(item);
-    const right = formatAnswer(kind, current.correct);
+    const right =
+      !checkpointSpec && item?.kind === 'indexPlay'
+        ? decisionLabel(current.correct)
+        : formatAnswer(kind, current.correct);
     if (current.wasCorrect) {
       return `Correct — ${right}`;
     }
@@ -745,7 +774,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
     }
 
     if (status === 'asking') {
-      const prompt = checkpointSpec && question ? questionPrompt(question.kind, question.isFinal) : streakPrompt(spec);
+      const prompt = checkpointSpec && question ? questionPrompt(question.kind, question.isFinal) : streakPrompt(spec, item);
       return (
         <View style={styles.questionSection}>
           {question && question.givens.length > 0 ? (
@@ -894,7 +923,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
       {/* The Modern brief carries the stars, strikes and pace itself, and needs
           the strip's height to stay one page. */}
       {modern && status === 'idle' ? null : <TrainingStatusStrip cells={cells} />}
-      {seated ? <TrainingMeter meter={meter} drainMs={meterDrainMs} /> : null}
+      {seated && !checkpointSpec ? <TrainingMeter meter={meter} drainMs={meterDrainMs} /> : null}
 
       {/* The felt and the panel share one box so the Modern brief can lie
           over both — the deck stays dealt underneath, ready for the primer. */}

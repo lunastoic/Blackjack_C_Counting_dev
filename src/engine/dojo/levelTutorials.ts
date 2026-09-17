@@ -41,19 +41,21 @@ const LEVEL_TUTORIALS: Readonly<Record<string, readonly TutorialSlide[]>> = {
   ),
   '1:5': slides(
     ['The count is yours to keep', 'Cards come one at a time and the total is never shown. Start at 0 and add each card.'],
-    ['When the deal pauses', 'Tap the running count. Eight checks, all correct — one miss restarts the deck.'],
-    ['Finish at zero', 'A full deck has as many highs as lows, so it always ends at 0. That is the final question.'],
+    ['When the deal pauses', 'Tap the running count. Ten checks, all correct — one miss restarts the deck.'],
   ),
   '1:6': slides(
-    ['Real blackjack, played for you', 'No chips, no decisions. Just watch the cards.'],
-    ['Count everything you can see', 'Both player cards, the dealer’s up card, every hit. The hole card counts when it flips.'],
-    ['Six checks', 'All six right and the table opens.'],
+    ['Boss: your hands, your count', 'A one-deck shoe. You play every hand — the glowing button is the book play.'],
+    ['Count before you bet', 'Before each hand, call the running count. The hole card counts when it flips.'],
+    ['Eighty percent clears it', 'Ten hands. Every count right earns all three stars.'],
   ),
 
   // -------------------------------------------------------------------------
-  // Map 2 — Speed & Cancellation
+  // Map 2 — Table Speed
   // -------------------------------------------------------------------------
-  '2:1': slides(['Same values, faster', 'One card, tap its value. Twenty-one right clears it — two strikes now.']),
+  '2:1': slides(
+    ['All 52 cards, at speed', 'One card at a time, the total never shown. Eight checks along the way.'],
+    ['Finish at zero', 'A full deck has as many highs as lows, so it always ends at 0. That is the final question.'],
+  ),
   '2:2': slides(
     ['Pairs on sight', 'A high with a low is 0. Two lows are +2, two highs are −2.'],
     ['Recognise, don’t add', 'Call the pair the moment it lands. Twenty-one right, two strikes.'],
@@ -62,14 +64,17 @@ const LEVEL_TUTORIALS: Readonly<Record<string, readonly TutorialSlide[]>> = {
     ['Three to six cards, mixed', 'Group sizes come at random.'],
     ['Pair off, then count', 'Match highs against lows first. Count what is left. Twenty-one right, two strikes.'],
   ),
-  '2:4': slides(['A full deck, quicker', 'One card at a time, no total shown. Ten checks, all correct.']),
-  '2:5': slides(
+  '2:4': slides(
     ['Two players and the dealer', 'Everyone gets two cards, all face up. Nobody plays on.'],
     ['Count each hand as a group', 'Cancel within the hand, then add it to the running count. Eight checks, all correct.'],
   ),
-  '2:6': slides(
+  '2:5': slides(
     ['Two decks, no reshuffle', 'The count carries across every hand until the shoe runs out.'],
     ['Hands play themselves', 'Every hit and the hole flip count. Ten checks, all correct.'],
+  ),
+  '2:6': slides(
+    ['Boss: two decks at table speed', 'Your hands, dealt fast. Call the running count before every hand.'],
+    ['Eighty-five percent clears it', 'Fourteen hands. Every count right for three stars.'],
   ),
 
   // -------------------------------------------------------------------------
@@ -94,8 +99,8 @@ const LEVEL_TUTORIALS: Readonly<Record<string, readonly TutorialSlide[]>> = {
     ['Ten right to pass', 'You may miss two deck estimates. Never the running count.'],
   ),
   '3:6': slides(
-    ['Live table, six decks', 'Two players and the dealer. Glance at the tray between hands.'],
-    ['Fourteen checks', 'Twelve right, and no more than one running-count miss.'],
+    ['Boss: a six-deck shoe', 'You play every hand. Before each one, the running count or the decks left — typed.'],
+    ['Read the tray as you go', 'Sixteen hands. Eighty-five percent clears it, every call right for three stars.'],
   ),
 
   // -------------------------------------------------------------------------
@@ -122,12 +127,12 @@ const LEVEL_TUTORIALS: Readonly<Record<string, readonly TutorialSlide[]>> = {
     ['Eleven right', 'At most one running-count miss.'],
   ),
   '4:6': slides(
-    ['Live six-deck blackjack', 'Two players and the dealer. Every question kind, in any order.'],
-    ['Fourteen checks, thirteen right', 'At most one running-count miss.'],
+    ['Boss: count, divide, play', 'Six decks, your hands. Before each one, the running count or the true count.'],
+    ['Round down', 'Sixteen hands. Eighty-five percent clears it, every call right for three stars.'],
   ),
 
   // -------------------------------------------------------------------------
-  // Map 5 — Real Table Counting
+  // Map 5 — Betting the Count
   // -------------------------------------------------------------------------
   '5:1': slides(
     ['Why you count', 'The count tells you when the shoe favours you. That is when the bet goes up.'],
@@ -135,36 +140,38 @@ const LEVEL_TUTORIALS: Readonly<Record<string, readonly TutorialSlide[]>> = {
     ['One to eight units', 'Flat or cold, bet 1 unit. Never more than 8. Twenty-one right, one strike.'],
   ),
   '5:2': slides(
-    ['Two players and the dealer', 'Cards land in table order: one to each seat, then the second round.'],
-    ['Count them as they fall', 'Not hand by hand. Ten checks, all correct.'],
+    ['The dealer shows an Ace', 'Insurance is a side bet that the hole card is a ten. It loses money at a normal count.'],
+    ['Take it at +3', 'At a true count of +3 or higher the shoe is rich in tens and it pays. Below, always decline.'],
   ),
   '5:3': slides(
-    ['Four seats, two decks', 'Splits and doubles included. Every exposed card counts.'],
-    ['Ten checks, nine right', 'At most one running-count miss.'],
-  ),
-  '5:4': slides(
     ['Three players, four decks', 'Twelve random checks: running count, decks remaining or true count.'],
     ['Eleven right', 'At most one running-count miss.'],
   ),
-  '5:5': slides(
+  '5:4': slides(
     ['Full table, six decks, faster', 'Fewer pauses between checks.'],
     ['Fourteen checks, thirteen right', 'At most one running-count miss.'],
   ),
-  '5:6': slides(
+  '5:5': slides(
     ['Deep into the shoe', 'Six decks dealt to the cut card. Three players.'],
     ['Sixteen questions, fifteen right', 'Any kind, any order. At most one running-count miss.'],
   ),
+  '5:6': slides(
+    ['Boss: bet it', 'Six decks. Size every bet off the count and call insurance on an Ace.'],
+    ['Mind the pit boss', 'Jump from 1 unit to 8 and you draw heat. Too much heat and you are backed off.'],
+    ['You versus a flat bettor', 'At the end, see what your bets won against one unit a hand on the same cards.'],
+  ),
 
   // -------------------------------------------------------------------------
-  // Map 6 — Mastery
+  // Map 6 — Playing the Count
   // -------------------------------------------------------------------------
   '6:1': slides(
-    ['Exact entry', 'No choices this time. Dial in the count and confirm.'],
-    ['Ten checks, all perfect', 'Very fast, nothing shown.'],
+    ['The count changes the play', 'A few hands play differently when the shoe is rich or poor.'],
+    ['Six to learn first', '16 vs 10 stands at 0 · 15 vs 10 at +4 · 10 vs 10 doubles at +4 · 12 vs 3 stands at +2.'],
+    ['Split tens?', 'Only against a 5 at +5 or a 6 at +4. True count given. One strike.'],
   ),
   '6:2': slides(
-    ['Two decks, exact entry', 'Twelve questions. Some ask for decks remaining.'],
-    ['Eleven right', 'Every running-count question must be correct.'],
+    ['Every index play', 'All seventeen plus insurance, the running count and decks left given.'],
+    ['Work out the true count', 'Divide, round down, then make the call. Twenty-one right, one strike.'],
   ),
   '6:3': slides(
     ['Casino speed', 'Six decks. Running count, decks remaining and true count, all exact entry.'],
@@ -179,9 +186,9 @@ const LEVEL_TUTORIALS: Readonly<Record<string, readonly TutorialSlide[]>> = {
     ['Twelve questions, eleven right', 'Any kind. Exact entry.'],
   ),
   '6:6': slides(
-    ['The exam', 'Six decks to the cut card. Full table, casino speed, casino noise.'],
-    ['Twenty questions', 'Eighteen right overall. At most one running-count miss.'],
-    ['Pass to graduate', 'Your results break down by question kind. Ninety percent, and you are certified.'],
+    ['The exam', 'Six decks, twenty-four hands. Counts, bets, insurance and index plays are all graded.'],
+    ['The pit boss is watching', 'Ramp your bets steadily. Too much heat ends the exam.'],
+    ['Eighty-five percent to graduate', 'Ninety-five for three stars.'],
   ),
 };
 

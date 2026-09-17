@@ -10,5 +10,6 @@ export * from './objectives';
 export * from './countFlash';
 export * from './deckCovers';
 export * from './training';
+export * from './shoeRun';
 export * from './levelTutorials';
 export * from './dailyGoal';

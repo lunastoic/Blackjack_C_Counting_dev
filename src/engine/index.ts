@@ -30,6 +30,7 @@ export * from './counting/trueCount';
 export * from './strategy/types';
 export * from './strategy/recommend';
 export * from './strategy/describe';
+export * from './strategy/indexPlays';
 
 // Betting & casino maps
 export * from './betting/bets';

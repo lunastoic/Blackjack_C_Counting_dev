@@ -63,7 +63,11 @@ describe('training ladder — configuration', () => {
         expect(spec.title.length).toBeGreaterThan(0);
         expect(spec.brief.length).toBeGreaterThan(0);
         expect(SPEED_PROFILES[spec.speed]).toBeDefined();
-        expect(isStreakLevel(spec) || isCheckpointLevel(spec)).toBe(true);
+        expect(isStreakLevel(spec) || isCheckpointLevel(spec) || spec.mode === 'shoeRun').toBe(true);
+      }
+      // Every casino ends on its boss: a shoe the trainee plays.
+      expect(map.levels[5].mode).toBe('shoeRun');
+      {
       }
     }
     expect(() => trainingLevelSpec(7, 1)).toThrow(RangeError);
@@ -98,7 +102,7 @@ describe('training ladder — configuration', () => {
     }
   });
 
-  it('Map 1 follows the spec: values → pairs → three cards → four cards → full deck → blackjack test', () => {
+  it('Map 1 follows the spec: values → pairs → three cards → four cards → running count → the boss', () => {
     const [l1, l2, l3, l4, l5, l6] = trainingLevelsForMap(1);
     expect(l1).toMatchObject({ mode: 'cardValue', streakTarget: 21, strikes: 3 });
     expect(l2).toMatchObject({ mode: 'cardGroup', groupSizes: [2], streakTarget: 21, strikes: 3 });
@@ -107,32 +111,36 @@ describe('training ladder — configuration', () => {
     expect(l5).toMatchObject({
       mode: 'countStream',
       deckCount: 1,
-      cardCount: 52,
-      checkpoints: 8,
-      finalCountQuestion: true,
+      cardCount: 36,
+      checkpoints: 10,
+      finalCountQuestion: false,
     });
-    // The original blackjack count test now sits at level 6.
     expect(l6).toMatchObject({
-      mode: 'tableCount',
+      mode: 'shoeRun',
       deckCount: 1,
-      seats: 1,
-      play: 'autoplay',
-      cardBudget: 52,
-      checkpoints: 6,
-      questions: ['runningCount'],
-      pass: { minCorrect: 6, maxRunningCountMisses: 0 },
+      betting: false,
+      heat: false,
+      checks: ['runningCount'],
+      checkEvery: 1,
     });
   });
 
   it('Titan opens on bet sizing, and the late tables ask for the bet', () => {
     expect(trainingLevelSpec(5, 1)).toMatchObject({ mode: 'betSize', title: 'Bet the Count' });
-    for (const [mapId, level] of [[5, 4], [5, 5], [5, 6], [6, 3], [6, 4], [6, 5], [6, 6]]) {
+    expect(trainingLevelSpec(5, 2)).toMatchObject({ mode: 'indexPlay', plays: 'insurance' });
+    for (const [mapId, level] of [[5, 3], [5, 4], [5, 5], [6, 3], [6, 4], [6, 5]]) {
       const spec = trainingLevelSpec(mapId, level);
       if (!isCheckpointLevel(spec)) {
         throw new Error('expected a checkpoint level');
       }
       expect(spec.questions).toContain('betUnits');
     }
+    // Titan's and Kepler's bosses put the bets in the trainee's hands, with the pit boss watching.
+    for (const mapId of [5, 6]) {
+      expect(trainingLevelSpec(mapId, 6)).toMatchObject({ mode: 'shoeRun', betting: true, heat: true, insurance: true });
+    }
+    expect(trainingLevelSpec(6, 1)).toMatchObject({ mode: 'indexPlay', plays: 'top', showTrueCount: true });
+    expect(trainingLevelSpec(6, 2)).toMatchObject({ mode: 'indexPlay', plays: 'all', showTrueCount: false });
   });
 
   it('bet items size the bet from the true count rounded down, minus one, 1 to 8 units', () => {
@@ -156,7 +164,13 @@ describe('training ladder — configuration', () => {
 
   it('answers are picked on Luna Luxe and Io, typed from Europa on (deck estimates stay picked)', () => {
     for (const { map, spec } of allSpecs) {
-      if (map.mapId <= 2 || spec.mode === 'deckEstimate' || spec.mode === 'cardValue' || spec.mode === 'cardGroup') {
+      if (
+        map.mapId <= 2 ||
+        spec.mode === 'deckEstimate' ||
+        spec.mode === 'cardValue' ||
+        spec.mode === 'cardGroup' ||
+        spec.mode === 'indexPlay'
+      ) {
         expect(answersByEntry(spec)).toBe(false);
       } else {
         expect(answersByEntry(spec)).toBe(true);
@@ -169,7 +183,7 @@ describe('training ladder — configuration', () => {
       if (isCheckpointLevel(spec)) {
         expect(spec.pass.minCorrect).toBeLessThanOrEqual(totalCheckpoints(spec));
         expect(spec.pass.minCorrect).toBeGreaterThan(0);
-      } else {
+      } else if (isStreakLevel(spec)) {
         expect(spec.streakTarget).toBeGreaterThan(0);
       }
     }
@@ -178,18 +192,25 @@ describe('training ladder — configuration', () => {
   it('every streak drill is a run of 21, with strikes that taper by map: 3, 2, 1, then none', () => {
     const strikesByMap: Record<number, number> = { 1: 3, 2: 2, 3: 1 };
     for (const { map, spec } of allSpecs) {
-      if (!isCheckpointLevel(spec)) {
+      if (isStreakLevel(spec)) {
         expect(spec.streakTarget).toBe(21);
-        // Bet sizing is a new skill on Titan, so it gets one strike back.
-        const strikes = spec.mode === 'betSize' ? 1 : (strikesByMap[map.mapId] ?? 0);
+        // Bet sizing, insurance and index plays are new skills, so each gets one strike back.
+        const newSkill = spec.mode === 'betSize' || spec.mode === 'indexPlay';
+        const strikes = newSkill ? 1 : (strikesByMap[map.mapId] ?? 0);
         expect(spec.strikes).toBe(strikes);
       }
     }
     const final = trainingLevelSpec(6, 6);
-    expect(final).toMatchObject({ mode: 'tableCount', exam: true, distractions: true, deckCount: 6 });
-    if (final.mode === 'tableCount') {
-      // 18 / 20 = 90% overall, at most one running-count miss.
-      expect(final.pass.minCorrect / final.checkpoints).toBeGreaterThanOrEqual(0.9);
+    expect(final).toMatchObject({
+      mode: 'shoeRun',
+      deckCount: 6,
+      betting: true,
+      heat: true,
+      insurance: true,
+      indexPlays: true,
+    });
+    if (final.mode === 'shoeRun') {
+      expect(final.clearAccuracy).toBeGreaterThanOrEqual(0.85);
     }
   });
 });
@@ -233,7 +254,11 @@ describe('training ladder — star stages', () => {
   it('stages every level at half, the level itself, and half again (halves round up)', () => {
     expect(STAR_COUNT).toBe(3);
     for (const { spec } of allSpecs) {
-      const base = isCheckpointLevel(spec) ? totalCheckpoints(spec) : spec.streakTarget;
+      const base = isCheckpointLevel(spec)
+        ? totalCheckpoints(spec)
+        : spec.mode === 'shoeRun'
+          ? spec.hands
+          : spec.streakTarget;
       const targets = starTargets(spec);
       expect(targets).toEqual([Math.round(base / 2), base, Math.round(base * 1.5)]);
       expect(targets[0]).toBeGreaterThan(0);
@@ -241,7 +266,7 @@ describe('training ladder — star stages', () => {
       expect(targets[1]).toBeLessThan(targets[2]);
     }
     expect(starTargets(trainingLevelSpec(1, 1))).toEqual([11, 21, 32]);
-    expect(starTargets(trainingLevelSpec(1, 5))).toEqual([5, 9, 14]);
+    expect(starTargets(trainingLevelSpec(2, 1))).toEqual([5, 9, 14]);
   });
 
   it('counts the stars reached and names the next target', () => {
@@ -394,7 +419,7 @@ describe('training ladder — streak items', () => {
 });
 
 describe('training ladder — count streams', () => {
-  const fullDeck = trainingLevelSpec(1, 5) as CountStreamLevel;
+  const fullDeck = trainingLevelSpec(2, 1) as CountStreamLevel;
 
   it('a full deck streams 52 unique cards and ends at running count 0', () => {
     for (let seed = 1; seed <= 10; seed++) {
@@ -511,9 +536,16 @@ describe('training ladder — count streams', () => {
 });
 
 describe('training ladder — table scripts', () => {
-  const blackjackTest = trainingLevelSpec(1, 6) as TableCountLevel;
+  // One seat autoplayed through one deck, built off Io's endurance table.
+  const blackjackTest: TableCountLevel = {
+    ...(trainingLevelSpec(2, 5) as TableCountLevel),
+    deckCount: 1,
+    seats: 1,
+    cardBudget: 52,
+    checkpoints: 6,
+  };
 
-  it('Map 1 level 6 autoplays one deck: player and dealer draw to 17, hole flips into the count', () => {
+  it('a one-deck autoplay table: player and dealer draw to 17, hole flips into the count', () => {
     for (let seed = 1; seed <= 10; seed++) {
       const script = buildTableScript(blackjackTest, seededRng(seed));
       expect(script.deckCount).toBe(1);
@@ -546,7 +578,7 @@ describe('training ladder — table scripts', () => {
   });
 
   it('never deals a card the shoe does not have — multi-deck composition holds', () => {
-    const spec = trainingLevelSpec(2, 6) as TableCountLevel;
+    const spec = trainingLevelSpec(2, 5) as TableCountLevel;
     const script = buildTableScript(spec, seededRng(5));
     const ids = visibleCardIds(script);
     expect(new Set(ids).size).toBe(ids.length);
@@ -566,7 +598,7 @@ describe('training ladder — table scripts', () => {
   });
 
   it('deal-only tables show two cards per seat and both dealer cards', () => {
-    const spec = trainingLevelSpec(2, 5) as TableCountLevel;
+    const spec = trainingLevelSpec(2, 4) as TableCountLevel;
     const script = buildTableScript(spec, seededRng(12));
     const openingFrames = script.frames.filter((frame) => frame.beat === 'card');
     expect(openingFrames.length % (2 * (spec.seats + 1))).toBe(0);
@@ -604,19 +636,23 @@ describe('training ladder — table scripts', () => {
     expect(doubles).toBeGreaterThan(0);
   });
 
-  it('the exam and endurance shoes run to the cut card and no further', () => {
-    const exam = trainingLevelSpec(6, 6) as TableCountLevel;
+  it('the endurance shoe runs to the cut card and no further', () => {
+    const exam = trainingLevelSpec(6, 5) as TableCountLevel;
     const script = buildTableScript(exam, seededRng(77));
     const last = script.frames[script.frames.length - 1];
     expect(last.cardsDrawn).toBeGreaterThanOrEqual(exam.cardBudget);
     expect(last.cardsDrawn).toBeLessThanOrEqual(totalCards(6));
-    expect(script.checkpoints).toHaveLength(20);
-    expect(script.frames.some((frame) => frame.beat === 'settle')).toBe(true);
+    expect(script.checkpoints).toHaveLength(exam.checkpoints);
   });
 });
 
 describe('training ladder — checkpoint scoring', () => {
-  const spec = trainingLevelSpec(3, 6) as CheckpointLevelSpec;
+  // Fourteen checks, twelve to pass, at most one running-count miss.
+  const spec: CheckpointLevelSpec = {
+    ...(trainingLevelSpec(3, 5) as CheckpointLevelSpec),
+    checkpoints: 14,
+    pass: { minCorrect: 12, maxRunningCountMisses: 1 },
+  };
 
   it('tallies per kind, counts a checkpoint only when every part is right', () => {
     let tally = recordCheckpoint(EMPTY_TALLY, [{ kind: 'runningCount', correct: 3 }], [true]);

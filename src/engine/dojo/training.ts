@@ -1,10 +1,17 @@
 import { applyPlayerAction, RoundState } from '../blackjack/round';
 import { HandResult, resolveHand } from '../blackjack/resolve';
 import { canDouble, canSplit, dealerShouldHit, PlayerAction } from '../blackjack/rules';
-import { Card, hiLoValue, isFaceUp, withVisibility } from '../cards/card';
+import { Card, hiLoValue, isFaceUp, makeCard, Rank, withVisibility } from '../cards/card';
 import { CARDS_PER_DECK } from '../cards/deck';
 import { betUnitsForTrueCount, BET_SPREAD_MAX } from '../betting/betRamp';
 import { floorTrueCount, roundToNearestHalf } from '../counting/trueCount';
+import {
+  INDEX_PLAYS,
+  indexAction,
+  IndexPlay,
+  INSURANCE_INDEX,
+  TOP_INDEX_PLAY_IDS,
+} from '../strategy/indexPlays';
 import { evaluateCards, isNaturalBlackjack } from '../hand/evaluate';
 import { addCard, createDealerHand, createPlayerHand, DealerHand, PlayerHand } from '../hand/hand';
 import { defaultRng, fisherYatesShuffle, Rng } from '../shoe/rng';
@@ -282,6 +289,50 @@ export interface TrueCountLevel extends StreakBase {
  * Bet sizing: a running count and the decks left, and the trainee sizes the
  * bet in units — true count rounded down, minus one, one to eight units.
  */
+/**
+ * Count-driven decisions: a hand against the dealer's card, the count, and
+ * the call — take insurance or not, or the index play (the chart's play
+ * below the index, the deviation at or above it).
+ */
+export interface IndexPlayLevel extends StreakBase {
+  readonly mode: 'indexPlay';
+  /** Which spots come up: insurance only, the top six, or all of them (with insurance). */
+  readonly plays: 'insurance' | 'top' | 'all';
+  /** Give the true count outright; otherwise the running count and decks left. */
+  readonly showTrueCount: boolean;
+}
+
+/**
+ * Beat the Shoe — each casino's boss. A real shoe at the casino's table: the
+ * trainee plays every hand, answers count checks between hands, and on the
+ * later casinos sizes every bet, calls insurance and makes the index plays.
+ * Every call is graded; the run ends at its hand budget or the cut card, or
+ * early when the pit boss backs the player off. The results set the bets
+ * beside a flat bettor who played the same cards the same way.
+ */
+export interface ShoeRunLevel extends LevelBase {
+  readonly mode: 'shoeRun';
+  readonly deckCount: DeckCount;
+  /** Hands in the run (the cut card can end it sooner). */
+  readonly hands: number;
+  /** The trainee sizes each bet, graded against the ramp. Otherwise one unit a hand. */
+  readonly betting: boolean;
+  /** Big jumps in the bet draw heat; too much and the pit boss ends the run. */
+  readonly heat: boolean;
+  /** Insurance is offered on a dealer Ace and graded. */
+  readonly insurance: boolean;
+  /** Index spots are graded (and the book hint stays quiet on them). */
+  readonly indexPlays: boolean;
+  /** Count questions asked before some hands, in turn. */
+  readonly checks: readonly QuestionKind[];
+  /** Ask a check before every Nth hand (from the second hand on). */
+  readonly checkEvery: number;
+  readonly answerInput: AnswerInput;
+  /** The share of calls right that clears the level, and that earns the third star. */
+  readonly clearAccuracy: number;
+  readonly perfectAccuracy: number;
+}
+
 export interface BetSizeLevel extends StreakBase {
   readonly mode: 'betSize';
   /** Decks remaining may be x.5 values. */
@@ -340,6 +391,8 @@ export type TrainingLevelSpec =
   | DeckEstimateLevel
   | TrueCountLevel
   | BetSizeLevel
+  | IndexPlayLevel
+  | ShoeRunLevel
   | CountStreamLevel
   | TableCountLevel;
 
@@ -350,7 +403,8 @@ export type StreakLevelSpec =
   | CardGroupLevel
   | DeckEstimateLevel
   | TrueCountLevel
-  | BetSizeLevel;
+  | BetSizeLevel
+  | IndexPlayLevel;
 export type CheckpointLevelSpec = CountStreamLevel | TableCountLevel;
 
 export function isStreakLevel(spec: TrainingLevelSpec): spec is StreakLevelSpec {
@@ -359,7 +413,8 @@ export function isStreakLevel(spec: TrainingLevelSpec): spec is StreakLevelSpec 
     spec.mode === 'cardGroup' ||
     spec.mode === 'deckEstimate' ||
     spec.mode === 'trueCount' ||
-    spec.mode === 'betSize'
+    spec.mode === 'betSize' ||
+    spec.mode === 'indexPlay'
   );
 }
 
@@ -452,10 +507,52 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
       {
         mode: 'countStream',
         level: 5,
+        title: 'Running Count Drill',
+        brief:
+          'Cards come one at a time and the count is never shown. Keep it in your head — when the deal pauses, call the running count. Ten checks, all correct; a miss restarts from zero.',
+        speed: 'normal',
+        deckCount: 1,
+        cardCount: 36,
+        checkpoints: 10,
+        questions: RC,
+        questionOrder: 'alternate',
+        pass: ALL_CORRECT(10),
+        finalCountQuestion: false,
+        answerInput: 'choices',
+        showDeckScale: false,
+      },
+      {
+        mode: 'shoeRun',
+        level: 6,
+        title: 'Beat the Shoe',
+        brief:
+          'Boss. A one-deck shoe and the hands are yours to play — the buttons show the book play. Before every hand, call the running count. Ten hands; 80% right clears it, every one for three stars.',
+        speed: 'normal',
+        deckCount: 1,
+        hands: 10,
+        betting: false,
+        heat: false,
+        insurance: false,
+        indexPlays: false,
+        checks: RC,
+        checkEvery: 1,
+        answerInput: 'choices',
+        clearAccuracy: 0.8,
+        perfectAccuracy: 1,
+      },
+    ],
+  },
+  {
+    mapId: 2,
+    theme: 'Table Speed',
+    levels: [
+      {
+        mode: 'countStream',
+        level: 1,
         title: 'Full Deck Count',
         brief:
-          'A whole shuffled deck, one card at a time, and the count is never shown. Keep it in your head and call it at eight checks, plus the final count — a full deck always finishes at 0.',
-        speed: 'normal',
+          'A whole shuffled deck at speed, count never shown. Eight checks plus the final count — a full deck always finishes at 0, so you know you kept it.',
+        speed: 'fast',
         deckCount: 1,
         cardCount: 52,
         checkpoints: 8,
@@ -465,41 +562,6 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         finalCountQuestion: true,
         answerInput: 'choices',
         showDeckScale: false,
-      },
-      {
-        mode: 'tableCount',
-        level: 6,
-        title: 'Blackjack Count Test',
-        brief:
-          'Real blackjack, dealt and played for you — no chips, no decisions. Count every card you can see, including the hole card when it flips. Six checks, all six right, and the table is yours.',
-        speed: 'normal',
-        deckCount: 1,
-        seats: 1,
-        play: 'autoplay',
-        cardBudget: 52,
-        checkpoints: 6,
-        questions: RC,
-        questionOrder: 'alternate',
-        pass: ALL_CORRECT(6),
-        answerInput: 'choices',
-        showDeckScale: false,
-        distractions: false,
-        exam: false,
-      },
-    ],
-  },
-  {
-    mapId: 2,
-    theme: 'Speed & Cancellation',
-    levels: [
-      {
-        mode: 'cardValue',
-        level: 1,
-        title: 'Fast Card Values',
-        brief: 'Same values, less time to think. Twenty-one right, two strikes.',
-        speed: 'fast',
-        streakTarget: 21,
-        strikes: 2,
       },
       {
         mode: 'cardGroup',
@@ -528,24 +590,8 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         strikes: 2,
       },
       {
-        mode: 'countStream',
-        level: 4,
-        title: 'Rapid Running Count',
-        brief: 'A full deck at a quicker clip. Ten checks, all correct.',
-        speed: 'veryFast',
-        deckCount: 1,
-        cardCount: 52,
-        checkpoints: 10,
-        questions: RC,
-        questionOrder: 'alternate',
-        pass: ALL_CORRECT(10),
-        finalCountQuestion: false,
-        answerInput: 'choices',
-        showDeckScale: false,
-      },
-      {
         mode: 'tableCount',
-        level: 5,
+        level: 4,
         title: 'Table Groups',
         brief:
           'Two players and the dealer get two cards each. Count each hand as a group and keep one running count for the table. Eight checks, all correct.',
@@ -565,7 +611,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
       },
       {
         mode: 'tableCount',
-        level: 6,
+        level: 5,
         title: 'Two-Deck Endurance',
         brief:
           'Two decks, two players, hands playing out on their own — one continuous count. Ten checks, all correct.',
@@ -582,6 +628,25 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         showDeckScale: false,
         distractions: false,
         exam: false,
+      },
+      {
+        mode: 'shoeRun',
+        level: 6,
+        title: 'Beat the Two-Deck Shoe',
+        brief:
+          'Boss. Two decks, your hands, a count before every hand at table speed. Fourteen hands; 85% right clears it, every one for three stars.',
+        speed: 'fast',
+        deckCount: 2,
+        hands: 14,
+        betting: false,
+        heat: false,
+        insurance: false,
+        indexPlays: false,
+        checks: RC,
+        checkEvery: 1,
+        answerInput: 'choices',
+        clearAccuracy: 0.85,
+        perfectAccuracy: 1,
       },
     ],
   },
@@ -665,24 +730,23 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         showDeckScale: true,
       },
       {
-        mode: 'tableCount',
+        mode: 'shoeRun',
         level: 6,
-        title: 'Six-Deck Table',
+        title: 'Beat the Six-Deck Shoe',
         brief:
-          'Six decks on a live table. Fourteen checks mixing running count and decks remaining: twelve right, and no more than one count miss.',
-        speed: 'fast',
+          'Boss. A six-deck shoe you play. Before every hand, the running count or the decks left — typed. Sixteen hands; 85% clears it, every one for three stars.',
+        speed: 'normal',
         deckCount: 6,
-        seats: 2,
-        play: 'autoplay',
-        cardBudget: 190,
-        checkpoints: 14,
-        questions: RC_DECKS,
-        questionOrder: 'random',
-        pass: { minCorrect: 12, maxRunningCountMisses: 1 },
+        hands: 16,
+        betting: false,
+        heat: false,
+        insurance: false,
+        indexPlays: false,
+        checks: RC_DECKS,
+        checkEvery: 1,
         answerInput: 'entry',
-        showDeckScale: true,
-        distractions: false,
-        exam: false,
+        clearAccuracy: 0.85,
+        perfectAccuracy: 1,
       },
     ],
   },
@@ -767,30 +831,29 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         showDeckScale: true,
       },
       {
-        mode: 'tableCount',
+        mode: 'shoeRun',
         level: 6,
-        title: 'Six-Deck True Count',
+        title: 'Beat the Shoe: True Count',
         brief:
-          'Live six-deck blackjack with two players. Fourteen checks of every kind — thirteen right.',
-        speed: 'fast',
+          'Boss. Six decks, your hands, and before every hand the running count or the true count — typed. Sixteen hands; 85% clears it, every one for three stars.',
+        speed: 'normal',
         deckCount: 6,
-        seats: 2,
-        play: 'autoplay',
-        cardBudget: 190,
-        checkpoints: 14,
-        questions: RC_DECKS_TC,
-        questionOrder: 'random',
-        pass: { minCorrect: 13, maxRunningCountMisses: 1 },
+        hands: 16,
+        betting: false,
+        heat: false,
+        insurance: false,
+        indexPlays: false,
+        checks: ['runningCount', 'trueCount'],
+        checkEvery: 1,
         answerInput: 'entry',
-        showDeckScale: true,
-        distractions: false,
-        exam: false,
+        clearAccuracy: 0.85,
+        perfectAccuracy: 1,
       },
     ],
   },
   {
     mapId: 5,
-    theme: 'Real Table Counting',
+    theme: 'Betting the Count',
     levels: [
       {
         mode: 'betSize',
@@ -806,48 +869,20 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         strikes: 1,
       },
       {
-        mode: 'tableCount',
+        mode: 'indexPlay',
         level: 2,
-        title: 'Three Hands',
+        title: 'Insurance',
         brief:
-          'Two players plus the dealer. Cards land in a different order now — count them as they fall. Ten checks, all correct.',
+          'The dealer shows an Ace. Insurance only pays when the shoe is rich in tens — take it at a true count of +3 or higher, never below. Twenty-one right, one strike.',
         speed: 'normal',
-        deckCount: 1,
-        seats: 2,
-        play: 'strategy',
-        cardBudget: 52,
-        checkpoints: 10,
-        questions: RC,
-        questionOrder: 'alternate',
-        pass: ALL_CORRECT(10),
-        answerInput: 'entry',
-        showDeckScale: false,
-        distractions: false,
-        exam: false,
+        plays: 'insurance',
+        showTrueCount: false,
+        streakTarget: 21,
+        strikes: 1,
       },
       {
         mode: 'tableCount',
         level: 3,
-        title: 'Full Table',
-        brief:
-          'Four seats over two decks, splits and doubles included. Every exposed card counts. Ten checks, nine right.',
-        speed: 'fast',
-        deckCount: 2,
-        seats: 4,
-        play: 'strategy',
-        cardBudget: 104,
-        checkpoints: 10,
-        questions: RC,
-        questionOrder: 'alternate',
-        pass: { minCorrect: 9, maxRunningCountMisses: 1 },
-        answerInput: 'entry',
-        showDeckScale: false,
-        distractions: false,
-        exam: false,
-      },
-      {
-        mode: 'tableCount',
-        level: 4,
         title: 'Four-Deck Table',
         brief:
           'Three players, four decks. Twelve random checks — running count, decks remaining, true count or your bet. Eleven right.',
@@ -867,7 +902,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
       },
       {
         mode: 'tableCount',
-        level: 5,
+        level: 4,
         title: 'Six-Deck Pace',
         brief:
           'A full table over six decks, dealt faster with fewer pauses. Fourteen checks, thirteen right.',
@@ -887,7 +922,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
       },
       {
         mode: 'tableCount',
-        level: 6,
+        level: 5,
         title: 'Full Shoe Test',
         brief:
           'Deep into a six-deck shoe with a full table. Sixteen questions of every kind, in no particular order — fifteen right, and your running count has to hold.',
@@ -905,45 +940,54 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         distractions: false,
         exam: false,
       },
+      {
+        mode: 'shoeRun',
+        level: 6,
+        title: 'Beat the Shoe: Bet It',
+        brief:
+          'Boss. Six decks, and now the bets are yours: size every one off the count, call insurance on an Ace. Ramp too fast and the pit boss backs you off. Twenty hands; 80% clears, 95% for three stars.',
+        speed: 'normal',
+        deckCount: 6,
+        hands: 20,
+        betting: true,
+        heat: true,
+        insurance: true,
+        indexPlays: false,
+        checks: ['trueCount'],
+        checkEvery: 3,
+        answerInput: 'entry',
+        clearAccuracy: 0.8,
+        perfectAccuracy: 0.95,
+      },
     ],
   },
   {
     mapId: 6,
-    theme: 'Mastery',
+    theme: 'Playing the Count',
     levels: [
       {
-        mode: 'countStream',
+        mode: 'indexPlay',
         level: 1,
-        title: 'Perfect Single Deck',
+        title: 'Index Plays',
         brief:
-          'Cards stream fast, nothing is shown, and you enter the exact count. Ten checks, all perfect.',
-        speed: 'veryFast',
-        deckCount: 1,
-        cardCount: 52,
-        checkpoints: 10,
-        questions: RC,
-        questionOrder: 'alternate',
-        pass: ALL_CORRECT(10),
-        finalCountQuestion: false,
-        answerInput: 'entry',
-        showDeckScale: false,
+          'The true count changes a few plays. Six to learn first — 16 vs 10 stands at 0, 15 vs 10 at +4, tens split vs 5 at +5 and vs 6 at +4, 10 vs 10 doubles at +4, 12 vs 3 stands at +2. True count given. Twenty-one right, one strike.',
+        speed: 'normal',
+        plays: 'top',
+        showTrueCount: true,
+        streakTarget: 21,
+        strikes: 1,
       },
       {
-        mode: 'countStream',
+        mode: 'indexPlay',
         level: 2,
-        title: 'Two-Deck Mastery',
+        title: 'All the Index Plays',
         brief:
-          'Two decks, exact entry, an occasional deck estimate. Twelve questions, eleven right — every count question correct.',
-        speed: 'veryFast',
-        deckCount: 2,
-        cardCount: 92,
-        checkpoints: 12,
-        questions: RC_DECKS,
-        questionOrder: 'random',
-        pass: { minCorrect: 11, maxRunningCountMisses: 0 },
-        finalCountQuestion: false,
-        answerInput: 'entry',
-        showDeckScale: false,
+          'All seventeen plays plus insurance, and now you work out the true count from the running count and decks left. Twenty-one right, one strike.',
+        speed: 'normal',
+        plays: 'all',
+        showTrueCount: false,
+        streakTarget: 21,
+        strikes: 1,
       },
       {
         mode: 'countStream',
@@ -1003,24 +1047,23 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         exam: false,
       },
       {
-        mode: 'tableCount',
+        mode: 'shoeRun',
         level: 6,
-        title: 'Final Card Counter Exam',
+        title: 'Final Exam: Beat the Casino',
         brief:
-          'Six decks to the cut card, a full table, casino speed and casino noise. Twenty questions — 90% overall and 90% on the running count to graduate.',
-        speed: 'casino',
+          'The exam. Six decks, twenty-four hands: count checks, every bet, insurance and the index plays, with the pit boss watching. 85% right to graduate, 95% for three stars.',
+        speed: 'normal',
         deckCount: 6,
-        seats: 4,
-        play: 'strategy',
-        cardBudget: cutCardDealtCount(6),
-        checkpoints: 20,
-        questions: RC_DECKS_TC_BET,
-        questionOrder: 'random',
-        pass: { minCorrect: 18, maxRunningCountMisses: 1 },
+        hands: 24,
+        betting: true,
+        heat: true,
+        insurance: true,
+        indexPlays: true,
+        checks: ['runningCount', 'trueCount'],
+        checkEvery: 3,
         answerInput: 'entry',
-        showDeckScale: false,
-        distractions: true,
-        exam: true,
+        clearAccuracy: 0.85,
+        perfectAccuracy: 0.95,
       },
     ],
   },
@@ -1115,7 +1158,11 @@ export type StarTargets = readonly [number, number, number];
  * on a checkpoint level (its misses are the run's strikes). Halves round up.
  */
 export function starTargets(spec: TrainingLevelSpec): StarTargets {
-  const base = isCheckpointLevel(spec) ? totalCheckpoints(spec) : spec.streakTarget;
+  const base = isCheckpointLevel(spec)
+    ? totalCheckpoints(spec)
+    : spec.mode === 'shoeRun'
+      ? spec.hands
+      : spec.streakTarget;
   return [
     Math.round(base * STAR_STAGE_RATIOS[0]),
     Math.round(base * STAR_STAGE_RATIOS[1]),
@@ -1395,6 +1442,141 @@ export function makeTrueCountItem(spec: TrueCountLevel, random: Rng = defaultRng
       bound,
       random,
     ),
+  };
+}
+
+/** Answer codes for a decision: the four plays, then insurance taken or declined. */
+export const DECISION = {
+  hit: 0,
+  stand: 1,
+  double: 2,
+  split: 3,
+  insure: 10,
+  noInsurance: 11,
+} as const;
+
+const PLAY_CODES: Record<PlayerAction, number> = {
+  hit: DECISION.hit,
+  stand: DECISION.stand,
+  double: DECISION.double,
+  split: DECISION.split,
+};
+
+export function decisionLabel(code: number): string {
+  switch (code) {
+    case DECISION.hit:
+      return 'Hit';
+    case DECISION.stand:
+      return 'Stand';
+    case DECISION.double:
+      return 'Double';
+    case DECISION.split:
+      return 'Split';
+    case DECISION.insure:
+      return 'Take insurance';
+    default:
+      return 'No insurance';
+  }
+}
+
+export interface IndexPlayItem {
+  /** 'insurance' asks take-or-decline; 'play' asks the play. */
+  readonly question: 'insurance' | 'play';
+  readonly playerCards: readonly Card[];
+  readonly dealerUp: Card;
+  readonly runningCount: number;
+  readonly decksRemaining: number;
+  /** The true count the call is made on (rounded down). */
+  readonly trueCount: number;
+  /** The index this spot turns on. */
+  readonly index: number;
+  /** "16 vs 10" / "Insurance". */
+  readonly label: string;
+  readonly correct: number;
+  readonly choices: readonly number[];
+}
+
+/** Two-card hands for each total the index plays use: no aces, no pairs. */
+const HARD_HANDS: Readonly<Record<number, readonly (readonly [Rank, Rank])[]>> = {
+  9: [['5', '4'], ['6', '3'], ['7', '2']],
+  10: [['6', '4'], ['7', '3'], ['8', '2']],
+  11: [['6', '5'], ['7', '4'], ['8', '3'], ['9', '2']],
+  12: [['10', '2'], ['9', '3'], ['8', '4'], ['7', '5']],
+  13: [['10', '3'], ['9', '4'], ['8', '5'], ['7', '6']],
+  15: [['10', '5'], ['9', '6'], ['8', '7']],
+  16: [['10', '6'], ['9', '7']],
+};
+const TENS: readonly Rank[] = ['10', 'J', 'Q', 'K'];
+const SUITS_CYCLE = ['spades', 'hearts', 'diamonds', 'clubs'] as const;
+
+function pick<T>(list: readonly T[], random: Rng): T {
+  return list[Math.floor(random() * list.length)];
+}
+
+function upRankFor(value: number, random: Rng): Rank {
+  if (value === 11) {
+    return 'A';
+  }
+  return value === 10 ? pick(TENS, random) : (String(value) as Rank);
+}
+
+/** A count on either side of the index, so both answers come up about as often. */
+function countAround(index: number, showTrueCount: boolean, random: Rng) {
+  const offset = Math.floor(random() * 7) - 3; // −3 … +3
+  const target = index + offset;
+  if (showTrueCount) {
+    return { runningCount: target, decksRemaining: 1, trueCount: target };
+  }
+  const decksRemaining = 1 + Math.floor(random() * 11) / 2; // 1 … 6 in halves
+  const runningCount = Math.floor(target * decksRemaining + random() * decksRemaining * 0.9);
+  return {
+    runningCount,
+    decksRemaining,
+    trueCount: trueCountFromDecks(runningCount, decksRemaining),
+  };
+}
+
+export function makeIndexPlayItem(spec: IndexPlayLevel, random: Rng = defaultRng): IndexPlayItem {
+  const pool: readonly IndexPlay[] =
+    spec.plays === 'top' ? INDEX_PLAYS.filter((play) => TOP_INDEX_PLAY_IDS.includes(play.id)) : INDEX_PLAYS;
+  // Insurance alone, or one spot in (roughly) five on the full list.
+  const insurance = spec.plays === 'insurance' || (spec.plays === 'all' && random() < 0.2);
+  let suitIndex = Math.floor(random() * 4);
+  const cardOf = (rank: Rank) => {
+    suitIndex += 1;
+    return makeCard(rank, SUITS_CYCLE[suitIndex % 4], { deckIndex: suitIndex, visibility: 'faceUp' });
+  };
+
+  if (insurance) {
+    const count = countAround(INSURANCE_INDEX, spec.showTrueCount, random);
+    const [a, b] = pick(Object.values(HARD_HANDS).flat(), random);
+    const correct = count.trueCount >= INSURANCE_INDEX ? DECISION.insure : DECISION.noInsurance;
+    return {
+      question: 'insurance',
+      playerCards: [cardOf(a), cardOf(b)],
+      dealerUp: cardOf('A'),
+      ...count,
+      index: INSURANCE_INDEX,
+      label: 'Insurance',
+      correct,
+      choices: [DECISION.insure, DECISION.noInsurance],
+    };
+  }
+
+  const play = pick(pool, random);
+  const count = countAround(play.index, spec.showTrueCount, random);
+  const ranks: readonly Rank[] =
+    play.hand === 'pair10' ? [pick(TENS, random), pick(TENS, random)] : pick(HARD_HANDS[play.hand], random);
+  const action = indexAction(play, count.trueCount, { canDouble: true, canSplit: true });
+  return {
+    question: 'play',
+    playerCards: ranks.map(cardOf),
+    dealerUp: cardOf(upRankFor(play.up, random)),
+    ...count,
+    index: play.index,
+    label: play.label,
+    correct: PLAY_CODES[action],
+    choices: [DECISION.hit, DECISION.stand, DECISION.double, DECISION.split],
   };
 }
 

@@ -2,6 +2,7 @@ import {
   CheckpointLevelSpec,
   isCheckpointLevel,
   QuestionKind,
+  ShoeRunLevel,
   STAR_COUNT,
   StarTargets,
   starTargets,
@@ -88,10 +89,32 @@ export function stretchLine(spec: TrainingLevelSpec, targets: StarTargets = star
 
 /** What carries into the stretch: the shoe (fresh for a deal) and the run's misses. */
 export function stretchRulesLine(spec: TrainingLevelSpec): string {
+  if (spec.mode === 'shoeRun') {
+    return 'Same shoe.';
+  }
   if (!isCheckpointLevel(spec)) {
     return spec.strikes === 0 ? 'A miss still ends the run.' : 'Strikes carry over.';
   }
   return missesAllowed(spec) === 0 ? 'Fresh shoe — a miss still ends the run.' : 'Fresh shoe — misses carry over.';
+}
+
+/** The boss's rules: its shoe, what is graded, and what clears it. */
+export function shoeRunChips(spec: ShoeRunLevel): string[] {
+  const graded = [
+    spec.checks.length > 0 ? 'counts' : null,
+    spec.betting ? 'bets' : null,
+    spec.insurance ? 'insurance' : null,
+    spec.indexPlays ? 'index plays' : null,
+  ].filter(Boolean);
+  const chips = [
+    `${spec.hands} hands · ${deckLabel(spec.deckCount)}`,
+    `Graded: ${graded.join(', ')}`,
+    `${Math.round(spec.clearAccuracy * 100)}% right clears · ${Math.round(spec.perfectAccuracy * 100)}% for ★★★`,
+  ];
+  if (spec.heat) {
+    chips.push('Ramp too fast and the pit boss backs you off');
+  }
+  return chips;
 }
 
 /**
@@ -103,6 +126,9 @@ export function requirementChips(
   { starTargets: withStarTargets = true }: { readonly starTargets?: boolean } = {},
 ): string[] {
   const chips: string[] = withStarTargets ? [starTargetsLine(spec)] : [];
+  if (spec.mode === 'shoeRun') {
+    return shoeRunChips(spec);
+  }
   if (!isCheckpointLevel(spec)) {
     chips.push(
       spec.strikes === 0

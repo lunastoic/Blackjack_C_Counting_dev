@@ -12,6 +12,8 @@ import {
 import { seededRng } from '../../engine/shoe/rng';
 import { createDefaultSave } from '../../persistence/defaults';
 import { __resetPersistenceForTests } from '../../persistence/hydrate';
+import { useShoeRunStore } from '../../stores/shoeRunStore';
+import { playBossPerfectly } from './shoeRunHelpers';
 import { useDojoStore } from '../../stores/dojoStore';
 import { useEconomyStore } from '../../stores/economyStore';
 import { useProgressionStore } from '../../stores/progressionStore';
@@ -376,7 +378,7 @@ describe('training store — streak drills', () => {
   });
 
   it('strikes taper by map — two, then one, then none: a first miss on map 4 ends the run', () => {
-    store().load(2, 1);
+    store().load(2, 2);
     expect(store().spec).toMatchObject({ streakTarget: 21, strikes: 2 });
     store().load(3, 1);
     expect(store().spec).toMatchObject({ streakTarget: 21, strikes: 1 });
@@ -532,25 +534,16 @@ describe('training store — answer meter', () => {
     expect(store().status).toBe('failed');
   });
 
-  it('on a count stream it waits while the cards deal and only runs at the checks', () => {
-    store().load(2, 4);
+  it('on a count stream the question waits: no meter, no timeout — keeping the count is the skill', () => {
+    store().load(1, 5);
     store().begin();
-    expect(store().meter).toMatchObject({ fill: 1, draining: false });
     advanceUntil('asking');
-    expect(meterFill()).toBe(1);
-    expect(store().meter.draining).toBe(true);
-    const drainMs = store().meterDrainMs;
-    expect(drainMs).toBe(9_500);
-    jest.advanceTimersByTime(drainMs / 2);
+    expect(store().meter.draining).toBe(false);
+    jest.advanceTimersByTime(store().meterDrainMs * 3);
+    expect(store().status).toBe('asking');
+    expect(store().timedOut).toBe(false);
     answerCorrectly();
     expect(store().status).toBe('feedback');
-    expect(store().meter.draining).toBe(false);
-    expect(meterFill()).toBeCloseTo(0.75);
-    advanceUntil('asking');
-    expect(meterFill()).toBeCloseTo(0.75);
-    jest.advanceTimersByTime(drainMs);
-    expect(store().status).toBe('failed');
-    expect(store().timedOut).toBe(true);
   });
 
   it('only ever gets faster up the ladder: every level drains no slower than the last, and every casino faster than the one before', () => {
@@ -577,7 +570,7 @@ describe('training store — count streams', () => {
     jest.useFakeTimers();
     resetStores();
     __setTrainingRandomForTests(seededRng(7), seededRng(7));
-    store().load(2, 4);
+    store().load(1, 5);
   });
 
   afterEach(() => {
@@ -624,8 +617,8 @@ describe('training store — count streams', () => {
     expect(store().status).toBe('cleared');
     expect(store().stars).toBe(2);
     expect(store().stretch).toBe(false);
-    expect(useDojoStore.getState().flashLevels[flashLevelKey(2, 4)]).toBe(2);
-    expect(useDojoStore.getState().isFlashLevelUnlocked(2, 5)).toBe(true);
+    expect(useDojoStore.getState().flashLevels[flashLevelKey(1, 5)]).toBe(2);
+    expect(useDojoStore.getState().isFlashLevelUnlocked(1, 6)).toBe(true);
 
     // The stretch: a fresh shoe, five more checks, the count from 0 again.
     store().keepGoing();
@@ -645,7 +638,7 @@ describe('training store — count streams', () => {
     expect(store().status).toBe('levelComplete');
     expect(store().stars).toBe(3);
     expect(store().tally.asked).toBe(15);
-    expect(useDojoStore.getState().flashLevels[flashLevelKey(2, 4)]).toBe(3);
+    expect(useDojoStore.getState().flashLevels[flashLevelKey(1, 5)]).toBe(3);
   });
 
   it('a miss on the stretch of an all-correct level ends the run cleared at two stars', () => {
@@ -661,7 +654,7 @@ describe('training store — count streams', () => {
     expect(store().stars).toBe(2);
     expect(store().question?.wasCorrect).toBe(false);
     expect(jest.getTimerCount()).toBe(0);
-    expect(useDojoStore.getState().flashLevels[flashLevelKey(2, 4)]).toBe(2);
+    expect(useDojoStore.getState().flashLevels[flashLevelKey(1, 5)]).toBe(2);
   });
 
   it('a wrong count on an all-correct level fails the run, shows the review, and can restart from zero', () => {
@@ -677,7 +670,7 @@ describe('training store — count streams', () => {
     expect(
       before + store().cardsSinceCheck.reduce((sum, card) => sum + hiLoValue(card.rank), 0),
     ).toBe(store().question?.correct);
-    expect(useDojoStore.getState().flashLevels[flashLevelKey(2, 4)]).toBeUndefined();
+    expect(useDojoStore.getState().flashLevels[flashLevelKey(1, 5)]).toBeUndefined();
 
     store().begin();
     expect(store().status).toBe('running');
@@ -687,7 +680,7 @@ describe('training store — count streams', () => {
   });
 
   it('a full deck ends with the final count question at 0', () => {
-    store().load(1, 5);
+    store().load(2, 1);
     store().begin();
     const spec = store().spec as CountStreamLevel;
     for (let k = 0; k < spec.checkpoints; k++) {
@@ -770,7 +763,7 @@ describe('training store — count streams', () => {
   });
 
   it('exact-entry levels offer no choices', () => {
-    store().load(6, 1);
+    store().load(6, 3);
     store().begin();
     advanceUntil('asking');
     expect(store().question?.choices).toEqual([]);
@@ -806,7 +799,7 @@ describe('training store — live tables', () => {
     jest.useRealTimers();
   });
 
-  it('Map 1 level 6 is the blackjack count test and completing it opens the next casino', () => {
+  it('Map 1 ends on its boss, and beating it opens the next casino', () => {
     const dojo = useDojoStore.getState();
     for (let level = 1; level < FLASH_LEVELS_PER_MAP; level++) {
       expect(dojo.completeTrainingLevel(1, level, 3).tableUnlocked).toBe(false);
@@ -815,22 +808,9 @@ describe('training store — live tables', () => {
     expect(useProgressionStore.getState().licenseForMap(1)).toBe('licensed');
     expect(useProgressionStore.getState().isMapUnlocked(2)).toBe(false);
 
-    store().load(1, 6);
-    const spec = store().spec as TableCountLevel;
-    expect(spec).toMatchObject({ mode: 'tableCount', play: 'autoplay', deckCount: 1, checkpoints: 6 });
-    store().begin();
-    for (let k = 0; k < 6; k++) {
-      advanceUntil('asking');
-      const { frame, question } = store();
-      expect(question?.correct).toBe(frame?.runningCount);
-      expect(frame?.table.dealer).not.toBeNull();
-      answerCorrectly();
-    }
-    // Two stars on the sixth level clear the casino; the third is optional.
-    expect(store().status).toBe('cleared');
-    expect(store().outcome?.tableUnlocked).toBe(true);
-    store().stopRun();
-    expect(store().status).toBe('levelComplete');
+    playBossPerfectly(1, 6);
+    expect(useShoeRunStore.getState().stars).toBe(3);
+    expect(useShoeRunStore.getState().outcome?.tableUnlocked).toBe(true);
     expect(useDojoStore.getState().isMapFlashComplete(1)).toBe(true);
     expect(useDojoStore.getState().nextFlashLevel(1)).toBeNull();
     expect(useProgressionStore.getState().isMapUnlocked(2)).toBe(true);
@@ -839,11 +819,11 @@ describe('training store — live tables', () => {
 
   it('paces table beats from the speed preset, not the settings dealer speed', () => {
     useSettingsStore.getState().setDealerSpeed(2);
-    store().load(1, 6);
+    store().load(2, 4);
     store().begin();
     jest.advanceTimersByTime(500);
     expect(store().frameIndex).toBe(0);
-    jest.advanceTimersByTime(SPEED_PROFILES.normal.table.card - 10);
+    jest.advanceTimersByTime(SPEED_PROFILES.fast.table.card - 10);
     expect(store().frameIndex).toBe(0);
     jest.advanceTimersByTime(20);
     expect(store().frameIndex).toBe(1);
@@ -856,6 +836,12 @@ describe('training store — live tables', () => {
       for (const spec of map.levels) {
         expect(useDojoStore.getState().isFlashLevelUnlocked(map.mapId, spec.level)).toBe(true);
         expect(useDojoStore.getState().isFlashLevelUnlocked(map.mapId, spec.level + 1)).toBe(false);
+        if (spec.mode === 'shoeRun') {
+          playBossPerfectly(map.mapId, spec.level);
+          expect(useShoeRunStore.getState().stars).toBe(3);
+          expect(useDojoStore.getState().flashLevels[flashLevelKey(map.mapId, spec.level)]).toBe(3);
+          continue;
+        }
         store().load(map.mapId, spec.level);
         store().begin();
         let guard = 0;
@@ -883,8 +869,8 @@ describe('training store — live tables', () => {
     }
   });
 
-  it('the final exam tallies accuracy per question kind and fails early when out of reach', () => {
-    store().load(6, 6);
+  it('the full shoe test tallies accuracy per question kind and fails early when out of reach', () => {
+    store().load(5, 5);
     store().begin();
     let misses = 0;
     while (store().status !== 'failed' && misses < 3) {
