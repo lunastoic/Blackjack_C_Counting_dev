@@ -5,7 +5,7 @@ import { PressableScale } from '../common/PressableScale';
 import { PrimaryButton } from '../common/PrimaryButton';
 
 interface CountEntryProps {
-  /** 1 for running counts, 0.5 for decks and true counts. */
+  /** 1 for running and true counts, 0.5 for decks remaining. */
   readonly step: 1 | 0.5;
   readonly min: number;
   readonly max: number;

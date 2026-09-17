@@ -205,7 +205,7 @@ export function betUnit(bankroll: number, smallestChip: number): number {
 
 /** Units to have out on a hot shoe — the classic "true count minus one". */
 export function betUnitsForTrueCount(trueCount: number): number {
-  return Math.max(1, Math.round(trueCount) - 1);
+  return Math.max(1, Math.floor(trueCount) - 1);
 }
 
 export interface BetAdviceInput {

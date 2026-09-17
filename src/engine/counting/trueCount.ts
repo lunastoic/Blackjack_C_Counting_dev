@@ -6,8 +6,17 @@ export function roundToNearestHalf(value: number): number {
 }
 
 /**
- * True count = running count ÷ decks remaining, rounded to the nearest 0.5
- * (REBUILD_SPEC §5). decksRemaining = cardsRemaining / 52.
+ * Rounds a true count down to a whole number, the way counters size bets:
+ * +2.7 → +2, −1.2 → −2. Never returns "-0".
+ */
+export function floorTrueCount(value: number): number {
+  const floored = Math.floor(value);
+  return floored === 0 ? 0 : floored;
+}
+
+/**
+ * True count = running count ÷ decks remaining, rounded down to a whole
+ * number. decksRemaining = cardsRemaining / 52.
  *
  * Division-by-zero protection: with zero cards remaining the true count is
  * defined as 0 — an empty shoe forces a shuffle, which resets the running
@@ -18,5 +27,5 @@ export function trueCount(runningCount: number, cardsRemaining: number): number 
     return 0;
   }
   const decksRemaining = cardsRemaining / CARDS_PER_DECK;
-  return roundToNearestHalf(runningCount / decksRemaining);
+  return floorTrueCount(runningCount / decksRemaining);
 }

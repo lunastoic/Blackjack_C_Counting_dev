@@ -107,10 +107,11 @@ const LEVEL_TUTORIALS: Readonly<Record<string, readonly TutorialSlide[]>> = {
   ),
   '4:2': slides(
     ['Half decks', '+6 ÷ 1.5 = +4. +5 ÷ 2.5 = +2.'],
-    ['Round to the nearest half', '2.24 rounds to 2. 2.25 rounds to 2.5. Twenty-one in a row, no strikes.'],
+    ['Still whole answers', 'Every division comes out clean. Twenty-one in a row, no strikes.'],
   ),
   '4:3': slides(
-    ['Negatives divide the same way', '−6 ÷ 2 = −3. Round every answer to the nearest half. Twenty-one in a row, no strikes.'],
+    ['Always round down', '+5 ÷ 2 = +2.5, so the true count is +2. Negatives go down too: −3 ÷ 2 = −1.5 is −2.'],
+    ['Why down', 'Rounding down never overstates your edge, so you never bet on a count you lack. Twenty-one in a row, no strikes.'],
   ),
   '4:4': slides(
     ['Two questions each pause', 'First estimate the decks remaining. Then the true count, using the decks shown.'],

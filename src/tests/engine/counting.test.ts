@@ -77,10 +77,11 @@ describe('true count', () => {
     expect(trueCount(-6, 156)).toBe(-2);
   });
 
-  it('rounds to the nearest 0.5', () => {
-    expect(trueCount(5, 104)).toBe(2.5); // 5 / 2 = 2.5
-    expect(trueCount(5, 156)).toBe(1.5); // 1.666… → 1.5
-    expect(trueCount(7, 156)).toBe(2.5); // 2.333… → 2.5
+  it('rounds down to a whole number', () => {
+    expect(trueCount(5, 104)).toBe(2); // 5 / 2 = 2.5 → 2
+    expect(trueCount(5, 156)).toBe(1); // 1.666… → 1
+    expect(trueCount(-3, 104)).toBe(-2); // −1.5 → −2
+    expect(Object.is(trueCount(0, 104), 0)).toBe(true); // never -0
     expect(roundToNearestHalf(2.24)).toBe(2);
     expect(roundToNearestHalf(2.25)).toBe(2.5);
     expect(roundToNearestHalf(-1.3)).toBe(-1.5);

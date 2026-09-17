@@ -281,8 +281,8 @@ describe('Training switch never touches the shoe or the count', () => {
     // Flip on: nothing recomputes — the same tracked numbers simply show.
     useSettingsStore.getState().setTrainingMode(true);
     expect(session().runningCount).toBe(4);
-    // +4 with 31 of 52 cards left → 4 / 0.596 = 6.7 → nearest half.
-    expect(session().getTrueCount()).toBe(6.5);
+    // +4 with 31 of 52 cards left → 4 / 0.596 = 6.7 → rounded down.
+    expect(session().getTrueCount()).toBe(6);
 
     // Stand: the hole K lands (-1), the dealer draws the 9 (0).
     expect(session().act('stand')).toBe(true);

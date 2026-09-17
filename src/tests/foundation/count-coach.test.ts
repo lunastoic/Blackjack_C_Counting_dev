@@ -203,7 +203,7 @@ describe('Full coach bet tip', () => {
 
   it('presses true count minus one units, one at the least', () => {
     expect(betUnitsForTrueCount(2)).toBe(1);
-    expect(betUnitsForTrueCount(3.5)).toBe(3);
+    expect(betUnitsForTrueCount(3.5)).toBe(2);
     expect(betUnitsForTrueCount(6)).toBe(5);
     expect(betUnitsForTrueCount(-4)).toBe(1);
   });

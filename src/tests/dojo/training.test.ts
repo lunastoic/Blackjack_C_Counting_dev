@@ -313,7 +313,7 @@ describe('training ladder — streak items', () => {
     }
   });
 
-  it('true-count items follow the nearest-half convention', () => {
+  it('true-count items round down to whole numbers', () => {
     const clean = trainingLevelSpec(4, 1);
     const halves = trainingLevelSpec(4, 2);
     const mixed = trainingLevelSpec(4, 3);
@@ -325,6 +325,8 @@ describe('training ladder — streak items', () => {
         const item = makeTrueCountItem(spec, seededRng(seed));
         expect(item.correct).toBe(trueCountFromDecks(item.runningCount, item.decksRemaining));
         expect(item.choices).toContain(item.correct);
+        expect(Number.isInteger(item.correct)).toBe(true);
+        expect(item.correct).toBe(Math.floor(item.runningCount / item.decksRemaining) || 0);
         if (spec.cleanDivision) {
           expect(Number.isInteger(item.correct)).toBe(true);
         }
@@ -338,7 +340,7 @@ describe('training ladder — streak items', () => {
     }
     expect(trueCountFromDecks(6, 1.5)).toBe(4);
     expect(trueCountFromDecks(5, 2.5)).toBe(2);
-    expect(trueCountFromDecks(-7, 3)).toBe(-2.5);
+    expect(trueCountFromDecks(-7, 3)).toBe(-3); // −2.33 rounds down
     expect(trueCountFromDecks(0, 2)).toBe(0);
     expect(decksRemainingEstimate(52)).toBe(1);
     expect(decksRemainingEstimate(80)).toBe(1.5);

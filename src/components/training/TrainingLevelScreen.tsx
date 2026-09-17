@@ -530,7 +530,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
       const bounds = ENTRY_BOUNDS[current.kind];
       return (
         <CountEntry
-          step={current.kind === 'runningCount' ? 1 : 0.5}
+          step={current.kind === 'decksRemaining' ? 0.5 : 1}
           min={bounds.min}
           max={current.kind === 'decksRemaining' ? checkpointSpec.deckCount : bounds.max}
           initial={current.kind === 'decksRemaining' ? Math.max(0.5, checkpointSpec.deckCount / 2) : 0}

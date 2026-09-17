@@ -100,7 +100,7 @@ export const LESSONS: Readonly<Record<number, readonly LessonStep[]>> = {
       prompt: 'Running count +4, about 2 decks left. True count?',
       choices: ['+2', '+4', '+1', '+8'],
       correctIndex: 0,
-      explain: '4 ÷ 2 = +2. Round to the nearest half and move on.',
+      explain: '4 ÷ 2 = +2. When it doesn’t divide evenly, round down and move on.',
     },
     {
       kind: 'say',

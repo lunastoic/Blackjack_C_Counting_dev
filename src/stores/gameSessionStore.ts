@@ -501,7 +501,7 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
       countCheck: {
         kind,
         correct,
-        choices: buildCountChoices(correct, Math.random, kind === 'true' ? 0.5 : 1),
+        choices: buildCountChoices(correct, Math.random, 1),
         selected: null,
         wasCorrect: null,
         runningCount,
@@ -1164,7 +1164,7 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
         countCheck: {
           kind,
           correct,
-          choices: buildCountChoices(correct, Math.random, kind === 'true' ? 0.5 : 1),
+          choices: buildCountChoices(correct, Math.random, 1),
           selected: null,
           wasCorrect: null,
           runningCount,

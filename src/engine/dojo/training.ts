@@ -3,7 +3,7 @@ import { HandResult, resolveHand } from '../blackjack/resolve';
 import { canDouble, canSplit, dealerShouldHit, PlayerAction } from '../blackjack/rules';
 import { Card, hiLoValue, isFaceUp, withVisibility } from '../cards/card';
 import { CARDS_PER_DECK } from '../cards/deck';
-import { roundToNearestHalf } from '../counting/trueCount';
+import { floorTrueCount, roundToNearestHalf } from '../counting/trueCount';
 import { evaluateCards, isNaturalBlackjack } from '../hand/evaluate';
 import { addCard, createDealerHand, createPlayerHand, DealerHand, PlayerHand } from '../hand/hand';
 import { defaultRng, fisherYatesShuffle, Rng } from '../shoe/rng';
@@ -635,7 +635,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         level: 2,
         title: 'Half-Deck Division',
         brief:
-          'Half decks now: +6 ÷ 1.5 = +4, +5 ÷ 2.5 = +2. When a division is not clean, round to the nearest half (2.24 → 2, 2.25 → 2.5). Twenty-one in a row — no strikes.',
+          'Half decks now: +6 ÷ 1.5 = +4, +5 ÷ 2.5 = +2. Twenty-one in a row — no strikes.',
         speed: 'normal',
         halfDecks: true,
         negatives: false,
@@ -648,7 +648,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         level: 3,
         title: 'Positive & Negative',
         brief:
-          'Negative counts divide the same way, and every answer rounds to the nearest half. Twenty-one in a row — no strikes.',
+          'Divisions stop coming out clean, and negatives join in. Always round down: +2.7 is +2, −1.2 is −2. Twenty-one in a row — no strikes.',
         speed: 'fast',
         halfDecks: true,
         negatives: true,
@@ -1232,13 +1232,12 @@ export function decksRemainingEstimate(cardsLeft: number): number {
   return Math.max(0.5, roundToNearestHalf(cardsLeft / CARDS_PER_DECK));
 }
 
-/** True count the way the drills teach it: RC ÷ the decks you estimated, nearest half. */
+/** True count the way the drills teach it: RC ÷ the decks you estimated, rounded down. */
 export function trueCountFromDecks(runningCount: number, decksRemaining: number): number {
   if (decksRemaining <= 0) {
     return 0;
   }
-  const value = roundToNearestHalf(runningCount / decksRemaining);
-  return value === 0 ? 0 : value; // never "-0"
+  return floorTrueCount(runningCount / decksRemaining);
 }
 
 /** True when a card count sits close enough to a half-deck mark to estimate fairly. */
@@ -1314,7 +1313,7 @@ export function makeTrueCountItem(spec: TrueCountLevel, random: Rng = defaultRng
   }
 
   const correct = trueCountFromDecks(runningCount, decksRemaining);
-  const step = spec.halfDecks || !spec.cleanDivision ? 0.5 : 1;
+  const step = 1;
   const bound = TRUE_COUNT_CHOICE_BOUND;
   return {
     runningCount,
