@@ -83,6 +83,7 @@ export function ArcadeLevelBrief({
 
   const panel = (
     <ArcadePanel
+      slab
       style={[
         styles.panel,
         // Hidden until both measures are in, so it never flashes at full size.

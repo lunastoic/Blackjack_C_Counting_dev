@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { colors, fonts, fontSizes, fontWeights, spacing } from '../../theme';
-import { ArcadeInset, ArcadeTab, arcadeText } from './ArcadePanel';
+import { ArcadeInset, ArcadeTab, arcadeText, useArcadePanelEdge } from './ArcadePanel';
 
 interface StarGoalsProps {
   /** The run that earns one, two and three stars. */
@@ -14,13 +14,14 @@ interface StarGoalsProps {
 
 /** "STAR GOALS" tab over three tiles — ★ 11 right / ★★ 21 right / ★★★ 32 right. */
 export function StarGoals({ targets, unit, style }: StarGoalsProps) {
+  const edge = useArcadePanelEdge();
   return (
     <View style={[styles.slot, style]}>
       <ArcadeTab label="Star goals" style={styles.tab} />
       <ArcadeInset style={styles.inset}>
         <View style={styles.tiles}>
           {targets.map((target, index) => (
-            <View key={index} style={styles.tile}>
+            <View key={index} style={[styles.tile, { borderColor: edge }]}>
               <View style={styles.stars}>
                 {Array.from({ length: index + 1 }, (_, star) => (
                   <Ionicons

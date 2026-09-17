@@ -90,6 +90,16 @@ export const colors = {
   arcadeStripGanymede: '#5A3A8A80',
   arcadeStripTitan: '#1E6E4A80',
   arcadeStripKepler: '#8A6A1480',
+  // The level brief and tutorial panels are the strip grown into a slab: the same
+  // 50% face at the top, deepening to 65% at the foot, with a faint white edge inside
+  arcadeSlabDeep: '#000000A6',
+  arcadeSlabDeepIo: '#8A3A12A6',
+  arcadeSlabDeepEuropa: '#1F4F8AA6',
+  arcadeSlabDeepGanymede: '#5A3A8AA6',
+  arcadeSlabDeepTitan: '#1E6E4AA6',
+  arcadeSlabDeepKepler: '#8A6A14A6',
+  arcadeSlabEdge: '#FFFFFF1F',
+  arcadeSlabPill: '#1A1512', // the mint pace pill's ground on a slab
   arcadeLocked: '#3A3532', // a locked bevel's face (Play Table before the ladder is done)
   arcadeLockedDeep: '#1F1B19',
   arcadeLoss: '#FF8A80', // losses, misses and "NOT QUITE" on the dark bevels

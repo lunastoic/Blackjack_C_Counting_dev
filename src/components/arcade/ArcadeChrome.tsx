@@ -164,6 +164,11 @@ const ARCADE_STRIP_FACES: Readonly<Record<number, string>> = {
   6: colors.arcadeStripKepler,
 };
 
+/** The strip face for a casino: its tint, or the 50% black on Luna Luxe. */
+export function arcadeStripFace(mapId?: number): string {
+  return (mapId != null ? ARCADE_STRIP_FACES[mapId] : undefined) ?? colors.arcadeStripFace;
+}
+
 interface ArcadeStripProps {
   readonly children: React.ReactNode;
   /** The table's count strip is a touch tighter than the quiz's. */
@@ -181,7 +186,7 @@ interface ArcadeStripProps {
 export function ArcadeStrip({ children, compact = false, mapId, style }: ArcadeStripProps) {
   return (
     <ArcadeBevel
-      face={(mapId != null ? ARCADE_STRIP_FACES[mapId] : undefined) ?? colors.arcadeStripFace}
+      face={arcadeStripFace(mapId)}
       deep={colors.arcadeStripDeep}
       drop={5}
       outline={3}

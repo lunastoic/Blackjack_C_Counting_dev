@@ -37,7 +37,7 @@ export function ArcadeTutorialPanel({
   style,
 }: ArcadeTutorialPanelProps) {
   return (
-    <ArcadePanel style={[styles.panel, style]}>
+    <ArcadePanel slab style={[styles.panel, style]}>
       <View style={styles.header}>
         <ArcadeTab label={kicker} />
         {progress ? <Text style={styles.progress}>{progress.toUpperCase()}</Text> : null}

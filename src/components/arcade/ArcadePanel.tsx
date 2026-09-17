@@ -1,8 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import React from 'react';
+import React, { createContext, useContext } from 'react';
 import { LayoutChangeEvent, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { colors, fonts, fontSizes, radii, spacing } from '../../theme';
-import { ArcadeBevel } from './ArcadeChrome';
+import { useRouteMapId } from '../../hooks/useRouteMapId';
+import { ArcadeBevel, arcadeStripFace } from './ArcadeChrome';
 
 /**
  * The Modern look's intro furniture: a felt panel and the pieces that sit on
@@ -12,6 +13,11 @@ import { ArcadeBevel } from './ArcadeChrome';
 
 const PANEL_RADIUS = 26;
 const PANEL_EDGE = 3;
+// The slab is the count strip's bevel at panel size: ink outline, a deeper
+// band along the foot and the ink drop under it.
+const SLAB_RADIUS = 20;
+const SLAB_BAND = 5;
+const SLAB_DROP = 5;
 const PLAQUE_RADIUS = 18;
 const TAB_RADIUS = 14;
 // The plaque is the HUD marquee's bevel: ink outline, deeper band, ink drop.
@@ -19,23 +25,44 @@ const PLAQUE_OUTLINE = 3;
 const PLAQUE_DROP = 3;
 const PLAQUE_BAND = 4;
 
+/** The deeper foot of each casino's slab; Luna Luxe (and any casino not here) keeps the black. */
+const SLAB_DEEPS: Readonly<Record<number, string>> = {
+  2: colors.arcadeSlabDeepIo,
+  3: colors.arcadeSlabDeepEuropa,
+  4: colors.arcadeSlabDeepGanymede,
+  5: colors.arcadeSlabDeepTitan,
+  6: colors.arcadeSlabDeepKepler,
+};
+
+/** Whether the pieces inside sit on a slab, so their edges and pill ground follow it. */
+const SlabContext = createContext(false);
+
 interface ArcadePanelProps {
   readonly children: React.ReactNode;
+  /**
+   * The route's casino tints the panel as its count strip — the level brief
+   * and the tutorials. Left off, it is the green felt.
+   */
+  readonly slab?: boolean;
   readonly style?: StyleProp<ViewStyle>;
   readonly onLayout?: (event: LayoutChangeEvent) => void;
 }
 
-/** Green felt with a lighter felt edge; the intro's ground. */
-export function ArcadePanel({ children, style, onLayout }: ArcadePanelProps) {
+/** Green felt with a lighter felt edge, or the casino's slab; the intro's ground. */
+export function ArcadePanel({ children, slab = false, style, onLayout }: ArcadePanelProps) {
+  const mapId = useRouteMapId();
+  const top = slab ? arcadeStripFace(mapId) : colors.arcadeFelt;
+  const foot = slab ? (SLAB_DEEPS[mapId] ?? colors.arcadeSlabDeep) : colors.arcadeFeltDeep;
   return (
-    <View style={[styles.panel, style]} onLayout={onLayout}>
+    <View style={[styles.panel, slab && styles.slab, style]} onLayout={onLayout}>
       <LinearGradient
-        colors={[colors.arcadeFelt, colors.arcadeFeltDeep]}
+        colors={[top, foot]}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      {children}
+      {slab ? <View style={styles.slabBand} /> : null}
+      <SlabContext.Provider value={slab}>{children}</SlabContext.Provider>
     </View>
   );
 }
@@ -99,9 +126,10 @@ interface ArcadePillProps {
 }
 
 export function ArcadePill({ label, tone = 'muted', style }: ArcadePillProps) {
+  const slab = useContext(SlabContext);
   const mint = tone === 'mint';
   return (
-    <View style={[styles.pill, mint && styles.pillMint, style]}>
+    <View style={[styles.pill, mint && styles.pillMint, mint && slab && styles.pillMintSlab, style]}>
       <Text style={[styles.pillLabel, mint && styles.pillLabelMint]}>
         {mint ? label.toUpperCase() : label}
       </Text>
@@ -125,7 +153,13 @@ export function ArcadeInfoBox({ children, style }: ArcadeInfoBoxProps) {
 
 /** An inset frame on the felt — the star goals live in one. */
 export function ArcadeInset({ children, style }: ArcadePanelProps) {
-  return <View style={[styles.inset, style]}>{children}</View>;
+  const slab = useContext(SlabContext);
+  return <View style={[styles.inset, slab && styles.insetSlab, style]}>{children}</View>;
+}
+
+/** The felt edge, or the slab's faint white one — for tiles drawn on the panel. */
+export function useArcadePanelEdge(): string {
+  return useContext(SlabContext) ? colors.arcadeSlabEdge : colors.arcadeFeltEdge;
 }
 
 export const arcadeText = StyleSheet.create({
@@ -149,6 +183,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
     alignItems: 'stretch',
+  },
+  slab: {
+    borderRadius: SLAB_RADIUS,
+    borderColor: colors.arcadeInk,
+    backgroundColor: 'transparent',
+    // The ink drop sits outside the clip, so it is a shadow rather than a view.
+    boxShadow: `0px ${SLAB_DROP}px 0px ${colors.arcadeInk}`,
+    marginBottom: SLAB_DROP,
+  },
+  slabBand: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: SLAB_BAND,
+    backgroundColor: colors.arcadeStripDeep,
   },
   plaqueSlot: {
     alignItems: 'center',
@@ -235,6 +285,9 @@ const styles = StyleSheet.create({
     borderColor: colors.arcadeMint,
     backgroundColor: colors.arcadeFeltDeep,
   },
+  pillMintSlab: {
+    backgroundColor: colors.arcadeSlabPill,
+  },
   pillLabel: {
     fontFamily: fonts.mono,
     fontSize: fontSizes.small,
@@ -270,5 +323,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingBottom: spacing.xs + spacing.xxs,
     alignItems: 'center',
+  },
+  insetSlab: {
+    borderColor: colors.arcadeSlabEdge,
   },
 });
