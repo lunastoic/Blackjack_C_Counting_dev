@@ -22,7 +22,7 @@ const LETTER_COLOR: Record<string, string> = {
   P: colors.trainingPlus,
 };
 
-function rowFor(cards: readonly Rank[], canSplit: boolean): string[] {
+function rowFor(cards: readonly Rank[], canSplit: boolean, decks: number): string[] {
   return UPCARDS.map(
     (up) =>
       LETTER[
@@ -30,6 +30,7 @@ function rowFor(cards: readonly Rank[], canSplit: boolean): string[] {
           { cards: cards.map((rank) => ({ rank })), isFromSplit: false },
           up,
           { canDouble: true, canSplit },
+          decks,
         ).preferredAction
       ],
   );
@@ -40,7 +41,7 @@ interface ChartRow {
   readonly cells: readonly string[];
 }
 
-function buildChart(): { hard: ChartRow[]; soft: ChartRow[]; pairs: ChartRow[] } {
+function buildChart(decks: number): { hard: ChartRow[]; soft: ChartRow[]; pairs: ChartRow[] } {
   const hard: ChartRow[] = [];
   for (let total = 5; total <= 17; total++) {
     // Two non-pair, ace-free cards reaching the total.
@@ -48,19 +49,19 @@ function buildChart(): { hard: ChartRow[]; soft: ChartRow[]; pairs: ChartRow[] }
       total <= 12
         ? ['2', String(total - 2) as Rank]
         : ['10', String(total - 10) as Rank];
-    hard.push({ label: total === 17 ? '17+' : String(total), cells: rowFor(cards, false) });
+    hard.push({ label: total === 17 ? '17+' : String(total), cells: rowFor(cards, false, decks) });
   }
 
   const soft: ChartRow[] = [];
   for (let total = 13; total <= 20; total++) {
     const kicker = String(total - 11) as Rank;
-    soft.push({ label: `A,${kicker}`, cells: rowFor(['A', kicker], false) });
+    soft.push({ label: `A,${kicker}`, cells: rowFor(['A', kicker], false, decks) });
   }
 
   const pairRanks: Rank[] = ['A', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
   const pairs: ChartRow[] = pairRanks.map((rank) => ({
     label: `${rank},${rank}`,
-    cells: rowFor([rank, rank], true),
+    cells: rowFor([rank, rank], true, decks),
   }));
 
   return { hard, soft, pairs };
@@ -69,11 +70,14 @@ function buildChart(): { hard: ChartRow[]; soft: ChartRow[]; pairs: ChartRow[] }
 export function StrategyChartModal({
   visible,
   onClose,
+  decks,
 }: {
   visible: boolean;
   onClose: () => void;
+  /** The table's shoe size — the chart follows it. */
+  decks: number;
 }) {
-  const chart = useMemo(() => buildChart(), []);
+  const chart = useMemo(() => buildChart(decks), [decks]);
 
   return (
     <ModalSheet visible={visible} title="Basic Strategy" onClose={onClose}>

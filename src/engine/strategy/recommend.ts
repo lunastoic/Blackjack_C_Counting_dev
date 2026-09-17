@@ -9,6 +9,11 @@ import { ActionAvailability, StrategyRecommendation } from './types';
  *
  * Tables and fallbacks live here only — tests and future UI must call this
  * module rather than re-encoding the rules.
+ *
+ * The house rules are dealer stands on soft 17 with double after split. A few
+ * cells change with the number of decks: the single-deck plays (8 vs 5–6,
+ * 9 vs 2, soft 13–14 vs 4, soft 19 vs 6, 6-6 vs 7, 11 vs A) only hold where
+ * fewer decks make them pay, so each table's shoe picks its chart.
  */
 
 /** Dealer upcard strength: 2–10, with Ace as 11. */
@@ -27,17 +32,17 @@ function between(value: number, low: number, high: number): boolean {
   return value >= low && value <= high;
 }
 
-function hardDecision(total: number, up: UpValue): StrategyRecommendation {
+function hardDecision(total: number, up: UpValue, decks: number): StrategyRecommendation {
   if (total <= 7) {
     return { preferredAction: 'hit', reasonCode: `HARD_${total}_HIT` };
   }
   if (total === 8) {
-    return between(up, 5, 6)
+    return decks === 1 && between(up, 5, 6)
       ? { preferredAction: 'double', fallbackAction: 'hit', reasonCode: 'HARD_8_DOUBLE' }
       : { preferredAction: 'hit', reasonCode: 'HARD_8_HIT' };
   }
   if (total === 9) {
-    return between(up, 2, 6)
+    return between(up, decks <= 2 ? 2 : 3, 6)
       ? { preferredAction: 'double', fallbackAction: 'hit', reasonCode: 'HARD_9_DOUBLE' }
       : { preferredAction: 'hit', reasonCode: 'HARD_9_HIT' };
   }
@@ -47,7 +52,7 @@ function hardDecision(total: number, up: UpValue): StrategyRecommendation {
       : { preferredAction: 'hit', reasonCode: 'HARD_10_HIT' };
   }
   if (total === 11) {
-    return between(up, 2, 10)
+    return between(up, 2, decks <= 2 ? 11 : 10)
       ? { preferredAction: 'double', fallbackAction: 'hit', reasonCode: 'HARD_11_DOUBLE' }
       : { preferredAction: 'hit', reasonCode: 'HARD_11_HIT' };
   }
@@ -65,14 +70,14 @@ function hardDecision(total: number, up: UpValue): StrategyRecommendation {
 }
 
 /** `total` is the soft total (ace as 11): A2 = 13 … A9 = 20. */
-function softDecision(total: number, up: UpValue): StrategyRecommendation {
+function softDecision(total: number, up: UpValue, decks: number): StrategyRecommendation {
   if (total <= 12) {
     // Soft 12 (A-A when split is unavailable): just hit.
     return { preferredAction: 'hit', reasonCode: 'SOFT_12_HIT' };
   }
   if (between(total, 13, 16)) {
-    // A2–A3 and A4–A5: double vs 4–6, otherwise hit.
-    return between(up, 4, 6)
+    // A4–A5: double vs 4–6. A2–A3: the same on one deck, vs 5–6 on more.
+    return between(up, total <= 14 && decks > 1 ? 5 : 4, 6)
       ? { preferredAction: 'double', fallbackAction: 'hit', reasonCode: `SOFT_${total}_DOUBLE` }
       : { preferredAction: 'hit', reasonCode: `SOFT_${total}_HIT` };
   }
@@ -93,8 +98,8 @@ function softDecision(total: number, up: UpValue): StrategyRecommendation {
     return { preferredAction: 'hit', reasonCode: 'SOFT_18_HIT' };
   }
   if (total === 19) {
-    // A8: double vs 6, otherwise stand.
-    return up === 6
+    // A8: double vs 6 on one deck, otherwise stand.
+    return decks === 1 && up === 6
       ? { preferredAction: 'double', fallbackAction: 'stand', reasonCode: 'SOFT_19_DOUBLE' }
       : { preferredAction: 'stand', reasonCode: 'SOFT_19_STAND' };
   }
@@ -106,15 +111,16 @@ function softDecision(total: number, up: UpValue): StrategyRecommendation {
  * Pair table. Returns null when the hand should be played as a normal
  * hard/soft total (10-value pairs stand there as hard 20; 5-5 is hard 10).
  */
-function pairSplitPrescribed(pairValue: number, up: UpValue): boolean {
+function pairSplitPrescribed(pairValue: number, up: UpValue, decks: number): boolean {
   switch (pairValue) {
     case 11: // A-A
     case 8:
       return true;
     case 9:
       return between(up, 2, 6) || up === 8 || up === 9;
-    case 7:
     case 6:
+      return between(up, 2, decks <= 2 ? 7 : 6);
+    case 7:
     case 3:
     case 2:
       return between(up, 2, 7);
@@ -129,9 +135,10 @@ function nonPairDecision(
   hand: HandInput,
   up: UpValue,
   doubleAllowed: boolean,
+  decks: number,
 ): StrategyRecommendation {
   const { total, isSoft } = evaluateCards(hand.cards);
-  const decision = isSoft ? softDecision(total, up) : hardDecision(total, up);
+  const decision = isSoft ? softDecision(total, up, decks) : hardDecision(total, up, decks);
   if (decision.preferredAction === 'double' && !doubleAllowed) {
     const fallback = decision.fallbackAction ?? 'hit';
     return { preferredAction: fallback, reasonCode: `${decision.reasonCode}_FALLBACK` };
@@ -143,12 +150,14 @@ function nonPairDecision(
  * Full recommendation for the current hand against the dealer upcard.
  * `availability` reflects what is currently legal (chip affordability, one-split
  * max, two-card requirement); when the table prefers an unavailable action the
- * correct fallback is promoted to `preferredAction`.
+ * correct fallback is promoted to `preferredAction`. `decks` is the table's
+ * shoe size; it picks the chart (see the note at the top).
  */
 export function recommendAction(
   hand: HandInput,
   dealerUpRank: Rank,
   availability: ActionAvailability,
+  decks = 1,
 ): StrategyRecommendation {
   const up = dealerUpValue(dealerUpRank);
   const isPair =
@@ -162,8 +171,8 @@ export function recommendAction(
     }
 
     // 5-5 plays as hard 10 — falls through to the hard table below.
-    if (pairValue !== 5 && pairSplitPrescribed(pairValue, up)) {
-      const fallback = nonPairDecision(hand, up, availability.canDouble);
+    if (pairValue !== 5 && pairSplitPrescribed(pairValue, up, decks)) {
+      const fallback = nonPairDecision(hand, up, availability.canDouble, decks);
       if (availability.canSplit) {
         return {
           preferredAction: 'split',
@@ -174,12 +183,12 @@ export function recommendAction(
       return fallback;
     }
 
-    if (pairValue === 9 && !pairSplitPrescribed(9, up)) {
+    if (pairValue === 9 && !pairSplitPrescribed(9, up, decks)) {
       return { preferredAction: 'stand', reasonCode: 'PAIR_NINES_STAND' };
     }
   }
 
-  return nonPairDecision(hand, up, availability.canDouble);
+  return nonPairDecision(hand, up, availability.canDouble, decks);
 }
 
 /** Convenience wrapper for a live PlayerHand. */
@@ -187,10 +196,12 @@ export function recommendForHand(
   hand: PlayerHand,
   dealerUpRank: Rank,
   availability: ActionAvailability,
+  decks = 1,
 ): StrategyRecommendation {
   return recommendAction(
     { cards: hand.cards, isFromSplit: hand.isFromSplit },
     dealerUpRank,
     availability,
+    decks,
   );
 }

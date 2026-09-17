@@ -39,6 +39,21 @@ export function resetShoe(shoe: Shoe, rng: Rng = defaultRng): Shoe {
   return createShoe(shoe.deckCount, rng);
 }
 
+/**
+ * The shoe ran dry mid-round: shuffle a fresh shoe of the same size, minus the
+ * cards still on the table, and keep dealing — what a dealer does with the
+ * discards when the cut card was placed too deep for the hand in play.
+ */
+export function reshuffleAround(
+  shoe: Shoe,
+  inPlay: readonly Card[],
+  rng: Rng = defaultRng,
+): Shoe {
+  const onTable = new Set(inPlay.map((card) => card.id));
+  const fresh = createShoe(shoe.deckCount, rng);
+  return { ...fresh, cards: fresh.cards.filter((card) => !onTable.has(card.id)) };
+}
+
 export function cardsRemaining(shoe: Shoe): number {
   return shoe.cards.length - shoe.drawnCount;
 }

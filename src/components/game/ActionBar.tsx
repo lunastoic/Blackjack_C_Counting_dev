@@ -58,6 +58,7 @@ export function ActionBar() {
   const round = useGameSessionStore((state) => state.round);
   const phase = useGameSessionStore((state) => state.phase);
   const canAct = useGameSessionStore((state) => state.canAct);
+  const decks = useGameSessionStore((state) => state.shoe?.deckCount);
   const act = useGameSessionStore((state) => state.act);
   const hintsEnabled = useSettingsStore(
     (state) =>
@@ -76,10 +77,12 @@ export function ActionBar() {
     hand &&
     dealerUp
   ) {
-    recommended = recommendForHand(hand, dealerUp.rank, {
-      canDouble: canAct('double'),
-      canSplit: canAct('split'),
-    }).preferredAction;
+    recommended = recommendForHand(
+      hand,
+      dealerUp.rank,
+      { canDouble: canAct('double'), canSplit: canAct('split') },
+      decks,
+    ).preferredAction;
   }
 
   return (

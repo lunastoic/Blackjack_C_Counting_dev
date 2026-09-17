@@ -36,7 +36,7 @@ import { ObjectivePanel } from '../../components/dojo/ObjectivePanel';
 import { objectivesForMap } from '../../engine/dojo';
 import { SpeedSlider } from '../../components/settings/SettingsRows';
 import { HandResult } from '../../engine/blackjack/resolve';
-import { effectiveDealerSpeed, mapById } from '../../engine/betting/casino';
+import { effectiveDealerSpeed, mapById, maxBetForLicense } from '../../engine/betting/casino';
 import { useModernUi } from '../../hooks/useModernUi';
 import { playSound, warmTableSounds } from '../../services/audio';
 import { initialDealVisibleCounts } from '../../utils/dealSequence';
@@ -270,7 +270,7 @@ export default function GameScreen() {
           wager,
           bankroll: chips + wager,
           smallestChip: map.chipDenominations[0],
-          maxBet: map.maxBet,
+          maxBet: maxBetForLicense(map, license),
           showSize: trueCountShown,
         })
       : null;
@@ -430,7 +430,7 @@ export default function GameScreen() {
           ) : phase === 'betting' && !isAutoplayRound ? (
             <BetSpot
               chipSetKey={map.chipSetKey}
-              maxBet={map.maxBet}
+              maxBet={maxBetForLicense(map, license)}
               wager={wager}
               showEmpty={wager <= 0}
             />
@@ -576,7 +576,11 @@ export default function GameScreen() {
         onClose={() => setSettingsOpen(false)}
         mapId={map.id}
       />
-      <StrategyChartModal visible={strategyOpen} onClose={() => setStrategyOpen(false)} />
+      <StrategyChartModal
+        visible={strategyOpen}
+        onClose={() => setStrategyOpen(false)}
+        decks={map.deckCount}
+      />
       <DistributionChartModal visible={chartsOpen} onClose={() => setChartsOpen(false)} />
       {FEATURES.casinoFan ? (
         <MapCoverflow

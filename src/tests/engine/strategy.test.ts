@@ -37,10 +37,10 @@ describe('hard totals', () => {
     expect(rec(['4', '6'], 'A').preferredAction).toBe('hit');
   });
 
-  it('hard 11: double vs 2–10, hit vs Ace', () => {
+  it('hard 11: double vs everything on one deck', () => {
     expect(rec(['5', '6'], '2').preferredAction).toBe('double');
     expect(rec(['5', '6'], 'K').preferredAction).toBe('double');
-    expect(rec(['5', '6'], 'A').preferredAction).toBe('hit');
+    expect(rec(['5', '6'], 'A').preferredAction).toBe('double');
   });
 
   it('hard 12: stand vs 4–6, otherwise hit', () => {
@@ -60,6 +60,42 @@ describe('hard totals', () => {
   it('hard 17+: stand', () => {
     expect(rec(['10', '7'], 'A').preferredAction).toBe('stand');
     expect(rec(['10', '9'], '6').preferredAction).toBe('stand');
+  });
+});
+
+describe('chart by shoe size (S17, double after split)', () => {
+  const on = (ranks: Rank[], up: Rank, decks: number) =>
+    recommendAction({ cards: cardsOf(...ranks), isFromSplit: false }, up, ALL, decks).preferredAction;
+
+  it('keeps the single-deck plays on one deck', () => {
+    expect(on(['3', '5'], '6', 1)).toBe('double');
+    expect(on(['4', '5'], '2', 1)).toBe('double');
+    expect(on(['A', '2'], '4', 1)).toBe('double');
+    expect(on(['A', '8'], '6', 1)).toBe('double');
+    expect(on(['6', '6'], '7', 1)).toBe('split');
+  });
+
+  it('two decks: 8 hits, A2–A3 wait for 5, A8 stands; 9 vs 2, 6-6 vs 7 and 11 vs A hold', () => {
+    expect(on(['3', '5'], '6', 2)).toBe('hit');
+    expect(on(['A', '3'], '4', 2)).toBe('hit');
+    expect(on(['A', '3'], '5', 2)).toBe('double');
+    expect(on(['A', '8'], '6', 2)).toBe('stand');
+    expect(on(['4', '5'], '2', 2)).toBe('double');
+    expect(on(['6', '6'], '7', 2)).toBe('split');
+    expect(on(['5', '6'], 'A', 2)).toBe('double');
+  });
+
+  it('four to eight decks: 9 vs 2 hits, 6-6 vs 7 hits, 11 vs A hits', () => {
+    for (const decks of [4, 6, 8]) {
+      expect(on(['4', '5'], '2', decks)).toBe('hit');
+      expect(on(['4', '5'], '3', decks)).toBe('double');
+      expect(on(['6', '6'], '7', decks)).toBe('hit');
+      expect(on(['6', '6'], '6', decks)).toBe('split');
+      expect(on(['5', '6'], 'A', decks)).toBe('hit');
+      expect(on(['A', '2'], '4', decks)).toBe('hit');
+      expect(on(['A', '8'], '6', decks)).toBe('stand');
+      expect(on(['3', '5'], '5', decks)).toBe('hit');
+    }
   });
 });
 

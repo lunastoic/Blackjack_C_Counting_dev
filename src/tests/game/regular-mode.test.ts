@@ -124,12 +124,29 @@ describe('table sessions', () => {
     });
   });
 
-  it('refunds an interrupted round', () => {
+  it('settles a round left mid-hand as it stands', () => {
     expect(session().startSession(1)).toBe(true);
     rig('10', '10', '9', '8');
     dealRound(100);
     expect(useEconomyStore.getState().chips).toBe(400);
-    session().endSession(); // player leaves mid-hand
+    session().endSession(); // player leaves mid-hand: 19 stands vs the dealer's 18
+    expect(useEconomyStore.getState().chips).toBe(600);
+  });
+
+  it('pays nothing back for a bust hand left before the dealer plays', () => {
+    expect(session().startSession(1)).toBe(true);
+    rig('10', '10', '6', '8', 'K');
+    dealRound(100);
+    jest.setSystemTime(Date.now() + 2000);
+    expect(session().act('hit')).toBe(true); // 26, bust
+    session().endSession();
+    expect(useEconomyStore.getState().chips).toBe(400);
+  });
+
+  it('refunds a bet that was never dealt', () => {
+    expect(session().startSession(1)).toBe(true);
+    expect(session().addChipToBet(100)).toBe(true);
+    session().endSession();
     expect(useEconomyStore.getState().chips).toBe(500);
   });
 });

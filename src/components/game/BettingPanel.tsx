@@ -1,10 +1,12 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { isValidBet } from '../../engine/betting/bets';
+import { maxBetForLicense } from '../../engine/betting/casino';
 import { playSound } from '../../services/audio';
 import { haptics } from '../../services/haptics';
 import { useEconomyStore } from '../../stores/economyStore';
 import { useGameSessionStore } from '../../stores/gameSessionStore';
+import { useProgressionStore } from '../../stores/progressionStore';
 import { useModernUi } from '../../hooks/useModernUi';
 import { colors, fonts, fontSizes, fontWeights, radii, spacing } from '../../theme';
 import { ArcadeButton, ArcadeInfoBox, arcadeShadow } from '../arcade';
@@ -21,14 +23,17 @@ export function BettingPanel() {
   const deal = useGameSessionStore((state) => state.deal);
   const chips = useEconomyStore((state) => state.chips);
   const lastBet = useEconomyStore((state) => state.lastBet);
+  const license = useProgressionStore((state) => (map ? state.licenseForMap(map.id) : 'none'));
   const modern = useModernUi();
 
   if (!map) {
     return null;
   }
 
-  const canDeal = isValidBet(wager, map.maxBet);
-  const canRedo = lastBet > 0 && lastBet !== wager && lastBet <= chips + wager && lastBet <= map.maxBet;
+  // The same ceiling the store enforces: a permit plays under a reduced cap.
+  const betCap = maxBetForLicense(map, license);
+  const canDeal = isValidBet(wager, betCap);
+  const canRedo = lastBet > 0 && lastBet !== wager && lastBet <= chips + wager && lastBet <= betCap;
 
   // Broke rescue: no chips anywhere → offer the daily / broke reward inline.
   if (chips === 0 && wager === 0) {

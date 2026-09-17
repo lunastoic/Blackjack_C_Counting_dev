@@ -2,9 +2,11 @@ import { Image } from 'expo-image';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { CHIP_SETS } from '../../assets/registry';
+import { maxBetForLicense } from '../../engine/betting/casino';
 import { playSound } from '../../services/audio';
 import { useEconomyStore } from '../../stores/economyStore';
 import { useGameSessionStore } from '../../stores/gameSessionStore';
+import { useProgressionStore } from '../../stores/progressionStore';
 import { useModernUi } from '../../hooks/useModernUi';
 import { colors, fonts, fontSizes, fontWeights, spacing } from '../../theme';
 import { ArcadeChip, arcadeShadow } from '../arcade';
@@ -27,6 +29,7 @@ export function ChipTray() {
   const wager = useGameSessionStore((state) => state.wager);
   const addChipToBet = useGameSessionStore((state) => state.addChipToBet);
   const chips = useEconomyStore((state) => state.chips);
+  const license = useProgressionStore((state) => (map ? state.licenseForMap(map.id) : 'none'));
   const modern = useModernUi();
 
   if (!map) {
@@ -38,7 +41,7 @@ export function ChipTray() {
   return (
     <View style={styles.tray}>
       {map.chipDenominations.map((value) => {
-        const affordable = chips >= value && wager + value <= map.maxBet;
+        const affordable = chips >= value && wager + value <= maxBetForLicense(map, license);
         const image = chipSet[value];
         return (
           <PressableScale

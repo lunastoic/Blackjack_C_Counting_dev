@@ -21,6 +21,7 @@ import {
 } from '../engine/dojo';
 import { DojoSave } from '../persistence/schema';
 import { useEconomyStore } from './economyStore';
+import { awardXpWithRewards } from './orchestration';
 import { useProgressionStore } from './progressionStore';
 
 export interface DojoState {
@@ -138,7 +139,7 @@ export const useDojoStore = create<DojoState>()((set, get) => ({
       get().totalDojoXp,
       DOJO_XP.lessonComplete,
     );
-    progress.awardXp(DOJO_XP.lessonComplete);
+    awardXpWithRewards(DOJO_XP.lessonComplete);
     set({
       completedLessons: new Set([...get().completedLessons, lessonId]),
       totalDojoXp: outcome.dojoXp,
@@ -161,7 +162,7 @@ export const useDojoStore = create<DojoState>()((set, get) => ({
       get().totalDojoXp,
       xp,
     );
-    progress.awardXp(xp);
+    awardXpWithRewards(xp);
 
     set({
       drillBests: isBetter
@@ -183,7 +184,7 @@ export const useDojoStore = create<DojoState>()((set, get) => ({
       get().totalDojoXp,
       DOJO_XP.objectiveComplete,
     );
-    progress.awardXp(DOJO_XP.objectiveComplete);
+    awardXpWithRewards(DOJO_XP.objectiveComplete);
     set({
       tableObjectivesCompleted: new Set([...get().tableObjectivesCompleted, objectiveId]),
       totalDojoXp: outcome.dojoXp,
@@ -252,7 +253,7 @@ export const useDojoStore = create<DojoState>()((set, get) => ({
         get().totalDojoXp,
         DOJO_XP.flashLevel,
       );
-      progress.awardXp(DOJO_XP.flashLevel);
+      awardXpWithRewards(DOJO_XP.flashLevel);
       set({ totalDojoXp: progression.dojoXp, rank: progression.rank });
     }
     set({ flashLevels: { ...get().flashLevels, [key]: stars } });

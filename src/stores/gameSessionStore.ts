@@ -16,7 +16,7 @@ import {
 import { resolveRound, RoundResolution } from '../engine/blackjack/resolve';
 import { situationLabel } from '../engine/strategy/describe';
 import { recommendForHand } from '../engine/strategy/recommend';
-import { hiLoValue } from '../engine/cards/card';
+import { Card, hiLoValue } from '../engine/cards/card';
 import { trueCount } from '../engine/counting/trueCount';
 import { XP_AWARDS, xpForHandResult } from '../engine/progression/progression';
 import { RoundPayout, settleRound } from '../engine/payouts/payouts';
@@ -25,6 +25,7 @@ import {
   createShoe,
   EmptyShoeError,
   isShufflePending,
+  reshuffleAround,
   Shoe,
 } from '../engine/shoe/shoe';
 import { RoundPhase } from '../engine/state-machine/phases';
@@ -231,6 +232,8 @@ const BASE_DELAYS = {
 const timers = new Set<ReturnType<typeof setTimeout>>();
 /** Serial for deviation notices — a repeat of the same slip shows again. */
 let deviationSerial = 0;
+/** The dealer's finished hand while the dealer turn is still being replayed card by card. */
+let dealerFinal: RoundState | null = null;
 
 function clearAllTimers(): void {
   for (const timer of timers) {
@@ -245,6 +248,29 @@ function schedule(fn: () => void, delay: number): void {
     fn();
   }, delay);
   timers.add(timer);
+}
+
+/** Every card on the table this round — the hole card included. */
+function cardsInPlay(round: RoundState): Card[] {
+  return [...round.playerHands.flatMap((hand) => hand.cards), ...round.dealerHand.cards];
+}
+
+/** Stands every live hand and plays the dealer out — a round left mid-hand, settled as it stands. */
+function finishRound(round: RoundState, shoe: Shoe | null): RoundState {
+  let current = round;
+  let currentShoe = shoe ?? reshuffleAround(createShoe(6), cardsInPlay(round));
+  while (current.activeHandIndex !== null) {
+    current = applyPlayerAction(current, currentShoe, 'stand').round;
+  }
+  try {
+    return playDealerTurn(current, currentShoe).round;
+  } catch (error) {
+    if (!(error instanceof EmptyShoeError)) {
+      throw error;
+    }
+    currentShoe = reshuffleAround(currentShoe, cardsInPlay(current));
+    return playDealerTurn(current, currentShoe).round;
+  }
 }
 
 /** The table's shoe comes from the casino: 1 deck at Luna Luxe up to 8. */
@@ -290,7 +316,7 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
       return;
     }
     const availability = { canDouble: get().canAct('double'), canSplit: get().canAct('split') };
-    const book = recommendForHand(hand, dealerUp.rank, availability);
+    const book = recommendForHand(hand, dealerUp.rank, availability, get().shoe?.deckCount);
     if (book.preferredAction === action) {
       return;
     }
@@ -326,6 +352,24 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
   }
 
   /** Applies count changes and reports the new count to the achievement engine. */
+  /**
+   * Runs a draw against the shoe; if the shoe runs dry mid-round it is
+   * reshuffled around the cards on the table and the draw runs again. The
+   * count starts over with the new shoe.
+   */
+  function drawWithReshuffle<T>(round: RoundState, shoe: Shoe, run: (from: Shoe) => T): T {
+    try {
+      return run(shoe);
+    } catch (error) {
+      if (!(error instanceof EmptyShoeError)) {
+        throw error;
+      }
+      const fresh = reshuffleAround(shoe, cardsInPlay(round));
+      set({ shoe: fresh, runningCount: 0, shufflePending: false, revealTier: 0 });
+      return run(fresh);
+    }
+  }
+
   function applyCountEvents(events: readonly RoundEvent[]): void {
     const delta = countDelta(events);
     if (delta === 0 && events.every((e) => e.type !== 'cardBecameVisible')) {
@@ -596,16 +640,20 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
     if (!hand || !dealerUp) {
       return;
     }
-    const recommendation = recommendForHand(hand, dealerUp.rank, {
-      canDouble: canDouble(hand),
-      canSplit: canSplit(hand, round.splitUsed),
-    });
+    const recommendation = recommendForHand(
+      hand,
+      dealerUp.rank,
+      { canDouble: canDouble(hand), canSplit: canSplit(hand, round.splitUsed) },
+      shoe.deckCount,
+    );
 
     let step;
     try {
-      step = applyPlayerAction(round, shoe, recommendation.preferredAction);
+      step = drawWithReshuffle(round, shoe, (from) =>
+        applyPlayerAction(round, from, recommendation.preferredAction),
+      );
     } catch (error) {
-      if (error instanceof IllegalActionError || error instanceof EmptyShoeError) {
+      if (error instanceof IllegalActionError) {
         // Extremely defensive: stand the hand out rather than stall the drill.
         step = applyPlayerAction(round, shoe, 'stand');
       } else {
@@ -636,7 +684,8 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
     // `pendingReveals` counts the drawn-but-unshown cards so true count and
     // "cards left" stay consistent with what is visible during the reveal.
     // (The hole card was already drawn at the deal, so it is not pending.)
-    const final = playDealerTurn(round, shoe);
+    const final = drawWithReshuffle(round, shoe, (from) => playDealerTurn(round, from));
+    dealerFinal = final.round;
     const drawsToReveal = final.events.filter(
       (e) => e.type === 'cardBecameVisible' && e.source === 'dealerDraw',
     ).length;
@@ -651,6 +700,7 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
 
     const step = (): void => {
       if (stepIndex >= steps.length) {
+        dealerFinal = null;
         set({ round: { ...get().round!, dealerHand: final.round.dealerHand }, pendingReveals: 0 });
         resolveAndSettle();
         return;
@@ -819,10 +869,14 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
 
     endSession: () => {
       clearAllTimers();
-      const { phase, round, wager, isAutoplayRound } = get();
-      // Refund any chips still in play: a bet not yet dealt, or a round that
-      // was interrupted before its payout phase credited the bankroll.
-      // Autoplay rounds never staked chips, so they refund nothing.
+      const { phase, round, wager, isAutoplayRound, resolution, shoe } = get();
+      const finished = dealerFinal;
+      dealerFinal = null;
+      // Return any chips still in play. A bet not yet dealt comes back whole.
+      // Once the hand is being played its outcome can already be showing (a
+      // bust, the hole card), so leaving settles it as it stands: live hands
+      // stand, the dealer finishes, and the bankroll gets what the table pays.
+      // Autoplay rounds never staked chips, so they return nothing.
       let refund = 0;
       if (isAutoplayRound) {
         refund = 0;
@@ -830,8 +884,8 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
         refund = round
           ? round.playerHands.reduce((sum, hand) => sum + hand.bet, 0)
           : wager;
-      } else if (phase === 'playerTurn' || phase === 'dealerTurn' || phase === 'resolution') {
-        refund = round ? round.playerHands.reduce((sum, hand) => sum + hand.bet, 0) : 0;
+      } else if (round && (phase === 'playerTurn' || phase === 'dealerTurn' || phase === 'resolution')) {
+        refund = settleRound(resolution ?? resolveRound(finished ?? finishRound(round, shoe))).totalReturned;
       }
       if (refund > 0) {
         useEconomyStore.getState().creditChips(refund);
@@ -1007,9 +1061,9 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
 
       let step;
       try {
-        step = applyPlayerAction(round, shoe, action);
+        step = drawWithReshuffle(round, shoe, (from) => applyPlayerAction(round, from, action));
       } catch (error) {
-        if (error instanceof IllegalActionError || error instanceof EmptyShoeError) {
+        if (error instanceof IllegalActionError) {
           // Refund the extra stake if the engine refused the action.
           if (action === 'double' || action === 'split') {
             useEconomyStore.getState().creditChips(round.playerHands[round.activeHandIndex!].bet);

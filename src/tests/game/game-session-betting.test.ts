@@ -230,7 +230,7 @@ describe('round cleanup and interrupted rounds', () => {
     expect(session().sessionActive).toBe(false);
   });
 
-  it('refunds live hand bets (including a double) when a round is interrupted', () => {
+  it('settles live hands (including a double) when a round is interrupted', () => {
     rig('5', '10', '6', '6', '9');
     session().addChipToBet(100);
     session().deal();
@@ -238,8 +238,35 @@ describe('round cleanup and interrupted rounds', () => {
     expect(session().act('double')).toBe(true);
     expect(useEconomyStore.getState().chips).toBe(300);
 
-    session().endSession(); // interrupted before the dealer finished
-    expect(useEconomyStore.getState().chips).toBe(500);
+    // Interrupted before the dealer finished: 20 on the double; the dealer's
+    // 16 draws a 7 and busts, so the doubled stake pays even money.
+    session().endSession();
+    expect(useEconomyStore.getState().chips).toBe(700);
+    expect(session().round).toBeNull();
+  });
+
+  it('settles against the dealer hand already drawn when left mid dealer turn', () => {
+    rig('10', '10', '9', '6', '5');
+    session().addChipToBet(100);
+    session().deal();
+    jest.advanceTimersByTime(3500);
+    expect(session().act('stand')).toBe(true);
+    jest.advanceTimersByTime(900); // the dealer turn has started replaying
+    expect(session().phase).toBe('dealerTurn');
+    session().endSession(); // dealer 10+6+5 = 21 beats 19
+    expect(useEconomyStore.getState().chips).toBe(400);
+  });
+
+  it('reshuffles around the table when the shoe runs dry mid-round', () => {
+    // Exactly seven cards: player 10+6, dealer 2 hole / 2 up, then 2, 2, 3 —
+    // the dealer needs more than the shoe holds.
+    useGameSessionStore.setState({ shoe: riggedShoe(cardsOf('10', '2', '6', '2', '2', '2', '3'), 1) });
+    session().addChipToBet(100);
+    expect(session().deal()).toBe(true);
+    jest.advanceTimersByTime(3500);
+    expect(session().act('stand')).toBe(true);
+    expect(() => jest.runAllTimers()).not.toThrow();
+    expect(session().phase).toBe('betting');
     expect(session().round).toBeNull();
   });
 
