@@ -355,9 +355,9 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         level: 3,
         title: 'Card Groups',
         brief:
-          'Three cards, then four, then five. Cancel what you can and call the net value of the group. Three strikes.',
+          'Three cards at a time. Cancel what you can and call the net value of the group. Three strikes.',
         speed: 'easy',
-        groupSizes: [3, 4, 5],
+        groupSizes: [3],
         groupOrder: 'progressive',
         emphasizeCancellation: false,
         streakTarget: 21,

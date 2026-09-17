@@ -32,7 +32,7 @@ const LEVEL_TUTORIALS: Readonly<Record<string, readonly TutorialSlide[]>> = {
     ['Pairs that cancel', 'A +1 next to a −1 is 0. Two lows are +2, two highs are −2.'],
   ),
   '1:3': slides(
-    ['Three, four, then five cards', 'The group grows as your streak does.'],
+    ['Three cards, one number', 'Add all three values and tap the total.'],
     ['Cancel first, then count', 'Pair every high with a low. Whatever is left over is the answer.'],
   ),
   '1:4': slides(

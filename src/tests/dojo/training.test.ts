@@ -99,7 +99,7 @@ describe('training ladder — configuration', () => {
     const [l1, l2, l3, l4, l5, l6] = trainingLevelsForMap(1);
     expect(l1).toMatchObject({ mode: 'cardValue', streakTarget: 21, strikes: 3 });
     expect(l2).toMatchObject({ mode: 'cardGroup', groupSizes: [2], streakTarget: 21, strikes: 3 });
-    expect(l3).toMatchObject({ mode: 'cardGroup', groupSizes: [3, 4, 5], streakTarget: 21, strikes: 3 });
+    expect(l3).toMatchObject({ mode: 'cardGroup', groupSizes: [3], streakTarget: 21, strikes: 3 });
     expect(l4).toMatchObject({
       mode: 'countStream',
       deckCount: 1,
@@ -284,15 +284,19 @@ describe('training ladder — streak items', () => {
     expect(cancelling / rounds).toBeGreaterThan(0.5);
   });
 
-  it('progressive groups climb 3 → 4 → 5 as the streak grows', () => {
+  it('progressive groups climb through their sizes as the streak grows', () => {
     const spec = trainingLevelSpec(1, 3);
     if (spec.mode !== 'cardGroup') {
       throw new Error('expected card groups');
     }
+    // Luna Luxe's groups are three cards throughout; a progressive list climbs.
     expect(groupSizeForStreak(spec, 0)).toBe(3);
-    expect(groupSizeForStreak(spec, 7)).toBe(4);
-    expect(groupSizeForStreak(spec, 14)).toBe(5);
-    expect(groupSizeForStreak(spec, 20)).toBe(5);
+    expect(groupSizeForStreak(spec, 20)).toBe(3);
+    const climbing = { ...spec, groupSizes: [3, 4, 5] };
+    expect(groupSizeForStreak(climbing, 0)).toBe(3);
+    expect(groupSizeForStreak(climbing, 7)).toBe(4);
+    expect(groupSizeForStreak(climbing, 14)).toBe(5);
+    expect(groupSizeForStreak(climbing, 20)).toBe(5);
   });
 
   it('deck estimates match the cards remaining at the level precision', () => {

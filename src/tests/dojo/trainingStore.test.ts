@@ -381,7 +381,7 @@ describe('training store — streak drills', () => {
     expect(jest.getTimerCount()).toBe(0);
   });
 
-  it('card groups grow 3 → 4 → 5 through the level', () => {
+  it('card groups on Luna Luxe stay at three cards', () => {
     store().load(1, 3);
     store().begin();
     const sizes = new Set<number>();
@@ -393,7 +393,7 @@ describe('training store — streak drills', () => {
       }
       answerCorrectly();
     }
-    expect([...sizes].sort()).toEqual([3, 4, 5]);
+    expect([...sizes]).toEqual([3]);
     expect(store().status).toBe('cleared');
   });
 
