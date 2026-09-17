@@ -154,8 +154,9 @@ export const MODERN_TABLE_FELTS: Record<string, number> = {
 };
 
 /**
- * Level-node art on the ladder, keyed by casino id then level. A casino
- * without a set here (or a level missing from its set) shows chip art.
+ * Level-node art on the ladder, keyed by casino id then level. Luna Luxe's
+ * six are painted; the other casinos' are drawn in the same style with their
+ * own card backs. A level missing here shows chip art.
  */
 export const LEVEL_ART: Record<number, Record<number, number>> = {
   1: {
@@ -165,6 +166,46 @@ export const LEVEL_ART: Record<number, Record<number, number>> = {
     4: require('../../assets/levels/map1/level-4.png'),
     5: require('../../assets/levels/map1/level-5.png'),
     6: require('../../assets/levels/map1/level-6.png'),
+  },
+  2: {
+    1: require('../../assets/levels/map2/level-1.png'),
+    2: require('../../assets/levels/map2/level-2.png'),
+    3: require('../../assets/levels/map2/level-3.png'),
+    4: require('../../assets/levels/map2/level-4.png'),
+    5: require('../../assets/levels/map2/level-5.png'),
+    6: require('../../assets/levels/map2/level-6.png'),
+  },
+  3: {
+    1: require('../../assets/levels/map3/level-1.png'),
+    2: require('../../assets/levels/map3/level-2.png'),
+    3: require('../../assets/levels/map3/level-3.png'),
+    4: require('../../assets/levels/map3/level-4.png'),
+    5: require('../../assets/levels/map3/level-5.png'),
+    6: require('../../assets/levels/map3/level-6.png'),
+  },
+  4: {
+    1: require('../../assets/levels/map4/level-1.png'),
+    2: require('../../assets/levels/map4/level-2.png'),
+    3: require('../../assets/levels/map4/level-3.png'),
+    4: require('../../assets/levels/map4/level-4.png'),
+    5: require('../../assets/levels/map4/level-5.png'),
+    6: require('../../assets/levels/map4/level-6.png'),
+  },
+  5: {
+    1: require('../../assets/levels/map5/level-1.png'),
+    2: require('../../assets/levels/map5/level-2.png'),
+    3: require('../../assets/levels/map5/level-3.png'),
+    4: require('../../assets/levels/map5/level-4.png'),
+    5: require('../../assets/levels/map5/level-5.png'),
+    6: require('../../assets/levels/map5/level-6.png'),
+  },
+  6: {
+    1: require('../../assets/levels/map6/level-1.png'),
+    2: require('../../assets/levels/map6/level-2.png'),
+    3: require('../../assets/levels/map6/level-3.png'),
+    4: require('../../assets/levels/map6/level-4.png'),
+    5: require('../../assets/levels/map6/level-5.png'),
+    6: require('../../assets/levels/map6/level-6.png'),
   },
 };
 

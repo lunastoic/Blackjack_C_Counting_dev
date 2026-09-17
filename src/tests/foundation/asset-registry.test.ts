@@ -90,10 +90,11 @@ describe('asset registry', () => {
     }
   });
 
-  it('gives every Luna Luxe level its own art and leaves the other casinos on chips', () => {
-    for (const spec of trainingLevelsForMap(1)) {
-      expect(LEVEL_ART[1][spec.level]).toBeDefined();
+  it('gives every level of every casino its own art', () => {
+    for (const map of CASINO_MAPS) {
+      for (const spec of trainingLevelsForMap(map.id)) {
+        expect(LEVEL_ART[map.id][spec.level]).toBeDefined();
+      }
     }
-    expect(Object.keys(LEVEL_ART)).toEqual(['1']);
   });
 });
