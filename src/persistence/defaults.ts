@@ -15,7 +15,7 @@ function createEmptyMapAchievements(): SaveData['mapAchievements'] {
   return mapAchievements;
 }
 
-/** Fresh install: 500 chips, level 1, map 1 unlocked, spec-default settings. */
+/** Fresh install: 1,000 chips, level 1, map 1 unlocked, spec-default settings. */
 export function createDefaultSave(): SaveData {
   return {
     profile: {

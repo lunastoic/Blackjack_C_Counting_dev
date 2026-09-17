@@ -2,6 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { LayoutChangeEvent, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { colors, fonts, fontSizes, radii, spacing } from '../../theme';
+import { ArcadeBevel } from './ArcadeChrome';
 
 /**
  * The Modern look's intro furniture: a felt panel and the pieces that sit on
@@ -13,6 +14,10 @@ const PANEL_RADIUS = 26;
 const PANEL_EDGE = 3;
 const PLAQUE_RADIUS = 18;
 const TAB_RADIUS = 14;
+// The plaque is the HUD marquee's bevel: ink outline, deeper band, ink drop.
+const PLAQUE_OUTLINE = 3;
+const PLAQUE_DROP = 3;
+const PLAQUE_BAND = 4;
 
 interface ArcadePanelProps {
   readonly children: React.ReactNode;
@@ -51,13 +56,22 @@ export function ArcadePlaque({ kicker, title, footer, style }: ArcadePlaqueProps
       <View style={styles.plaqueTab}>
         <Text style={styles.plaqueKicker}>{kicker.toUpperCase()}</Text>
       </View>
-      <View style={styles.plaque}>
+      <ArcadeBevel
+        face={colors.arcadePlaque}
+        deep={colors.arcadePlaqueDeep}
+        drop={PLAQUE_DROP}
+        outline={PLAQUE_OUTLINE}
+        band={PLAQUE_BAND}
+        radius={PLAQUE_RADIUS}
+        style={styles.plaque}
+        faceStyle={styles.plaqueFace}
+      >
         {/* One line, shrunk to fit. No lineHeight here: with one set, iOS's
             fit loop leaves a tall empty box and a microscopic title. */}
         <Text style={styles.plaqueTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
           {title.toUpperCase()}
         </Text>
-      </View>
+      </ArcadeBevel>
       {footer ? <View style={styles.plaqueFooter}>{footer}</View> : null}
     </View>
   );
@@ -142,14 +156,15 @@ const styles = StyleSheet.create({
   },
   plaqueTab: {
     backgroundColor: colors.arcadePlaque,
-    borderWidth: 2,
+    borderWidth: PLAQUE_OUTLINE,
     borderBottomWidth: 0,
-    borderColor: colors.arcadePlaqueEdge,
+    borderColor: colors.arcadeInk,
     borderTopLeftRadius: TAB_RADIUS,
     borderTopRightRadius: TAB_RADIUS,
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xxs,
-    marginBottom: -2,
+    // Sits over the plaque's top outline so the two read as one piece.
+    marginBottom: -PLAQUE_OUTLINE,
     zIndex: 1,
   },
   plaqueKicker: {
@@ -164,13 +179,12 @@ const styles = StyleSheet.create({
   },
   plaque: {
     alignSelf: 'stretch',
-    backgroundColor: colors.arcadePlaque,
-    borderWidth: 2,
-    borderColor: colors.arcadePlaqueEdge,
-    borderRadius: PLAQUE_RADIUS,
+  },
+  plaqueFace: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xs,
-    paddingBottom: spacing.md,
+    // Room for the band under the title, and for the footer pill to hang in.
+    paddingBottom: spacing.md + PLAQUE_BAND,
     alignItems: 'center',
   },
   plaqueTitle: {

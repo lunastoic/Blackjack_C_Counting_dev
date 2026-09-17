@@ -14,9 +14,9 @@ describe('save schema and defaults', () => {
     expect(() => saveDataSchema.parse(createDefaultSave())).not.toThrow();
   });
 
-  it('default save starts with 500 chips, level 1, map 1 unlocked', () => {
+  it('default save starts with 1,000 chips, level 1, map 1 unlocked', () => {
     const save = createDefaultSave();
-    expect(save.economy.chips).toBe(500);
+    expect(save.economy.chips).toBe(1_000);
     expect(save.progression.level).toBe(1);
     expect(save.progression.xpIntoLevel).toBe(0);
     expect(save.progression.unlockedMapIds).toEqual([1]);

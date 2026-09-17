@@ -33,7 +33,7 @@ describe('app hydration', () => {
     expect(hydration.hasHydrated).toBe(true);
     expect(hydration.isHydrating).toBe(false);
     expect(hydration.hydrationError).toBeNull();
-    expect(useEconomyStore.getState().chips).toBe(500);
+    expect(useEconomyStore.getState().chips).toBe(1_000);
   });
 
   it('distributes persisted values to every store', async () => {
@@ -61,14 +61,14 @@ describe('app hydration', () => {
     const hydration = useHydrationStore.getState();
     expect(hydration.hasHydrated).toBe(true);
     expect(hydration.hydrationError).toContain('not valid JSON');
-    expect(useEconomyStore.getState().chips).toBe(500); // defaults applied
+    expect(useEconomyStore.getState().chips).toBe(1_000); // defaults applied
   });
 
   it('is idempotent — a second call does not re-run', async () => {
     await initializeApp();
     useEconomyStore.getState().creditChips(100);
     await initializeApp();
-    expect(useEconomyStore.getState().chips).toBe(600);
+    expect(useEconomyStore.getState().chips).toBe(1_100);
   });
 
   it('persists store changes after hydration (round trip)', async () => {
@@ -79,7 +79,7 @@ describe('app hydration', () => {
     await flushSaveNow();
 
     const stored = await loadSave();
-    expect(stored.save.economy.chips).toBe(2000);
+    expect(stored.save.economy.chips).toBe(2_500);
     expect(stored.save.profile.displayName).toBe('HiLo Hero');
     expect(stored.save.settings.deckCounts.regular).toBe(2);
   });
@@ -99,6 +99,6 @@ describe('app hydration', () => {
     useEconomyStore.getState().creditChips(42);
     const collected = collectSaveFromStores();
     expect(saveDataSchema.safeParse(collected).success).toBe(true);
-    expect(collected.economy.chips).toBe(542);
+    expect(collected.economy.chips).toBe(1_042);
   });
 });

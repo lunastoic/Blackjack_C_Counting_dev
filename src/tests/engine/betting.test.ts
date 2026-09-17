@@ -19,7 +19,7 @@ describe('Luna Luxe table data', () => {
     expect(LUNA_LUXE.maxBet).toBe(1000);
     expect(LUNA_LUXE.chipDenominations).toEqual([1, 5, 25, 50, 100]);
     expect(LUNA_LUXE.unlockLevel).toBe(1);
-    expect(STARTING_BANKROLL).toBe(500);
+    expect(STARTING_BANKROLL).toBe(1_000);
     expect(CASINO_MAPS).toHaveLength(6);
   });
 });

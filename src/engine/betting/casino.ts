@@ -27,7 +27,7 @@ export interface CasinoMap {
   readonly dealerPace: number;
 }
 
-export const STARTING_BANKROLL = 500;
+export const STARTING_BANKROLL = 1_000;
 
 export const CASINO_MAPS: readonly CasinoMap[] = [
   {
