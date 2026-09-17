@@ -11,6 +11,7 @@ import { CARDS_PER_DECK } from '../../engine/cards/deck';
 import {
   CLEAR_STARS,
   decksRemainingEstimate,
+  trueCountFromDecks,
   DOJO_XP,
   isCheckpointLevel,
   isClearingStars,
@@ -27,6 +28,7 @@ import {
   trainingLevelsForMap,
   TrainingLevelSpec,
 } from '../../engine/dojo';
+import { BET_SPREAD_MAX } from '../../engine/betting/betRamp';
 import { useModernUi } from '../../hooks/useModernUi';
 import { playSound } from '../../services/audio';
 import { haptics } from '../../services/haptics';
@@ -55,6 +57,7 @@ import { GameSettingsSheet } from '../game/GameSettingsSheet';
 import { GameTableHud } from '../game/GameTableHud';
 import { TableCamera } from '../game/TableCamera';
 import { AccuracyRows, accuracyRows } from './AccuracyRows';
+import { BetSizeStage } from './BetSizeStage';
 import { ChoiceGrid, CountPad } from './AnswerPads';
 import { CardsStage } from './CardsStage';
 import { CountEntry } from './CountEntry';
@@ -95,6 +98,7 @@ const ENTRY_BOUNDS: Record<QuestionKind, { min: number; max: number }> = {
   runningCount: { min: -40, max: 40 },
   decksRemaining: { min: 0.5, max: 8 },
   trueCount: { min: -20, max: 20 },
+  betUnits: { min: 1, max: BET_SPREAD_MAX },
 };
 
 function streakPrompt(spec: TrainingLevelSpec): string {
@@ -107,6 +111,8 @@ function streakPrompt(spec: TrainingLevelSpec): string {
       return 'HOW MANY DECKS REMAIN?';
     case 'trueCount':
       return 'WHAT’S THE TRUE COUNT?';
+    case 'betSize':
+      return 'WHAT’S YOUR BET?';
     default:
       return '';
   }
@@ -114,7 +120,19 @@ function streakPrompt(spec: TrainingLevelSpec): string {
 
 /** The kind a streak item answers, for formatting. */
 function streakKind(item: StreakItem | null): QuestionKind {
-  return item?.kind === 'deckEstimate' ? 'decksRemaining' : 'runningCount';
+  switch (item?.kind) {
+    case 'deckEstimate':
+      return 'decksRemaining';
+    case 'betSize':
+      return 'betUnits';
+    default:
+      return 'runningCount';
+  }
+}
+
+/** A bet's nudge keys read ±1, not "±1 units". */
+function entryKeyFormat(kind: QuestionKind): ((value: number) => string) | undefined {
+  return kind === 'betUnits' ? formatCount : undefined;
 }
 
 /**
@@ -452,6 +470,10 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
         return item?.kind === 'trueCount' ? (
           <TrueCountStage item={item.item} reveal={revealing} serial={itemSerial} />
         ) : null;
+      case 'betSize':
+        return item?.kind === 'betSize' ? (
+          <BetSizeStage item={item.item} showRamp={spec.showRamp} reveal={revealing} serial={itemSerial} />
+        ) : null;
       case 'countStream':
         return (
           <CountStreamStage
@@ -511,15 +533,17 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
           />
         );
       }
-      if (item.kind === 'trueCount' && spec.mode === 'trueCount' && spec.answerInput === 'entry') {
-        const bounds = ENTRY_BOUNDS.trueCount;
+      if ((spec.mode === 'trueCount' || spec.mode === 'betSize') && spec.answerInput === 'entry') {
+        const kind: QuestionKind = spec.mode === 'betSize' ? 'betUnits' : 'trueCount';
+        const bounds = ENTRY_BOUNDS[kind];
         return (
           <CountEntry
             step={1}
             min={bounds.min}
             max={bounds.max}
-            initial={0}
-            format={(value) => formatAnswer('trueCount', value)}
+            initial={kind === 'betUnits' ? 1 : 0}
+            format={(value) => formatAnswer(kind, value)}
+            keyFormat={entryKeyFormat(kind)}
             onSubmit={handleAnswer}
             serial={itemSerial}
           />
@@ -547,8 +571,15 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
           step={current.kind === 'decksRemaining' ? 0.5 : 1}
           min={bounds.min}
           max={current.kind === 'decksRemaining' ? checkpointSpec.deckCount : bounds.max}
-          initial={current.kind === 'decksRemaining' ? Math.max(0.5, checkpointSpec.deckCount / 2) : 0}
+          initial={
+            current.kind === 'decksRemaining'
+              ? Math.max(0.5, checkpointSpec.deckCount / 2)
+              : current.kind === 'betUnits'
+                ? 1
+                : 0
+          }
           format={format}
+          keyFormat={entryKeyFormat(current.kind)}
           onSubmit={handleAnswer}
           serial={question ? question.partIndex + tally.asked * 8 : 0}
         />
@@ -590,6 +621,16 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
         return (
           <Text style={styles.reviewText}>
             {formatCount(frame.runningCount)} ÷ {formatDecks(decks)} decks = {formatCount(current.correct)}
+          </Text>
+        );
+      }
+      case 'betUnits': {
+        const decks = decksRemainingEstimate(frame.cardsRemaining);
+        const trueCount = trueCountFromDecks(frame.runningCount, decks);
+        return (
+          <Text style={styles.reviewText}>
+            {formatCount(frame.runningCount)} ÷ {formatDecks(decks)} decks → TC {formatCount(trueCount)} →{' '}
+            {formatAnswer('betUnits', current.correct)}
           </Text>
         );
       }

@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { Card } from '../engine/cards/card';
+import { BET_SPREAD_MAX } from '../engine/betting/betRamp';
 import {
+  BetSizeItem,
   buildNumberChoices,
   buildTrainingScript,
   canStillPass,
@@ -13,6 +15,7 @@ import {
   isCheckpointLevel,
   isClearingStars,
   isStreakLevel,
+  makeBetSizeItem,
   makeDeckEstimateItem,
   makeTrueCountItem,
   answersByEntry,
@@ -88,7 +91,8 @@ export type TrainingStatus =
 export type StreakItem =
   | { readonly kind: 'cards'; readonly cards: readonly Card[]; readonly correct: number }
   | { readonly kind: 'deckEstimate'; readonly item: DeckEstimateItem }
-  | { readonly kind: 'trueCount'; readonly item: TrueCountItem };
+  | { readonly kind: 'trueCount'; readonly item: TrueCountItem }
+  | { readonly kind: 'betSize'; readonly item: BetSizeItem };
 
 export interface TrainingQuestion {
   readonly kind: QuestionKind;
@@ -291,6 +295,8 @@ function choicesFor(part: QuestionPart, spec: TrainingLevelSpec): number[] {
     }
     case 'trueCount':
       return buildNumberChoices(part.correct, 1, -TRUE_COUNT_BOUND, TRUE_COUNT_BOUND, random);
+    case 'betUnits':
+      return buildNumberChoices(part.correct, 1, 1, BET_SPREAD_MAX, random);
   }
 }
 
@@ -469,6 +475,9 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
         break;
       case 'trueCount':
         item = { kind: 'trueCount', item: makeTrueCountItem(spec, random) };
+        break;
+      case 'betSize':
+        item = { kind: 'betSize', item: makeBetSizeItem(spec, random) };
         break;
       default:
         return;

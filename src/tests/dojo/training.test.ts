@@ -1,7 +1,9 @@
+import { betUnitsForTrueCount, BET_SPREAD_MAX } from '../../engine/betting/betRamp';
 import { hiLoValue, isFaceUp } from '../../engine/cards/card';
 import { CARDS_PER_DECK } from '../../engine/cards/deck';
 import {
   answersByEntry,
+  makeBetSizeItem,
   accuracyPercent,
   assignQuestionKinds,
   buildCountStreamScript,
@@ -122,6 +124,36 @@ describe('training ladder — configuration', () => {
     });
   });
 
+  it('Titan opens on bet sizing, and the late tables ask for the bet', () => {
+    expect(trainingLevelSpec(5, 1)).toMatchObject({ mode: 'betSize', title: 'Bet the Count' });
+    for (const [mapId, level] of [[5, 4], [5, 5], [5, 6], [6, 3], [6, 4], [6, 5], [6, 6]]) {
+      const spec = trainingLevelSpec(mapId, level);
+      if (!isCheckpointLevel(spec)) {
+        throw new Error('expected a checkpoint level');
+      }
+      expect(spec.questions).toContain('betUnits');
+    }
+  });
+
+  it('bet items size the bet from the true count rounded down, minus one, 1 to 8 units', () => {
+    const spec = trainingLevelSpec(5, 1);
+    if (spec.mode !== 'betSize') {
+      throw new Error('expected bet sizing');
+    }
+    const seen = new Set<number>();
+    for (let seed = 1; seed <= 200; seed++) {
+      const item = makeBetSizeItem(spec, seededRng(seed));
+      expect(item.trueCount).toBe(trueCountFromDecks(item.runningCount, item.decksRemaining));
+      expect(item.correct).toBe(Math.max(1, Math.min(BET_SPREAD_MAX, item.trueCount - 1)));
+      expect(item.choices).toContain(item.correct);
+      seen.add(item.correct);
+    }
+    // The drill covers the flat bet, the top of the spread and the steps between.
+    expect(seen.has(1)).toBe(true);
+    expect(seen.has(BET_SPREAD_MAX)).toBe(true);
+    expect(seen.size).toBeGreaterThanOrEqual(6);
+  });
+
   it('answers are picked on Luna Luxe and Io, typed from Europa on (deck estimates stay picked)', () => {
     for (const { map, spec } of allSpecs) {
       if (map.mapId <= 2 || spec.mode === 'deckEstimate' || spec.mode === 'cardValue' || spec.mode === 'cardGroup') {
@@ -148,7 +180,9 @@ describe('training ladder — configuration', () => {
     for (const { map, spec } of allSpecs) {
       if (!isCheckpointLevel(spec)) {
         expect(spec.streakTarget).toBe(21);
-        expect(spec.strikes).toBe(strikesByMap[map.mapId] ?? 0);
+        // Bet sizing is a new skill on Titan, so it gets one strike back.
+        const strikes = spec.mode === 'betSize' ? 1 : (strikesByMap[map.mapId] ?? 0);
+        expect(spec.strikes).toBe(strikes);
       }
     }
     const final = trainingLevelSpec(6, 6);
@@ -431,6 +465,12 @@ describe('training ladder — count streams', () => {
             expect(part.correct).toBe(frame.runningCount);
           } else if (part.kind === 'decksRemaining') {
             expect(part.correct).toBe(decksRemainingEstimate(frame.cardsRemaining));
+          } else if (part.kind === 'betUnits') {
+            expect(part.correct).toBe(
+              betUnitsForTrueCount(
+                trueCountFromDecks(frame.runningCount, decksRemainingEstimate(frame.cardsRemaining)),
+              ),
+            );
           } else {
             expect(part.correct).toBe(
               trueCountFromDecks(frame.runningCount, decksRemainingEstimate(frame.cardsRemaining)),

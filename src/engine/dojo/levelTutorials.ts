@@ -130,8 +130,9 @@ const LEVEL_TUTORIALS: Readonly<Record<string, readonly TutorialSlide[]>> = {
   // Map 5 — Real Table Counting
   // -------------------------------------------------------------------------
   '5:1': slides(
-    ['One player, basic strategy', 'Hits, doubles and stands are played for you. Count every card that shows.'],
-    ['Eight checks, all correct', 'The hole card counts when it flips.'],
+    ['Why you count', 'The count tells you when the shoe favours you. That is when the bet goes up.'],
+    ['True count minus one', 'Divide, round down, take one off: +7 with 2 decks is +3, so 2 units.'],
+    ['One to eight units', 'Flat or cold, bet 1 unit. Never more than 8. Twenty-one right, one strike.'],
   ),
   '5:2': slides(
     ['Two players and the dealer', 'Cards land in table order: one to each seat, then the second round.'],

@@ -1,4 +1,5 @@
 import { FEATURES } from '../constants/features';
+import { betUnitsForTrueCount } from '../engine/betting/betRamp';
 import { CountCoachLevel, TrainingAidSettings } from '../engine/types';
 import { formatChips } from './format';
 
@@ -203,10 +204,8 @@ export function betUnit(bankroll: number, smallestChip: number): number {
   return Math.max(chip, Math.floor(bankroll / 100 / chip) * chip);
 }
 
-/** Units to have out on a hot shoe — the classic "true count minus one". */
-export function betUnitsForTrueCount(trueCount: number): number {
-  return Math.max(1, Math.floor(trueCount) - 1);
-}
+/** Units to have out on a hot shoe — the same ramp the training ladder teaches. */
+export { betUnitsForTrueCount };
 
 export interface BetAdviceInput {
   readonly runningCount: number;

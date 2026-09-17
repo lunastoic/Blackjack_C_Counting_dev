@@ -3,6 +3,7 @@ import { HandResult, resolveHand } from '../blackjack/resolve';
 import { canDouble, canSplit, dealerShouldHit, PlayerAction } from '../blackjack/rules';
 import { Card, hiLoValue, isFaceUp, withVisibility } from '../cards/card';
 import { CARDS_PER_DECK } from '../cards/deck';
+import { betUnitsForTrueCount, BET_SPREAD_MAX } from '../betting/betRamp';
 import { floorTrueCount, roundToNearestHalf } from '../counting/trueCount';
 import { evaluateCards, isNaturalBlackjack } from '../hand/evaluate';
 import { addCard, createDealerHand, createPlayerHand, DealerHand, PlayerHand } from '../hand/hand';
@@ -164,7 +165,7 @@ export function meterDrainMs(mapId: number, level: number): number {
 // Level specs
 // ---------------------------------------------------------------------------
 
-export type QuestionKind = 'runningCount' | 'decksRemaining' | 'trueCount';
+export type QuestionKind = 'runningCount' | 'decksRemaining' | 'trueCount' | 'betUnits';
 
 /** How a count check is answered: four buttons, or an exact-entry stepper. */
 export type AnswerInput = 'choices' | 'entry';
@@ -242,6 +243,19 @@ export interface TrueCountLevel extends StreakBase {
   readonly answerInput: AnswerInput;
 }
 
+/**
+ * Bet sizing: a running count and the decks left, and the trainee sizes the
+ * bet in units — true count rounded down, minus one, one to eight units.
+ */
+export interface BetSizeLevel extends StreakBase {
+  readonly mode: 'betSize';
+  /** Decks remaining may be x.5 values. */
+  readonly halfDecks: boolean;
+  /** Show the ramp (true count → units) beside the question. */
+  readonly showRamp: boolean;
+  readonly answerInput: AnswerInput;
+}
+
 export interface CountStreamLevel extends LevelBase {
   readonly mode: 'countStream';
   readonly deckCount: DeckCount;
@@ -290,12 +304,18 @@ export type TrainingLevelSpec =
   | CardGroupLevel
   | DeckEstimateLevel
   | TrueCountLevel
+  | BetSizeLevel
   | CountStreamLevel
   | TableCountLevel;
 
 export type TrainingMode = TrainingLevelSpec['mode'];
 
-export type StreakLevelSpec = CardValueLevel | CardGroupLevel | DeckEstimateLevel | TrueCountLevel;
+export type StreakLevelSpec =
+  | CardValueLevel
+  | CardGroupLevel
+  | DeckEstimateLevel
+  | TrueCountLevel
+  | BetSizeLevel;
 export type CheckpointLevelSpec = CountStreamLevel | TableCountLevel;
 
 export function isStreakLevel(spec: TrainingLevelSpec): spec is StreakLevelSpec {
@@ -303,7 +323,8 @@ export function isStreakLevel(spec: TrainingLevelSpec): spec is StreakLevelSpec 
     spec.mode === 'cardValue' ||
     spec.mode === 'cardGroup' ||
     spec.mode === 'deckEstimate' ||
-    spec.mode === 'trueCount'
+    spec.mode === 'trueCount' ||
+    spec.mode === 'betSize'
   );
 }
 
@@ -326,6 +347,13 @@ const ALL_CORRECT = (count: number): PassRule => ({
 const RC: readonly QuestionKind[] = ['runningCount'];
 const RC_DECKS: readonly QuestionKind[] = ['runningCount', 'decksRemaining'];
 const RC_DECKS_TC: readonly QuestionKind[] = ['runningCount', 'decksRemaining', 'trueCount'];
+/** Every question a counter answers at the table, the bet included. */
+const RC_DECKS_TC_BET: readonly QuestionKind[] = [
+  'runningCount',
+  'decksRemaining',
+  'trueCount',
+  'betUnits',
+];
 
 /** Total question checkpoints in a level, including the final-count question. */
 export function totalCheckpoints(spec: CheckpointLevelSpec): number {
@@ -730,24 +758,17 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
     theme: 'Real Table Counting',
     levels: [
       {
-        mode: 'tableCount',
+        mode: 'betSize',
         level: 1,
-        title: 'Heads-Up Table',
+        title: 'Bet the Count',
         brief:
-          'One player against the dealer, playing basic strategy for you. Count every card that shows. Eight checks, all correct.',
+          'The count is only worth something when it moves your bet. Work out the true count, round it down, take one off — that many units. One unit when the shoe is flat or cold, eight at the most. Twenty-one right, one strike.',
         speed: 'normal',
-        deckCount: 1,
-        seats: 1,
-        play: 'strategy',
-        cardBudget: 52,
-        checkpoints: 8,
-        questions: RC,
-        questionOrder: 'alternate',
-        pass: ALL_CORRECT(8),
+        halfDecks: true,
+        showRamp: true,
         answerInput: 'entry',
-        showDeckScale: false,
-        distractions: false,
-        exam: false,
+        streakTarget: 21,
+        strikes: 1,
       },
       {
         mode: 'tableCount',
@@ -794,14 +815,14 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         level: 4,
         title: 'Four-Deck Table',
         brief:
-          'Three players, four decks. Twelve random checks — running count, decks remaining or true count. Eleven right.',
+          'Three players, four decks. Twelve random checks — running count, decks remaining, true count or your bet. Eleven right.',
         speed: 'fast',
         deckCount: 4,
         seats: 3,
         play: 'strategy',
         cardBudget: 160,
         checkpoints: 12,
-        questions: RC_DECKS_TC,
+        questions: RC_DECKS_TC_BET,
         questionOrder: 'random',
         pass: { minCorrect: 11, maxRunningCountMisses: 1 },
         answerInput: 'entry',
@@ -821,7 +842,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         play: 'strategy',
         cardBudget: 200,
         checkpoints: 14,
-        questions: RC_DECKS_TC,
+        questions: RC_DECKS_TC_BET,
         questionOrder: 'random',
         pass: { minCorrect: 13, maxRunningCountMisses: 1 },
         answerInput: 'entry',
@@ -841,7 +862,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         play: 'strategy',
         cardBudget: cutCardDealtCount(6),
         checkpoints: 16,
-        questions: RC_DECKS_TC,
+        questions: RC_DECKS_TC_BET,
         questionOrder: 'random',
         pass: { minCorrect: 15, maxRunningCountMisses: 1 },
         answerInput: 'entry',
@@ -894,12 +915,12 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         level: 3,
         title: 'Six-Deck Mastery',
         brief:
-          'Casino speed through six decks. Running count, decks remaining and true count — fourteen questions, thirteen right, no count misses.',
+          'Casino speed through six decks. Running count, decks remaining, true count and your bet — fourteen questions, thirteen right, no count misses.',
         speed: 'casino',
         deckCount: 6,
         cardCount: 200,
         checkpoints: 14,
-        questions: RC_DECKS_TC,
+        questions: RC_DECKS_TC_BET,
         questionOrder: 'random',
         pass: { minCorrect: 13, maxRunningCountMisses: 0 },
         finalCountQuestion: false,
@@ -918,7 +939,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         play: 'strategy',
         cardBudget: 200,
         checkpoints: 14,
-        questions: RC_DECKS_TC,
+        questions: RC_DECKS_TC_BET,
         questionOrder: 'random',
         pass: { minCorrect: 13, maxRunningCountMisses: 1 },
         answerInput: 'entry',
@@ -938,7 +959,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         play: 'strategy',
         cardBudget: cutCardDealtCount(6),
         checkpoints: 12,
-        questions: RC_DECKS_TC,
+        questions: RC_DECKS_TC_BET,
         questionOrder: 'random',
         pass: { minCorrect: 11, maxRunningCountMisses: 1 },
         answerInput: 'entry',
@@ -958,7 +979,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         play: 'strategy',
         cardBudget: cutCardDealtCount(6),
         checkpoints: 20,
-        questions: RC_DECKS_TC,
+        questions: RC_DECKS_TC_BET,
         questionOrder: 'random',
         pass: { minCorrect: 18, maxRunningCountMisses: 1 },
         answerInput: 'entry',
@@ -1342,6 +1363,41 @@ export function makeTrueCountItem(spec: TrueCountLevel, random: Rng = defaultRng
   };
 }
 
+export interface BetSizeItem {
+  readonly runningCount: number;
+  readonly decksRemaining: number;
+  /** The true count the bet is sized from (rounded down). */
+  readonly trueCount: number;
+  /** Units to bet. */
+  readonly correct: number;
+  readonly choices: readonly number[];
+}
+
+/** Running counts span a cold shoe to the top of the spread and past it. */
+const BET_TRUE_COUNT_RANGE = { min: -2, max: BET_SPREAD_MAX + 2 } as const;
+
+export function makeBetSizeItem(spec: BetSizeLevel, random: Rng = defaultRng): BetSizeItem {
+  const deckOptions: number[] = [];
+  for (let decks = 1; decks <= 6; decks += spec.halfDecks ? 0.5 : 1) {
+    deckOptions.push(decks);
+  }
+  const decksRemaining = deckOptions[Math.floor(random() * deckOptions.length)];
+  // Aim at a true count, then land the running count a little above it so
+  // the division rarely comes out clean — rounding down is part of the skill.
+  const span = BET_TRUE_COUNT_RANGE.max - BET_TRUE_COUNT_RANGE.min + 1;
+  const target = BET_TRUE_COUNT_RANGE.min + Math.floor(random() * span);
+  const runningCount = Math.round(target * decksRemaining + random() * (decksRemaining - 0.01));
+  const trueCount = trueCountFromDecks(runningCount, decksRemaining);
+  const correct = betUnitsForTrueCount(trueCount);
+  return {
+    runningCount,
+    decksRemaining,
+    trueCount,
+    correct,
+    choices: buildNumberChoices(correct, 1, 1, BET_SPREAD_MAX, random),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Checkpoint levels: scripts, frames and checkpoints
 // ---------------------------------------------------------------------------
@@ -1417,6 +1473,13 @@ function questionPart(kind: QuestionKind, frame: StreamFrame): QuestionPart {
         correct: trueCountFromDecks(
           frame.runningCount,
           decksRemainingEstimate(frame.cardsRemaining),
+        ),
+      };
+    case 'betUnits':
+      return {
+        kind,
+        correct: betUnitsForTrueCount(
+          trueCountFromDecks(frame.runningCount, decksRemainingEstimate(frame.cardsRemaining)),
         ),
       };
   }
@@ -1785,6 +1848,7 @@ export const EMPTY_TALLY: CheckpointTally = {
     runningCount: { asked: 0, correct: 0 },
     decksRemaining: { asked: 0, correct: 0 },
     trueCount: { asked: 0, correct: 0 },
+    betUnits: { asked: 0, correct: 0 },
   },
 };
 

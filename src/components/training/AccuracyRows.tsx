@@ -10,7 +10,7 @@ export interface AccuracyRow {
   readonly strong?: boolean;
 }
 
-const KIND_ORDER: readonly QuestionKind[] = ['runningCount', 'decksRemaining', 'trueCount'];
+const KIND_ORDER: readonly QuestionKind[] = ['runningCount', 'decksRemaining', 'trueCount', 'betUnits'];
 
 /** "RUNNING COUNT 95% · DECK ESTIMATION 92% · TRUE COUNT 91% · OVERALL 93%". */
 export function accuracyRows(tally: CheckpointTally): AccuracyRow[] {

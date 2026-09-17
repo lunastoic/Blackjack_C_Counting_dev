@@ -15,9 +15,21 @@ export function formatDecks(value: number): string {
   return Number.isInteger(value) ? `${value}` : value.toFixed(1);
 }
 
+/** "1 unit", "3 units". */
+export function formatUnits(value: number): string {
+  return `${value} unit${value === 1 ? '' : 's'}`;
+}
+
 /** The answer as it reads for its question kind. */
 export function formatAnswer(kind: QuestionKind, value: number): string {
-  return kind === 'decksRemaining' ? formatDecks(value) : formatCount(value);
+  switch (kind) {
+    case 'decksRemaining':
+      return formatDecks(value);
+    case 'betUnits':
+      return formatUnits(value);
+    default:
+      return formatCount(value);
+  }
 }
 
 /** The question the pause asks. */
@@ -29,6 +41,8 @@ export function questionPrompt(kind: QuestionKind, isFinal: boolean): string {
       return 'HOW MANY DECKS REMAIN?';
     case 'trueCount':
       return 'WHAT’S THE TRUE COUNT?';
+    case 'betUnits':
+      return 'WHAT’S YOUR BET?';
   }
 }
 
@@ -41,6 +55,8 @@ export function kindLabel(kind: QuestionKind): string {
       return 'Decks remaining';
     case 'trueCount':
       return 'True count';
+    case 'betUnits':
+      return 'Bet';
   }
 }
 

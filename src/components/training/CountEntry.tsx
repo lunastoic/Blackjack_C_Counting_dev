@@ -11,6 +11,8 @@ interface CountEntryProps {
   readonly max: number;
   readonly initial: number;
   readonly format: (value: number) => string;
+  /** The nudge keys' labels; defaults to `format` (a bet's keys read ±1, not "±1 units"). */
+  readonly keyFormat?: (value: number) => string;
   readonly onSubmit: (value: number) => void;
   /** Resets the dial for a new question. */
   readonly serial: number;
@@ -20,7 +22,16 @@ interface CountEntryProps {
  * Exact entry for the mastery levels: nudge the dial with the keys and
  * submit. No multiple choice to lean on.
  */
-export function CountEntry({ step, min, max, initial, format, onSubmit, serial }: CountEntryProps) {
+export function CountEntry({
+  step,
+  min,
+  max,
+  initial,
+  format,
+  keyFormat = format,
+  onSubmit,
+  serial,
+}: CountEntryProps) {
   const [value, setValue] = useState(initial);
   const [seenSerial, setSeenSerial] = useState(serial);
   if (seenSerial !== serial) {
@@ -34,13 +45,13 @@ export function CountEntry({ step, min, max, initial, format, onSubmit, serial }
   return (
     <View style={styles.entry}>
       <View style={styles.dialRow}>
-        <Key label={format(-big)} onPress={() => nudge(-big)} />
-        <Key label={format(-step)} onPress={() => nudge(-step)} />
+        <Key label={keyFormat(-big)} onPress={() => nudge(-big)} />
+        <Key label={keyFormat(-step)} onPress={() => nudge(-step)} />
         <View style={styles.dial} accessibilityLabel={`Current answer ${format(value)}`}>
           <Text style={styles.dialText}>{format(value)}</Text>
         </View>
-        <Key label={format(step)} onPress={() => nudge(step)} />
-        <Key label={format(big)} onPress={() => nudge(big)} />
+        <Key label={keyFormat(step)} onPress={() => nudge(step)} />
+        <Key label={keyFormat(big)} onPress={() => nudge(big)} />
       </View>
       <PrimaryButton label="Submit" onPress={() => onSubmit(value)} />
     </View>

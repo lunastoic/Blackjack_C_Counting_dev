@@ -206,6 +206,7 @@ describe('Full coach bet tip', () => {
     expect(betUnitsForTrueCount(3.5)).toBe(2);
     expect(betUnitsForTrueCount(6)).toBe(5);
     expect(betUnitsForTrueCount(-4)).toBe(1);
+    expect(betUnitsForTrueCount(12)).toBe(8); // the top of the spread
   });
 
   it('stays quiet on a flat shoe unless the player is ramping', () => {
