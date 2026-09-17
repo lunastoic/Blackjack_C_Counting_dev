@@ -1,6 +1,7 @@
 import { hiLoValue, isFaceUp } from '../../engine/cards/card';
 import { CARDS_PER_DECK } from '../../engine/cards/deck';
 import {
+  answersByEntry,
   accuracyPercent,
   assignQuestionKinds,
   buildCountStreamScript,
@@ -119,6 +120,16 @@ describe('training ladder — configuration', () => {
       questions: ['runningCount'],
       pass: { minCorrect: 6, maxRunningCountMisses: 0 },
     });
+  });
+
+  it('answers are picked on Luna Luxe and Io, typed from Europa on (deck estimates stay picked)', () => {
+    for (const { map, spec } of allSpecs) {
+      if (map.mapId <= 2 || spec.mode === 'deckEstimate' || spec.mode === 'cardValue' || spec.mode === 'cardGroup') {
+        expect(answersByEntry(spec)).toBe(false);
+      } else {
+        expect(answersByEntry(spec)).toBe(true);
+      }
+    }
   });
 
   it('pass rules are satisfiable and Map 6 is the exam', () => {

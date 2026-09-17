@@ -145,6 +145,14 @@ const METER_MAP_MS: readonly number[] = [12000, 10000, 8500, 7500, 6500, 5500];
  */
 const METER_LEVEL_FACTOR: readonly number[] = [1, 1, 0.95, 0.95, 0.9, 0.9];
 
+/** Typing an exact answer takes longer than tapping one of four, so typed levels get more meter. */
+export const ENTRY_METER_FACTOR = 1.6;
+
+/** Whether this level's answers are typed rather than picked. */
+export function answersByEntry(spec: TrainingLevelSpec): boolean {
+  return 'answerInput' in spec && spec.answerInput === 'entry';
+}
+
 /** How long the meter takes to drain from full to empty on this level (ms). */
 export function meterDrainMs(mapId: number, level: number): number {
   const mapMs = METER_MAP_MS[Math.min(mapId, METER_MAP_MS.length) - 1] ?? METER_MAP_MS[0];
@@ -230,6 +238,8 @@ export interface TrueCountLevel extends StreakBase {
   readonly negatives: boolean;
   /** Only ask divisions with a whole-number answer. */
   readonly cleanDivision: boolean;
+  /** Typed from Ganymede on — no four choices to lean on. */
+  readonly answerInput: AnswerInput;
 }
 
 export interface CountStreamLevel extends LevelBase {
@@ -571,7 +581,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         questionOrder: 'alternate',
         pass: ALL_CORRECT(10),
         finalCountQuestion: false,
-        answerInput: 'choices',
+        answerInput: 'entry',
         showDeckScale: true,
       },
       {
@@ -588,7 +598,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         questionOrder: 'random',
         pass: { minCorrect: 10, maxRunningCountMisses: 0 },
         finalCountQuestion: false,
-        answerInput: 'choices',
+        answerInput: 'entry',
         showDeckScale: true,
       },
       {
@@ -606,7 +616,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         questions: RC_DECKS,
         questionOrder: 'random',
         pass: { minCorrect: 12, maxRunningCountMisses: 1 },
-        answerInput: 'choices',
+        answerInput: 'entry',
         showDeckScale: true,
         distractions: false,
         exam: false,
@@ -627,6 +637,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         halfDecks: false,
         negatives: false,
         cleanDivision: true,
+        answerInput: 'entry',
         streakTarget: 21,
         strikes: 0,
       },
@@ -640,6 +651,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         halfDecks: true,
         negatives: false,
         cleanDivision: true,
+        answerInput: 'entry',
         streakTarget: 21,
         strikes: 0,
       },
@@ -653,6 +665,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         halfDecks: true,
         negatives: true,
         cleanDivision: false,
+        answerInput: 'entry',
         streakTarget: 21,
         strikes: 0,
       },
@@ -670,7 +683,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         questionOrder: 'paired',
         pass: { minCorrect: 9, maxRunningCountMisses: 0 },
         finalCountQuestion: false,
-        answerInput: 'choices',
+        answerInput: 'entry',
         showDeckScale: true,
       },
       {
@@ -687,7 +700,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         questionOrder: 'random',
         pass: { minCorrect: 11, maxRunningCountMisses: 1 },
         finalCountQuestion: false,
-        answerInput: 'choices',
+        answerInput: 'entry',
         showDeckScale: true,
       },
       {
@@ -705,7 +718,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         questions: RC_DECKS_TC,
         questionOrder: 'random',
         pass: { minCorrect: 13, maxRunningCountMisses: 1 },
-        answerInput: 'choices',
+        answerInput: 'entry',
         showDeckScale: true,
         distractions: false,
         exam: false,
@@ -731,7 +744,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         questions: RC,
         questionOrder: 'alternate',
         pass: ALL_CORRECT(8),
-        answerInput: 'choices',
+        answerInput: 'entry',
         showDeckScale: false,
         distractions: false,
         exam: false,
@@ -751,7 +764,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         questions: RC,
         questionOrder: 'alternate',
         pass: ALL_CORRECT(10),
-        answerInput: 'choices',
+        answerInput: 'entry',
         showDeckScale: false,
         distractions: false,
         exam: false,
@@ -771,7 +784,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         questions: RC,
         questionOrder: 'alternate',
         pass: { minCorrect: 9, maxRunningCountMisses: 1 },
-        answerInput: 'choices',
+        answerInput: 'entry',
         showDeckScale: false,
         distractions: false,
         exam: false,
@@ -791,7 +804,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         questions: RC_DECKS_TC,
         questionOrder: 'random',
         pass: { minCorrect: 11, maxRunningCountMisses: 1 },
-        answerInput: 'choices',
+        answerInput: 'entry',
         showDeckScale: true,
         distractions: false,
         exam: false,
@@ -811,7 +824,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         questions: RC_DECKS_TC,
         questionOrder: 'random',
         pass: { minCorrect: 13, maxRunningCountMisses: 1 },
-        answerInput: 'choices',
+        answerInput: 'entry',
         showDeckScale: true,
         distractions: false,
         exam: false,
@@ -831,7 +844,7 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         questions: RC_DECKS_TC,
         questionOrder: 'random',
         pass: { minCorrect: 15, maxRunningCountMisses: 1 },
-        answerInput: 'choices',
+        answerInput: 'entry',
         showDeckScale: true,
         distractions: false,
         exam: false,

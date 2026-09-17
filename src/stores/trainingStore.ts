@@ -15,6 +15,8 @@ import {
   isStreakLevel,
   makeDeckEstimateItem,
   makeTrueCountItem,
+  answersByEntry,
+  ENTRY_METER_FACTOR,
   METER_TOP_UP,
   meterDrainMs,
   practiceShoe,
@@ -288,7 +290,7 @@ function choicesFor(part: QuestionPart, spec: TrainingLevelSpec): number[] {
       return buildNumberChoices(part.correct, 0.5, 0.5, max, random);
     }
     case 'trueCount':
-      return buildNumberChoices(part.correct, 0.5, -TRUE_COUNT_BOUND, TRUE_COUNT_BOUND, random);
+      return buildNumberChoices(part.correct, 1, -TRUE_COUNT_BOUND, TRUE_COUNT_BOUND, random);
   }
 }
 
@@ -324,7 +326,9 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
       stretch: false,
       countTipPending: false,
       meter: { fill: 1, at: Date.now(), draining: false },
-      meterDrainMs: meterDrainMs(mapId, level),
+      meterDrainMs: Math.round(
+        meterDrainMs(mapId, level) * (answersByEntry(spec) ? ENTRY_METER_FACTOR : 1),
+      ),
       timedOut: false,
       openMs: 0,
       rightAnswers: 0,

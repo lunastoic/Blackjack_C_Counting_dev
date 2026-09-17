@@ -511,6 +511,20 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
           />
         );
       }
+      if (item.kind === 'trueCount' && spec.mode === 'trueCount' && spec.answerInput === 'entry') {
+        const bounds = ENTRY_BOUNDS.trueCount;
+        return (
+          <CountEntry
+            step={1}
+            min={bounds.min}
+            max={bounds.max}
+            initial={0}
+            format={(value) => formatAnswer('trueCount', value)}
+            onSubmit={handleAnswer}
+            serial={itemSerial}
+          />
+        );
+      }
       return (
         <ChoiceGrid
           choices={item.item.choices}
