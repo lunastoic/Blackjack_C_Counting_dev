@@ -12,6 +12,9 @@ import {
 import { canDouble, canSplit, PlayerAction } from '../engine/blackjack/rules';
 import { Card, hiLoValue } from '../engine/cards/card';
 import {
+  DAILY_SHOE,
+  dailyShoeSeed,
+  dayKey,
   buildNumberChoices,
   decksRemainingEstimate,
   expectedBet,
@@ -31,7 +34,7 @@ import {
   tableTrueCount,
   trainingLevelSpec,
 } from '../engine/dojo';
-import { defaultRng, Rng } from '../engine/shoe/rng';
+import { defaultRng, Rng, seededRng } from '../engine/shoe/rng';
 import {
   cardsRemaining,
   createShoe,
@@ -103,8 +106,15 @@ export interface ShoeRunState {
   readonly score: ShoeRunScore | null;
   readonly stars: number;
   readonly outcome: TrainingLevelOutcome | null;
+  /** Today's shared shoe rather than a casino's boss (`dayKey` names the day). */
+  readonly daily: boolean;
+  readonly dayKey: string | null;
+  /** The daily run's result: edge over the flat bettor, and what it set. */
+  readonly dailyResult: { readonly edgeIsBest: boolean; readonly chipsPaid: number } | null;
 
   readonly load: (mapId: number, level: number) => void;
+  /** Point the store at today's daily shoe. */
+  readonly loadDaily: (now?: number) => void;
   readonly begin: () => void;
   readonly answer: (value: number) => boolean;
   readonly placeBet: (units: number) => void;
@@ -172,7 +182,14 @@ export const useShoeRunStore = create<ShoeRunState>()((set, get) => {
       score: null,
       stars: 0,
       outcome: null,
+      daily: false,
+      dayKey: null,
+      dailyResult: null,
     };
+  }
+
+  function idleDaily(now: number) {
+    return { ...idle(1, 1), spec: DAILY_SHOE, daily: true, dayKey: dayKey(now) };
   }
 
   function record(right: boolean, kind: ShoeRunCall['kind'], text: string): void {
@@ -320,12 +337,17 @@ export const useShoeRunStore = create<ShoeRunState>()((set, get) => {
   }
 
   function finish(backedOff: boolean): void {
-    const { spec, mapId, level, calls } = get();
+    const { spec, mapId, level, calls, daily, dayKey: day, you, flat } = get();
     if (!spec) {
       return;
     }
     const score = scoreCalls(calls);
     const stars = shoeRunStars(spec, score.accuracy, backedOff);
+    if (daily && day) {
+      const dailyResult = useDojoStore.getState().recordDailyShoe(day, you - flat, score.accuracy, backedOff);
+      set({ status: 'done', backedOff, score, stars, outcome: null, dailyResult });
+      return;
+    }
     const outcome = stars > 0 ? useDojoStore.getState().completeTrainingLevel(mapId, level, stars) : null;
     if (stars > 0) {
       useDojoStore.getState().touchPractice();
@@ -339,13 +361,17 @@ export const useShoeRunStore = create<ShoeRunState>()((set, get) => {
 
     load: (mapId, level) => set(idle(mapId, level)),
 
+    loadDaily: (now = Date.now()) => set(idleDaily(now)),
+
     begin: () => {
-      const { mapId, level } = get();
-      const base = idle(mapId, level);
+      const { mapId, level, daily, dayKey: day } = get();
+      const base = daily && day ? { ...idleDaily(Date.now()), dayKey: day } : idle(mapId, level);
       if (!base.spec) {
         return;
       }
-      set({ ...base, shoe: createShoe(base.spec.deckCount, rng) });
+      // The daily shoe deals the same shuffle all day, every attempt.
+      const shuffle = daily && day ? seededRng(dailyShoeSeed(day)) : rng;
+      set({ ...base, shoe: createShoe(base.spec.deckCount, shuffle) });
       toNextHand();
     },
 
@@ -453,8 +479,8 @@ export const useShoeRunStore = create<ShoeRunState>()((set, get) => {
     },
 
     reset: () => {
-      const { mapId, level } = get();
-      set(idle(mapId, level));
+      const { mapId, level, daily, dayKey: day } = get();
+      set(daily && day ? { ...idleDaily(Date.now()), dayKey: day } : idle(mapId, level));
     },
   };
 });

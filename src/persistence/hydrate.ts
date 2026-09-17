@@ -112,6 +112,7 @@ export function collectSaveFromStores(): SaveData {
       flashCountTipSeen: dojo.flashCountTipSeen,
       flashPace: { ...dojo.flashPace },
       flashBests: { ...dojo.flashBests },
+      dailyShoe: { ...dojo.dailyShoe },
     },
     weakSpots: {
       spots: useWeakSpotsStore.getState().spots.map((spot) => ({

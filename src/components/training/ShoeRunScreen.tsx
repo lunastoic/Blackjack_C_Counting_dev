@@ -36,6 +36,8 @@ import { TrainingStatusStrip } from './TrainingStatusStrip';
 interface ShoeRunScreenProps {
   readonly mapId: number;
   readonly level: number;
+  /** Today's shared shoe instead of the casino's boss (dealt on `mapId`'s felt). */
+  readonly daily?: boolean;
 }
 
 const ACTIONS: readonly { readonly action: PlayerAction; readonly label: string }[] = [
@@ -58,7 +60,7 @@ function units(value: number): string {
  * bottom panel, the verdict on every graded call rides over it, and the run
  * ends on the results card beside a flat bettor on the same cards.
  */
-export function ShoeRunScreen({ mapId, level }: ShoeRunScreenProps) {
+export function ShoeRunScreen({ mapId, level, daily = false }: ShoeRunScreenProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -69,17 +71,22 @@ export function ShoeRunScreen({ mapId, level }: ShoeRunScreenProps) {
   const state = useShoeRunStore();
   const { spec, status, round, shoe, question, verdict, heat, hands, score, stars, outcome, backedOff } = state;
   const tableOpen = useDojoStore((dojo) => dojo.isMapFlashComplete(mapId));
+  const dailyRecord = useDojoStore((dojo) => dojo.dailyShoe);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [betUnits, setBetUnits] = useState(1);
 
   useEffect(() => {
-    state.load(mapId, level);
+    if (daily) {
+      state.loadDaily();
+    } else {
+      state.load(mapId, level);
+    }
     return () => {
       useShoeRunStore.getState().reset();
     };
     // Loading once per level; the store's actions are stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapId, level]);
+  }, [mapId, level, daily]);
 
   if (!spec) {
     return null;
@@ -137,8 +144,14 @@ export function ShoeRunScreen({ mapId, level }: ShoeRunScreenProps) {
   }
 
   function openLevelMap() {
+    if (daily) {
+      router.back();
+      return;
+    }
     router.dismissTo({ pathname: '/levels/[mapId]', params: { mapId: String(mapId) } });
   }
+
+  const todayBest = daily && dailyRecord.dayKey === state.dayKey ? dailyRecord : null;
 
   function renderPanel() {
     switch (status) {
@@ -239,6 +252,29 @@ export function ShoeRunScreen({ mapId, level }: ShoeRunScreenProps) {
         );
       }
       case 'done':
+        if (daily) {
+          const edge = state.you - state.flat;
+          return (
+            <View style={styles.section}>
+              <Text style={[styles.prompt, { color: backedOff ? colors.error : colors.goldBright }]}>
+                {backedOff ? 'BACKED OFF' : `EDGE ${units(edge)}`}
+              </Text>
+              <Text style={styles.sub}>
+                {backedOff
+                  ? 'The pit boss saw the bet leap — no score today from that run.'
+                  : `${Math.round((score?.accuracy ?? 0) * 100)}% right · your bets ${units(state.you)} vs flat ${units(state.flat)}`}
+              </Text>
+              {state.dailyResult?.edgeIsBest ? <Text style={styles.sub}>New best today</Text> : null}
+              {state.dailyResult && state.dailyResult.chipsPaid > 0 ? (
+                <Text style={styles.sub}>+{state.dailyResult.chipsPaid} chips for today’s shoe</Text>
+              ) : null}
+              <ArcadeButton label="Play it again" size="large" onPress={state.begin} style={styles.stretch} />
+              <Text style={styles.link} onPress={openLevelMap} accessibilityRole="button">
+                Back
+              </Text>
+            </View>
+          );
+        }
         if (stars >= 2) {
           return null;
         }
@@ -286,9 +322,9 @@ export function ShoeRunScreen({ mapId, level }: ShoeRunScreenProps) {
       />
       <GameTableHud
         mapName={map.name}
-        modeLabel={`Level ${level} · ${spec.title}`}
-        leftIcon="map-outline"
-        leftAccessibilityLabel="Level map"
+        modeLabel={daily ? `Daily Shoe · ${state.dayKey ?? ''}` : `Level ${level} · ${spec.title}`}
+        leftIcon={daily ? 'arrow-back' : 'map-outline'}
+        leftAccessibilityLabel={daily ? 'Back' : 'Level map'}
         onOpenMaps={openLevelMap}
         onOpenSettings={() => setSettingsOpen(true)}
         menuOpen={settingsOpen}
@@ -346,10 +382,20 @@ export function ShoeRunScreen({ mapId, level }: ShoeRunScreenProps) {
           <Animated.View entering={FadeIn.duration(200)} style={[styles.briefOverlay, { paddingBottom: insets.bottom + spacing.xs }]}>
             <ArcadeLevelBrief
               fit
-              kicker={`Level ${level} · Boss`}
+              kicker={daily ? (state.dayKey ?? 'Today') : `Level ${level} · Boss`}
               title={spec.title}
               body={spec.brief}
-              rules={shoeRunChips(spec)}
+              rules={
+                daily
+                  ? [
+                      // No stars on the daily shoe — the edge is the score.
+                      ...shoeRunChips(spec).filter((chip) => !chip.includes('clears')),
+                      todayBest?.bestEdge != null
+                        ? `Best today ${units(todayBest.bestEdge)} edge`
+                        : 'First run seen through today pays 500 chips',
+                    ]
+                  : shoeRunChips(spec)
+              }
               startLabel="Take a seat"
               onStart={() => {
                 playSound('shuffle');
@@ -361,7 +407,7 @@ export function ShoeRunScreen({ mapId, level }: ShoeRunScreenProps) {
         ) : null}
       </View>
 
-      {status === 'done' && stars >= 2 ? (
+      {!daily && status === 'done' && stars >= 2 ? (
         <FlashLevelCompleteOverlay
           mapName={map.name}
           level={level}

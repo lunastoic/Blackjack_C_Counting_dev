@@ -398,6 +398,16 @@ function migrateV19toV20(data: unknown): unknown {
   return { ...save, dojo: { ...dojo, flashBests: {} } };
 }
 
+/** v21: the daily shoe — every save starts with no day played. */
+function migrateV20toV21(data: unknown): unknown {
+  const save = (data ?? {}) as Record<string, unknown>;
+  const dojo = (save.dojo ?? {}) as Record<string, unknown>;
+  return {
+    ...save,
+    dojo: { ...dojo, dailyShoe: { dayKey: null, bestEdge: null, bestAccuracy: null, paid: false } },
+  };
+}
+
 export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -418,6 +428,7 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   17: migrateV17toV18,
   18: migrateV18toV19,
   19: migrateV19toV20,
+  20: migrateV20toV21,
 };
 
 export class MigrationError extends Error {

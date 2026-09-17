@@ -27,7 +27,6 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { appAssets, MAP_ART, MODERN_TABLE_FELTS } from '../../assets/registry';
 import {
-  ARCADE_SQUARE,
   ArcadeButton,
   ArcadeMarquee,
   arcadeShadow,
@@ -248,7 +247,13 @@ export default function LevelMapScreen() {
       ) : null}
       {modern ? (
         <View style={styles.hudModern}>
-          <View style={styles.hudGhost} />
+          <ArcadeSquare
+            tone="plaque"
+            accessibilityLabel="Daily shoe"
+            onPress={() => router.push('/daily-shoe')}
+          >
+            <Ionicons name="calendar-outline" size={22} color={colors.arcadeGold} />
+          </ArcadeSquare>
           <ArcadeMarquee
             title="Select Map"
             subtitle={`${active + 1} of ${CASINO_MAPS.length} maps`}
@@ -1018,9 +1023,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: layout.screenPaddingH,
     paddingVertical: spacing.sm,
-  },
-  hudGhost: {
-    width: ARCADE_SQUARE,
   },
   hudMarquee: {
     flex: 1,

@@ -1,6 +1,8 @@
 import { resolveRound } from '../../engine/blackjack/resolve';
 import { startRound } from '../../engine/blackjack/round';
 import {
+  DAILY_SHOE_CHIPS,
+  dailyShoeSeed,
   expectedBet,
   handUnits,
   HEAT_LIMIT,
@@ -121,5 +123,50 @@ describe('beat the shoe — store', () => {
     expect(boss().backedOff).toBe(true);
     expect(boss().stars).toBe(0);
     expect(useDojoStore.getState().flashLevels['5:6']).toBeUndefined();
+  });
+});
+
+describe('daily shoe', () => {
+  it('deals the same shuffle all day and a different one tomorrow', () => {
+    const today = new Date(2026, 8, 17, 9).getTime();
+    const firstCards = (now: number) => {
+      boss().loadDaily(now);
+      boss().begin();
+      return boss().shoe!.cards.slice(0, 8).map((card) => card.id).join();
+    };
+    const morning = firstCards(today);
+    expect(firstCards(today + 3_600_000)).toBe(morning);
+    expect(dailyShoeSeed('2026-09-17')).not.toBe(dailyShoeSeed('2026-09-18'));
+  });
+
+  it('pays its chips once a day and keeps the best edge', () => {
+    const dojo = () => useDojoStore.getState();
+    const chips = () => useEconomyStore.getState().chips;
+    const before = chips();
+    expect(dojo().recordDailyShoe('2026-09-17', 1, 0.7, true)).toEqual({ edgeIsBest: false, chipsPaid: 0 });
+    expect(dojo().recordDailyShoe('2026-09-17', 4, 0.9, false)).toEqual({ edgeIsBest: true, chipsPaid: DAILY_SHOE_CHIPS });
+    expect(dojo().recordDailyShoe('2026-09-17', 2, 0.95, false)).toEqual({ edgeIsBest: false, chipsPaid: 0 });
+    expect(chips()).toBe(before + DAILY_SHOE_CHIPS);
+    expect(dojo().dailyShoe).toEqual({ dayKey: '2026-09-17', bestEdge: 4, bestAccuracy: 0.95, paid: true });
+    // A new day starts clean and pays again.
+    expect(dojo().recordDailyShoe('2026-09-18', -1, 0.5, false)).toEqual({ edgeIsBest: true, chipsPaid: DAILY_SHOE_CHIPS });
+  });
+
+  it('a daily run played through records the day, not a ladder level', () => {
+    boss().loadDaily();
+    boss().begin();
+    let guard = 0;
+    while (boss().status !== 'done' && guard++ < 1000) {
+      const state = boss();
+      if (state.status === 'question') state.answer(state.question!.correct);
+      else if (state.status === 'bet') state.placeBet(1);
+      else if (state.status === 'insurance') state.decideInsurance(false);
+      else if (state.status === 'play') state.act('stand');
+      else if (state.status === 'result') state.nextHand();
+    }
+    expect(boss().status).toBe('done');
+    expect(boss().dailyResult).not.toBeNull();
+    expect(useDojoStore.getState().dailyShoe.dayKey).toBe(boss().dayKey);
+    expect(Object.keys(useDojoStore.getState().flashLevels)).toHaveLength(0);
   });
 });

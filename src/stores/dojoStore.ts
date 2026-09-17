@@ -3,6 +3,7 @@ import { mapById } from '../engine/betting/casino';
 import {
   awardDojoXp,
   CLEAR_STARS,
+  DAILY_SHOE_CHIPS,
   DojoProgressionResult,
   DojoRank,
   DOJO_XP,
@@ -45,6 +46,18 @@ export interface DojoState {
    * when this run set a new best for the level.
    */
   readonly recordTrainingPace: (mapId: number, level: number, pace: number) => boolean;
+  /** Today's daily shoe: its best edge and accuracy, and whether its chips were paid. */
+  readonly dailyShoe: DailyShoeRecord;
+  /**
+   * Folds a finished daily shoe into today's record (a new day starts fresh)
+   * and pays the day's chips on the first run seen through. Returns what it set.
+   */
+  readonly recordDailyShoe: (
+    day: string,
+    edge: number,
+    accuracy: number,
+    backedOff: boolean,
+  ) => { readonly edgeIsBest: boolean; readonly chipsPaid: number };
   /** Personal bests per training level: the longest run and the longest combo. */
   readonly flashBests: Readonly<Record<string, TrainingBest>>;
   /**
@@ -82,6 +95,16 @@ export interface DojoState {
   readonly hydrate: (data: DojoSave) => void;
 }
 
+export interface DailyShoeRecord {
+  readonly dayKey: string | null;
+  /** Units the bets beat a flat bettor by, best run today. */
+  readonly bestEdge: number | null;
+  readonly bestAccuracy: number | null;
+  readonly paid: boolean;
+}
+
+const NO_DAILY_SHOE: DailyShoeRecord = { dayKey: null, bestEdge: null, bestAccuracy: null, paid: false };
+
 export interface TrainingBest {
   /** Right answers (streak drills) or checks right (checkpoint levels) in one run. */
   readonly run: number;
@@ -118,6 +141,7 @@ export const useDojoStore = create<DojoState>()((set, get) => ({
   flashCountTipSeen: false,
   flashPace: {},
   flashBests: {},
+  dailyShoe: NO_DAILY_SHOE,
 
   markFlashCountTipSeen: () => set({ flashCountTipSeen: true }),
 
@@ -130,6 +154,28 @@ export const useDojoStore = create<DojoState>()((set, get) => ({
     }
     set({ flashPace: { ...get().flashPace, [key]: rounded } });
     return true;
+  },
+
+  recordDailyShoe: (day, edge, accuracy, backedOff) => {
+    const current = get().dailyShoe.dayKey === day ? get().dailyShoe : { ...NO_DAILY_SHOE, dayKey: day };
+    if (backedOff) {
+      set({ dailyShoe: current });
+      return { edgeIsBest: false, chipsPaid: 0 };
+    }
+    const edgeIsBest = current.bestEdge === null || edge > current.bestEdge;
+    const chipsPaid = current.paid ? 0 : DAILY_SHOE_CHIPS;
+    if (chipsPaid > 0) {
+      useEconomyStore.getState().creditChips(chipsPaid);
+    }
+    set({
+      dailyShoe: {
+        dayKey: day,
+        bestEdge: edgeIsBest ? edge : current.bestEdge,
+        bestAccuracy: Math.max(current.bestAccuracy ?? 0, accuracy),
+        paid: true,
+      },
+    });
+    return { edgeIsBest, chipsPaid };
   },
 
   recordTrainingBest: (mapId, level, run, combo) => {
@@ -260,6 +306,7 @@ export const useDojoStore = create<DojoState>()((set, get) => ({
       flashCountTipSeen: false,
       flashPace: {},
       flashBests: {},
+      dailyShoe: NO_DAILY_SHOE,
     }),
 
   isLessonUnlocked: (lessonId) =>
@@ -322,5 +369,6 @@ export const useDojoStore = create<DojoState>()((set, get) => ({
       flashCountTipSeen: data.flashCountTipSeen,
       flashPace: { ...data.flashPace },
       flashBests: { ...data.flashBests },
+      dailyShoe: { ...data.dailyShoe },
     }),
 }));

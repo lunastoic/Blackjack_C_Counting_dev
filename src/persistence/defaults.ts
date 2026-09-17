@@ -69,6 +69,7 @@ export function createDefaultSave(): SaveData {
       flashCountTipSeen: false,
       flashPace: {},
       flashBests: {},
+      dailyShoe: { dayKey: null, bestEdge: null, bestAccuracy: null, paid: false },
     },
     weakSpots: {
       spots: [],

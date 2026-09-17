@@ -91,6 +91,47 @@ export function heatAfterBet(heat: number, previousUnits: number, units: number)
 // Grading and stars
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// The daily shoe
+// ---------------------------------------------------------------------------
+
+/**
+ * One shoe a day, the same for every player: six decks, twenty hands, the
+ * bets, insurance and the pit boss. Its best edge and accuracy are the day's
+ * score; the first run seen through each day pays a few chips.
+ */
+export const DAILY_SHOE: ShoeRunLevel = {
+  mode: 'shoeRun',
+  level: 0,
+  title: 'Daily Shoe',
+  brief:
+    'Today’s shoe is the same for everyone. Six decks, twenty hands: size every bet off the count, call insurance, keep the pit boss cool. Your score is how far your bets beat a flat bettor on the same cards.',
+  speed: 'normal',
+  deckCount: 6,
+  hands: 20,
+  betting: true,
+  heat: true,
+  insurance: true,
+  indexPlays: false,
+  checks: ['trueCount'],
+  checkEvery: 4,
+  answerInput: 'entry',
+  clearAccuracy: 0.8,
+  perfectAccuracy: 0.95,
+};
+
+/** Chips for the first daily shoe seen through each day. */
+export const DAILY_SHOE_CHIPS = 500;
+
+/** The day's shuffle: a stable seed from the "YYYY-MM-DD" key. */
+export function dailyShoeSeed(dayKey: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < dayKey.length; i++) {
+    hash = Math.imul(hash ^ dayKey.charCodeAt(i), 16777619);
+  }
+  return hash >>> 0;
+}
+
 export type ShoeRunCallKind = 'count' | 'bet' | 'insurance' | 'play';
 
 export interface ShoeRunCall {

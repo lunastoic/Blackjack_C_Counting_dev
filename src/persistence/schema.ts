@@ -6,7 +6,7 @@ import { z } from 'zod';
  * (GameSettings, LifetimeStats, PlayerProgress) rather than duplicating logic.
  */
 
-export const SAVE_SCHEMA_VERSION = 20;
+export const SAVE_SCHEMA_VERSION = 21;
 
 export const MAX_DISPLAY_NAME_LENGTH = 20;
 export const DEFAULT_DISPLAY_NAME = 'Player';
@@ -211,6 +211,13 @@ export const dojoSchema = z.object({
     z.string(),
     z.object({ run: z.number().int().min(0), combo: z.number().int().min(0) }),
   ),
+  /** The daily shoe (v21): today's best, and whether today's chips were paid. */
+  dailyShoe: z.object({
+    dayKey: z.string().nullable(),
+    bestEdge: z.number().nullable(),
+    bestAccuracy: z.number().min(0).max(1).nullable(),
+    paid: z.boolean(),
+  }),
 });
 
 const rankSchema = z.union([
