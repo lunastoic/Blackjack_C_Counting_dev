@@ -108,6 +108,11 @@ export default function WeakSpotsScreen() {
       </View>
 
       <View style={styles.felt}>
+        {shown.trueCount !== undefined ? (
+          <Text style={styles.areaLabel}>
+            TRUE COUNT {shown.trueCount > 0 ? `+${shown.trueCount}` : shown.trueCount}
+          </Text>
+        ) : null}
         <Text style={styles.areaLabel}>DEALER SHOWS {dealerUpLabel(shown.dealerUpRank)}</Text>
         <View style={styles.cards}>
           <PlayingCard card={dealerCard} skin="regular" width={CARD_WIDTH} underglow={false} />
@@ -142,7 +147,9 @@ export default function WeakSpotsScreen() {
             </Text>
           </View>
         ) : (
-          <Text style={styles.prompt}>What does the book say?</Text>
+          <Text style={styles.prompt}>
+            {shown.trueCount !== undefined ? 'What does the count say?' : 'What does the book say?'}
+          </Text>
         )}
       </View>
 

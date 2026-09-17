@@ -260,6 +260,8 @@ export const weakSpotSchema = z.object({
   chosen: playerActionSchema,
   book: playerActionSchema,
   reasonCode: z.string(),
+  /** Index-play slips from a boss keep the true count the call turned on. */
+  trueCount: z.number().int().optional(),
   times: z.number().int().min(1),
   lastAt: z.number().int(),
 });

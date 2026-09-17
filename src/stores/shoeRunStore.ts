@@ -44,6 +44,7 @@ import {
   Shoe,
 } from '../engine/shoe/shoe';
 import { useDojoStore, TrainingLevelOutcome } from './dojoStore';
+import { useWeakSpotsStore } from './weakSpotsStore';
 
 /**
  * Beat the Shoe — the boss run. One shoe at the casino's table, hand by
@@ -464,6 +465,19 @@ export const useShoeRunStore = create<ShoeRunState>()((set, get) => {
         if (expected) {
           const right = action === expected;
           record(right, 'play', right ? `Index play — ${ACTION_LABEL[action]}` : `Index play: ${ACTION_LABEL[expected]} here`);
+          if (!right) {
+            // The slip goes to Weak Spots with the count it turned on, to drill later.
+            const availability = { canDouble: canDouble(hand), canSplit: canSplit(hand, round.splitUsed) };
+            useWeakSpotsStore.getState().record({
+              cards: hand.cards,
+              dealerUpRank: round.dealerHand.cards[1].rank,
+              ...availability,
+              chosen: action,
+              book: expected,
+              reasonCode: 'INDEX_PLAY',
+              trueCount: tableTrueCount(runningCount, remaining()),
+            });
+          }
         }
       }
       const step = withShoe(round, (shoe) => applyPlayerAction(round, shoe, action));

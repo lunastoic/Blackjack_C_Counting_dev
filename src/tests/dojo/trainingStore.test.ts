@@ -5,7 +5,6 @@ import {
   FLASH_LEVELS_PER_MAP,
   meterDrainMs,
   SPEED_PROFILES,
-  TableCountLevel,
   totalCheckpoints,
   TRAINING_MAPS,
 } from '../../engine/dojo';

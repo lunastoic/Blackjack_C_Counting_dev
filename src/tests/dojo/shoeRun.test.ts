@@ -1,9 +1,10 @@
 import { resolveRound } from '../../engine/blackjack/resolve';
-import { startRound } from '../../engine/blackjack/round';
+import { activeHand, startRound } from '../../engine/blackjack/round';
 import {
   DAILY_SHOE_CHIPS,
   dailyShoeSeed,
   expectedBet,
+  expectedIndexPlay,
   handUnits,
   HEAT_LIMIT,
   heatAfterBet,
@@ -12,6 +13,7 @@ import {
   ShoeRunLevel,
   trainingLevelSpec,
 } from '../../engine/dojo';
+import { cardsRemaining } from '../../engine/shoe/shoe';
 import { cardsOf, riggedShoe, seededRng } from '../../engine/testing/fixtures';
 import { __resetPersistenceForTests } from '../../persistence/hydrate';
 import { createDefaultSave } from '../../persistence/defaults';
@@ -19,6 +21,7 @@ import { useDojoStore } from '../../stores/dojoStore';
 import { useEconomyStore } from '../../stores/economyStore';
 import { useProgressionStore } from '../../stores/progressionStore';
 import { __setShoeRunRngForTests, useShoeRunStore } from '../../stores/shoeRunStore';
+import { useWeakSpotsStore } from '../../stores/weakSpotsStore';
 import { playBossPerfectly } from './shoeRunHelpers';
 
 const boss = useShoeRunStore.getState;
@@ -168,5 +171,45 @@ describe('daily shoe', () => {
     expect(boss().dailyResult).not.toBeNull();
     expect(useDojoStore.getState().dailyShoe.dayKey).toBe(boss().dayKey);
     expect(Object.keys(useDojoStore.getState().flashLevels)).toHaveLength(0);
+  });
+});
+
+describe('beat the shoe — weak spots', () => {
+  it('a missed index play on the exam lands in Weak Spots with its true count', () => {
+    useWeakSpotsStore.getState().resetAll();
+    boss().load(6, 6);
+    boss().begin();
+    let missed = false;
+    let guard = 0;
+    while (!missed && boss().status !== 'done' && guard++ < 1000) {
+      const state = boss();
+      const left = cardsRemaining(state.shoe!);
+      if (state.status === 'question') state.answer(state.question!.correct);
+      else if (state.status === 'bet') state.placeBet(1);
+      else if (state.status === 'insurance') state.decideInsurance(false);
+      else if (state.status === 'result') state.nextHand();
+      else if (state.status === 'play') {
+        const round = state.round!;
+        const hand = activeHand(round)!;
+        const expected =
+          hand.cards.length === 2 && round.playerHands.length === 1
+            ? expectedIndexPlay(hand.cards, round.dealerHand.cards[1].rank, state.runningCount, left, {
+                canDouble: state.canAct('double'),
+                canSplit: state.canAct('split'),
+              })
+            : null;
+        if (expected) {
+          state.act(expected === 'stand' ? 'hit' : 'stand');
+          missed = true;
+        } else {
+          state.act('stand');
+        }
+      }
+    }
+    expect(missed).toBe(true);
+    const [spot] = useWeakSpotsStore.getState().spots;
+    expect(spot.reasonCode).toBe('INDEX_PLAY');
+    expect(spot.trueCount).toEqual(expect.any(Number));
+    expect(boss().calls.some((call) => call.kind === 'play' && !call.right)).toBe(true);
   });
 });

@@ -17,6 +17,8 @@ export interface WeakSpotInput {
   readonly chosen: PlayerAction;
   readonly book: PlayerAction;
   readonly reasonCode: string;
+  /** Set for an index play: the right call depends on this true count. */
+  readonly trueCount?: number;
 }
 
 /**
@@ -35,9 +37,12 @@ export interface WeakSpotsState {
   hydrate(data: SaveData['weakSpots']): void;
 }
 
-export function weakSpotKey(input: Pick<WeakSpotInput, 'cards' | 'dealerUpRank' | 'canDouble' | 'canSplit'>): string {
+export function weakSpotKey(
+  input: Pick<WeakSpotInput, 'cards' | 'dealerUpRank' | 'canDouble' | 'canSplit' | 'trueCount'>,
+): string {
   const options = `${input.canDouble ? 'd' : '-'}${input.canSplit ? 's' : '-'}`;
-  return `${handLabel(input.cards)}|${dealerUpLabel(input.dealerUpRank)}|${options}`;
+  const count = input.trueCount === undefined ? '' : `|tc${input.trueCount}`;
+  return `${handLabel(input.cards)}|${dealerUpLabel(input.dealerUpRank)}|${options}${count}`;
 }
 
 export const useWeakSpotsStore = create<WeakSpotsState>()((set, get) => ({
@@ -55,6 +60,7 @@ export const useWeakSpotsStore = create<WeakSpotsState>()((set, get) => ({
       chosen: input.chosen,
       book: input.book,
       reasonCode: input.reasonCode,
+      ...(input.trueCount === undefined ? {} : { trueCount: input.trueCount }),
       times: (previous?.times ?? 0) + 1,
       lastAt: now,
     };
