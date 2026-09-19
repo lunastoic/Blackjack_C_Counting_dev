@@ -135,6 +135,11 @@ interface GameSessionState {
   readonly autoplay: boolean;
   /** True while the CURRENT round belongs to the autoplay drill. */
   readonly isAutoplayRound: boolean;
+  /**
+   * Bumps when two cards in a row cancel each other out (+1 then −1), for
+   * the pair spotter to call out. 0 while nothing has cancelled this round.
+   */
+  readonly cancelPulse: number;
   /** Drill-only pacing (0.5×–2.0×); does not change global dealer speed. */
   readonly autoplaySpeed: number;
   /**
@@ -234,6 +239,8 @@ const timers = new Set<ReturnType<typeof setTimeout>>();
 let deviationSerial = 0;
 /** The dealer's finished hand while the dealer turn is still being replayed card by card. */
 let dealerFinal: RoundState | null = null;
+/** Hi-Lo value of the last card shown, for the pair spotter. */
+let lastCardValue = 0;
 
 function clearAllTimers(): void {
   for (const timer of timers) {
@@ -371,6 +378,7 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
   }
 
   function applyCountEvents(events: readonly RoundEvent[]): void {
+    notePairsThatCancel(events);
     const delta = countDelta(events);
     if (delta === 0 && events.every((e) => e.type !== 'cardBecameVisible')) {
       return;
@@ -379,6 +387,28 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
     set({ runningCount });
     if (!get().isAutoplayRound) {
       recordGameplayEvent({ type: 'COUNT_REACHED', runningCount }, get().map?.id);
+    }
+  }
+
+  /**
+   * The pair spotter's eye: a card that cancels the one before it (a +1 on a
+   * −1, or the other way round) bumps the pulse. Zero-value cards break the
+   * run rather than cancelling anything.
+   */
+  function notePairsThatCancel(events: readonly RoundEvent[]): void {
+    let cancelled = false;
+    for (const event of events) {
+      if (event.type !== 'cardBecameVisible') {
+        continue;
+      }
+      const value = hiLoValue(event.card.rank);
+      if (value !== 0 && lastCardValue !== 0 && value === -lastCardValue) {
+        cancelled = true;
+      }
+      lastCardValue = value;
+    }
+    if (cancelled) {
+      set({ cancelPulse: get().cancelPulse + 1 });
     }
   }
 
@@ -779,6 +809,7 @@ export const useGameSessionStore = create<GameSessionState>()((set, get) => {
     learnChecksAsked: 0,
     roundsSinceCountCheck: 0,
     revealTier: 0,
+    cancelPulse: 0,
     night: null,
     guidedMode: false,
 

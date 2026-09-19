@@ -22,6 +22,8 @@ import { GameTableHud } from '../../components/game/GameTableHud';
 import { GameToasts } from '../../components/game/GameToasts';
 import { HandChips } from '../../components/game/HandChips';
 import { HandView } from '../../components/game/HandView';
+import { IndexChartModal } from '../../components/game/IndexChartModal';
+import { HiLoPocketCard, PairSpotter } from '../../components/game/KitTools';
 import { LearnCountBar } from '../../components/game/LearnCountBar';
 import { MapCoverflow, QuizOrGameMode } from '../../components/game/MapCoverflow';
 import { ModernPlaque } from '../../components/game/ModernPlaque';
@@ -37,6 +39,7 @@ import { objectivesForMap } from '../../engine/dojo';
 import { SpeedSlider } from '../../components/settings/SettingsRows';
 import { HandResult } from '../../engine/blackjack/resolve';
 import { effectiveDealerSpeed, mapById, maxBetForLicense } from '../../engine/betting/casino';
+import { useKitTools } from '../../hooks/useKitTools';
 import { useModernUi } from '../../hooks/useModernUi';
 import { playSound, warmTableSounds } from '../../services/audio';
 import { initialDealVisibleCounts } from '../../utils/dealSequence';
@@ -149,6 +152,8 @@ export default function GameScreen() {
   const requestCountCheck = useGameSessionStore((state) => state.requestCountCheck);
   const chips = useEconomyStore((state) => state.chips);
   const coach = countCoachCapabilities(effectiveCountCoachLevel(countCoachLevel, trainingMode));
+  // The counter's kit: the tools won from the gifts on the trails.
+  const kit = useKitTools();
   const license = useProgressionStore((state) =>
     map ? state.licenseForMap(map.id) : 'none',
   );
@@ -171,6 +176,7 @@ export default function GameScreen() {
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [strategyOpen, setStrategyOpen] = useState(false);
+  const [indexOpen, setIndexOpen] = useState(false);
   const [chartsOpen, setChartsOpen] = useState(false);
   const [mapsOpen, setMapsOpen] = useState(false);
 
@@ -511,6 +517,16 @@ export default function GameScreen() {
                       </Text>
                     )
                   ) : null}
+                  {/* Kepler's gift: the count's own plays, beside the book. */}
+                  {kit.indexChart ? (
+                    modern ? (
+                      <AidPill label="Index plays" onPress={() => setIndexOpen(true)} />
+                    ) : (
+                      <Text style={styles.aidLink} onPress={() => setIndexOpen(true)}>
+                        Index plays
+                      </Text>
+                    )
+                  ) : null}
                   {coach.allowFullTools && chartsEnabled ? (
                     modern ? (
                       <AidPill label="Card charts" onPress={() => setChartsOpen(true)} />
@@ -570,6 +586,9 @@ export default function GameScreen() {
         </View>
       ) : null}
 
+      {kit.pocketCard ? <HiLoPocketCard /> : null}
+      {kit.pairSpotter ? <PairSpotter /> : null}
+
       <GameToasts />
       <GameSettingsSheet
         visible={settingsOpen}
@@ -582,6 +601,7 @@ export default function GameScreen() {
         decks={map.deckCount}
       />
       <DistributionChartModal visible={chartsOpen} onClose={() => setChartsOpen(false)} />
+      <IndexChartModal visible={indexOpen} onClose={() => setIndexOpen(false)} />
       {FEATURES.casinoFan ? (
         <MapCoverflow
           visible={mapsOpen}

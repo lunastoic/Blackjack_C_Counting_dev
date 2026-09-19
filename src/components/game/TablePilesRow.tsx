@@ -3,12 +3,14 @@ import { StyleSheet, Text, View } from 'react-native';
 import { RoundState } from '../../engine/blackjack/round';
 import { RoundPhase } from '../../engine/state-machine/phases';
 import { isShufflePending, Shoe, shuffleThreshold } from '../../engine/shoe/shoe';
+import { useKitTools } from '../../hooks/useKitTools';
 import { useModernUi } from '../../hooks/useModernUi';
 import { colors, fonts, fontWeights, layout, spacing } from '../../theme';
 import { arcadeShadow } from '../arcade';
 import { visibleDiscardCount, visibleShoeCount } from '../../utils/cardPiles';
 import { CARD_ASPECT } from './PlayingCard';
 import { CardStack } from './CardStack';
+import { TrayMarks } from './KitTools';
 
 /**
  * Narrow side slots keep RUNNING / TRUE / CARDS LEFT fully visible.
@@ -82,6 +84,7 @@ export function TablePilesRow({
   showCutCardMarker = false,
 }: TablePilesRowProps) {
   const modern = useModernUi();
+  const kit = useKitTools();
   const totalCards = shoe?.cards.length ?? 0;
   const shoeCount = visibleShoeCount(shoe, phase, initialDealStep, pendingReveals);
   const discardCount = visibleDiscardCount(shoe, round, phase, pendingReveals);
@@ -115,6 +118,12 @@ export function TablePilesRow({
             totalCards={totalCards}
             cardWidth={DISCARD_CARD_WIDTH}
           />
+          {/* Europa's gift: deck marks up the side of the tray to read it against. */}
+          {kit.trayMarks && shoe ? (
+            <View style={styles.trayMarksSlot} pointerEvents="none">
+              <TrayMarks decks={shoe.deckCount} height={DISCARD_CARD_WIDTH * CARD_ASPECT - 8} />
+            </View>
+          ) : null}
         </PileColumn>
       </View>
 
@@ -142,6 +151,17 @@ export function TablePilesRow({
 }
 
 const styles = StyleSheet.create({
+  /** Over the tray itself: the side piles sit half off the screen. */
+  trayMarksSlot: {
+    position: 'absolute',
+    left: '50%',
+    marginLeft: -DISCARD_CARD_WIDTH / 2 + 9,
+    width: DISCARD_CARD_WIDTH - 12,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    zIndex: 6,
+  },
   band: {
     flexDirection: 'row',
     alignItems: 'center',

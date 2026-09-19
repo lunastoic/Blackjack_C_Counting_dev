@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useModernUi } from '../../hooks/useModernUi';
+import { useKitTools } from '../../hooks/useKitTools';
 import { useGameSessionStore } from '../../stores/gameSessionStore';
 import { colors, fonts, fontSizes, fontWeights, lineHeights, radii, spacing } from '../../theme';
 import { ArcadeStrip, ArcadeStripCell, ArcadeStripDivider } from '../arcade';
@@ -52,7 +53,9 @@ export function LearnCountBar({ live = false }: LearnCountBarProps) {
   const requestCountCheck = useGameSessionStore((state) => state.requestCountCheck);
 
   const runningShown = live || revealTier >= 1;
-  const trueShown = live || revealTier >= 2;
+  // Ganymede's gift shows the true count without the second proof.
+  const kit = useKitTools();
+  const trueShown = live || revealTier >= 2 || kit.trueCountReadout;
   const runningLabel = runningCount > 0 ? `+${runningCount}` : `${runningCount}`;
   const trueLabel = trueCountValue > 0 ? `+${trueCountValue}` : `${trueCountValue}`;
   const canChallenge = !live && revealTier < 2 && phase === 'betting';

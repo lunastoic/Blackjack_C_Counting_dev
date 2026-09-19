@@ -7,12 +7,14 @@ import { haptics } from '../../services/haptics';
 import { useEconomyStore } from '../../stores/economyStore';
 import { useGameSessionStore } from '../../stores/gameSessionStore';
 import { useProgressionStore } from '../../stores/progressionStore';
+import { useKitTools } from '../../hooks/useKitTools';
 import { useModernUi } from '../../hooks/useModernUi';
 import { colors, fonts, fontSizes, fontWeights, radii, spacing } from '../../theme';
 import { ArcadeButton, ArcadeInfoBox, arcadeShadow } from '../arcade';
 import { PrimaryButton } from '../common/PrimaryButton';
 import { SecondaryButton } from '../common/SecondaryButton';
 import { ChipTray } from './ChipTray';
+import { BetRampCard } from './KitTools';
 
 /** Betting phase controls: chip tray, Return / Redo / Deal (pile lives on the felt). */
 export function BettingPanel() {
@@ -24,6 +26,7 @@ export function BettingPanel() {
   const chips = useEconomyStore((state) => state.chips);
   const lastBet = useEconomyStore((state) => state.lastBet);
   const license = useProgressionStore((state) => (map ? state.licenseForMap(map.id) : 'none'));
+  const kit = useKitTools();
   const modern = useModernUi();
 
   if (!map) {
@@ -94,6 +97,8 @@ export function BettingPanel() {
   if (modern) {
     return (
       <View style={[styles.panel, styles.panelModern]}>
+        {/* Titan's gift: the ramp over the chips while the bet is sized. */}
+        {kit.betRamp ? <BetRampCard /> : null}
         <ChipTray />
 
         <View style={styles.buttonRow}>

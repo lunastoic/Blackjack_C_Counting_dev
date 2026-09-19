@@ -20,8 +20,9 @@ import { LUNA_LUXE, mapById } from '../../engine/betting/casino';
 import { progressFor } from '../../engine/achievements/engine';
 import { achievementsForMap } from '../../engine/achievements/mapDefinitions';
 import { INITIAL_STATS } from '../../engine/achievements/stats';
-import { deckCoverEarnedCount } from '../../engine/dojo';
+import { deckCoverEarnedCount, KIT_TOOL_IDS, mapForTool, toolById } from '../../engine/dojo';
 import { DECK_COVERS } from '../../engine/types';
+import { useKitEarned } from '../../hooks/useKitTools';
 import { useModernUi } from '../../hooks/useModernUi';
 import { useAchievementStore } from '../../stores/achievementStore';
 import { useDojoStore } from '../../stores/dojoStore';
@@ -398,6 +399,8 @@ function TrainingTab({
   modern?: boolean;
 }) {
   const settings = useSettingsStore();
+  // The tools won from the gifts on the trails; the rest stay wrapped.
+  const earned = useKitEarned();
   const weakSpotCount = useWeakSpotsStore((state) => state.spots.length);
   const weakSpotsLabel = weakSpotCount > 0 ? `Weak spots (${weakSpotCount})` : 'Weak spots';
 
@@ -462,6 +465,32 @@ function TrainingTab({
             </View>
           </>
         ) : null}
+        <View style={styles.cardModern}>
+          <Text style={styles.kitLabelModern}>Counter’s kit</Text>
+          {KIT_TOOL_IDS.map((id, index) => {
+            const tool = toolById(id);
+            const won = earned[id];
+            return (
+              <React.Fragment key={id}>
+                {index > 0 ? <View style={styles.dividerModern} /> : null}
+                <MenuRow
+                  label={won ? tool.name : 'Mystery reward'}
+                  sub={won ? tool.blurb : `${mapById(mapForTool(id))?.name ?? ''} · gift after level 1`}
+                >
+                  {won ? (
+                    <ArcadeSwitch
+                      value={settings.kitTools[id] !== false}
+                      onValueChange={(on) => settings.setKitTool(id, on)}
+                      accessibilityLabel={tool.name}
+                    />
+                  ) : (
+                    <Ionicons name="lock-closed" size={18} color={colors.arcadeMuted} />
+                  )}
+                </MenuRow>
+              </React.Fragment>
+            );
+          })}
+        </View>
         <View style={styles.cardModern}>
           <MenuRow
             label="Weak spots"
@@ -1149,6 +1178,15 @@ const styles = StyleSheet.create({
   summaryModern: {
     textAlign: 'left',
     paddingHorizontal: spacing.xs,
+  },
+  kitLabelModern: {
+    color: colors.arcadeGold,
+    fontFamily: fonts.display,
+    fontSize: 20,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    paddingBottom: spacing.xxs,
+    includeFontPadding: false,
   },
   cardModern: {
     backgroundColor: colors.arcadeInfoFill,
