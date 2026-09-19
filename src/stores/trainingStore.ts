@@ -214,8 +214,12 @@ export interface TrainingState {
   readonly runIsBest: boolean;
   readonly comboIsBest: boolean;
 
+  /** A preview drill off a money bag: nothing it does is banked. */
+  readonly practice: boolean;
   /** Point the felt at a level. Clears any run in progress. */
   readonly load: (mapId: number, level: number) => void;
+  /** Point it at a spec of its own — the preview drills. */
+  readonly loadPractice: (spec: TrainingLevelSpec) => void;
   /** Begin / restart the level from scratch with fresh cards. */
   readonly begin: () => void;
   /** Answer the current question. Returns whether it was right. No-op outside `asking`. */
@@ -337,8 +341,8 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
   /** When the open question was asked (null between questions). */
   let openedAt: number | null = null;
 
-  function idleState(mapId: number, level: number) {
-    const spec = trainingLevelSpec(mapId, level);
+  function idleState(mapId: number, level: number, practiceSpec?: TrainingLevelSpec) {
+    const spec = practiceSpec ?? trainingLevelSpec(mapId, level);
     runSettled = false;
     return {
       mapId,
@@ -377,7 +381,10 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
       comboBest: 0,
       comboChips: 0,
       comboSerial: 0,
-      bestRun: useDojoStore.getState().flashBests[flashLevelKey(mapId, level)]?.run ?? null,
+      practice: practiceSpec !== undefined,
+      bestRun: practiceSpec
+        ? null
+        : (useDojoStore.getState().flashBests[flashLevelKey(mapId, level)]?.run ?? null),
       bestBeaten: false,
       bestSerial: 0,
       runIsBest: false,
@@ -433,7 +440,7 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
 
   /** The run is over: pay the combo bonus and fold the run into the level's bests. */
   function settleRun(): void {
-    if (runSettled) {
+    if (runSettled || get().practice) {
       return;
     }
     runSettled = true;
@@ -513,7 +520,12 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
    * unlocks) and folds the result into the run's outcome.
    */
   function bankStars(stars: number): void {
-    const { mapId, level, outcome } = get();
+    const { mapId, level, outcome, practice } = get();
+    if (practice) {
+      // A preview drill keeps its stars on screen and banks nothing.
+      set({ stars });
+      return;
+    }
     const dojo = useDojoStore.getState();
     const banked = dojo.completeTrainingLevel(mapId, level, stars);
     dojo.touchPractice();
@@ -831,6 +843,11 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
   return {
     ...idleState(1, 1),
 
+    loadPractice: (spec) => {
+      clearAllTimers();
+      set(idleState(get().mapId, get().level, spec));
+    },
+
     load: (mapId, level) => {
       clearAllTimers();
       set(idleState(mapId, level));
@@ -838,8 +855,8 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
 
     begin: () => {
       clearAllTimers();
-      const { mapId, level } = get();
-      set(idleState(mapId, level));
+      const { mapId, level, practice: isPreview, spec } = get();
+      set(idleState(mapId, level, isPreview ? spec : undefined));
       partResults = [];
       if (isCheckpointLevel(get().spec)) {
         beginScript();
@@ -899,8 +916,8 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
       if (get().status === 'cleared') {
         settleRun();
       }
-      const { mapId, level } = get();
-      set(idleState(mapId, level));
+      const { mapId, level, practice: isPreview, spec } = get();
+      set(idleState(mapId, level, isPreview ? spec : undefined));
     },
   };
 });

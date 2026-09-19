@@ -21,6 +21,8 @@ import {
   isFlashLevelDone,
   isStreakLevel,
   levelTutorial,
+  previewDrillSpec,
+  PreviewDrillId,
   nextStarTarget,
   QuestionKind,
   speedProfile,
@@ -90,6 +92,11 @@ import {
 interface TrainingLevelScreenProps {
   readonly mapId: number;
   readonly level: number;
+  /**
+   * A preview drill off a money bag rather than a level on the ladder: the
+   * same felt, its own spec, and nothing banked when the run ends.
+   */
+  readonly drill?: PreviewDrillId;
 }
 
 const EMPTY_TABLE: TableFrame = { seats: [], dealer: null };
@@ -153,16 +160,17 @@ function entryKeyFormat(kind: QuestionKind): ((value: number) => string) | undef
  * question, and the feedback. The only clock is the answer meter under the
  * status strip.
  */
-export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) {
+export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreenProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const map = mapById(mapId);
   // Clearing the ladder opens the next casino; this one's table was open all along.
   const nextMap = mapById(mapId + 1);
-  const valid = map !== undefined && isFlashLevel(level);
+  const valid = map !== undefined && (drill !== undefined || isFlashLevel(level));
 
   const load = useTrainingStore((state) => state.load);
+  const loadPractice = useTrainingStore((state) => state.loadPractice);
   const reset = useTrainingStore((state) => state.reset);
   const begin = useTrainingStore((state) => state.begin);
   const answer = useTrainingStore((state) => state.answer);
@@ -212,16 +220,21 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   const [hasBegun, setHasBegun] = useState(false);
 
   useEffect(() => {
-    if (valid) {
+    if (!valid) {
+      return;
+    }
+    if (drill) {
+      loadPractice(previewDrillSpec(drill));
+    } else {
       load(mapId, level);
     }
     return () => {
       reset();
     };
-  }, [valid, mapId, level, load, reset]);
+  }, [valid, mapId, level, drill, load, loadPractice, reset]);
 
   // Until the store points at this level, the felt reads as idle.
-  const synced = loadedMapId === mapId && loadedLevel === level;
+  const synced = drill !== undefined || (loadedMapId === mapId && loadedLevel === level);
   const status = synced ? storeStatus : 'idle';
 
   // Whenever the table returns to idle (fail, replay), the ribbon lies back out.
@@ -259,14 +272,16 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
     return <Redirect href="/" />;
   }
 
-  const spec = trainingLevelSpec(mapId, level);
+  const spec = drill ? previewDrillSpec(drill) : trainingLevelSpec(mapId, level);
   const speed = speedProfile(spec.speed);
   const checkpointSpec = isCheckpointLevel(spec) ? spec : null;
   const streakSpec = isStreakLevel(spec) ? spec : null;
   const isExam = checkpointSpec?.mode === 'tableCount' && checkpointSpec.exam;
   const chipSetKey = map.chipSetKey;
   const seatStake = map.chipDenominations[0];
-  const nextSpec = trainingLevelsForMap(mapId).find((entry) => entry.level === level + 1) ?? null;
+  const nextSpec = drill
+    ? null
+    : (trainingLevelsForMap(mapId).find((entry) => entry.level === level + 1) ?? null);
   const asksDecks = checkpointSpec?.questions.includes('decksRemaining') ?? false;
   const totalCards = checkpointSpec ? checkpointSpec.deckCount * CARDS_PER_DECK : 0;
   // The tutorial is the Hi-Lo values primer — only before the very first level
@@ -275,7 +290,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
   // keeps a replay link after that.
   const forceEveryLevel = FLASH_DEBUG_AVAILABLE && tutorialEveryLevel;
   const showPrimer = (mapId === 1 && level === 1) || forceEveryLevel;
-  const slides = levelTutorial(mapId, level);
+  const slides = drill ? [] : levelTutorial(mapId, level);
   const autoTutorial = !cleared || forceEveryLevel;
   const inPrimer = status === 'idle' && idleStage === 'primer';
   const inSlides = status === 'idle' && idleStage === 'slides';
@@ -734,7 +749,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
       }
       return (
         <FlashPanel
-          kicker={hasBegun ? `LEVEL ${level}  ·  TRY AGAIN` : `LEVEL ${level}`}
+          kicker={drill ? 'PREVIEW DRILL' : hasBegun ? `LEVEL ${level}  ·  TRY AGAIN` : `LEVEL ${level}`}
           kickerAside={<FlashPanelStarChip label={starTargetsLine(spec, targets)} />}
         >
           <Text style={styles.introTitle}>{spec.title.toUpperCase()}</Text>
@@ -912,7 +927,7 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
 
       <GameTableHud
         mapName={map.name}
-        modeLabel={`Level ${level} · ${spec.title}`}
+        modeLabel={drill ? `Preview drill · ${spec.title}` : `Level ${level} · ${spec.title}`}
         leftIcon="map-outline"
         leftAccessibilityLabel="Level map"
         onOpenMaps={openLevelMap}
@@ -985,7 +1000,9 @@ export function TrainingLevelScreen({ mapId, level }: TrainingLevelScreenProps) 
           >
             <ArcadeLevelBrief
               fit
-              kicker={hasBegun ? `Level ${level} · Try again` : `Level ${level}`}
+              kicker={
+                drill ? 'Preview drill' : hasBegun ? `Level ${level} · Try again` : `Level ${level}`
+              }
               title={spec.title}
               difficulty={speed.label}
               body={spec.brief}

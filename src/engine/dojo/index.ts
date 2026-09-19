@@ -12,5 +12,6 @@ export * from './deckCovers';
 export * from './training';
 export * from './shoeRun';
 export * from './rewards';
+export * from './previewDrills';
 export * from './levelTutorials';
 export * from './dailyGoal';

@@ -296,8 +296,8 @@ export interface TrueCountLevel extends StreakBase {
  */
 export interface IndexPlayLevel extends StreakBase {
   readonly mode: 'indexPlay';
-  /** Which spots come up: insurance only, the top six, or all of them (with insurance). */
-  readonly plays: 'insurance' | 'top' | 'all';
+  /** Which spots come up: insurance only, 16 vs 10 alone, the top six, or all of them. */
+  readonly plays: 'insurance' | 'sixteenVsTen' | 'top' | 'all';
   /** Give the true count outright; otherwise the running count and decks left. */
   readonly showTrueCount: boolean;
 }
@@ -1538,7 +1538,11 @@ function countAround(index: number, showTrueCount: boolean, random: Rng) {
 
 export function makeIndexPlayItem(spec: IndexPlayLevel, random: Rng = defaultRng): IndexPlayItem {
   const pool: readonly IndexPlay[] =
-    spec.plays === 'top' ? INDEX_PLAYS.filter((play) => TOP_INDEX_PLAY_IDS.includes(play.id)) : INDEX_PLAYS;
+    spec.plays === 'top'
+      ? INDEX_PLAYS.filter((play) => TOP_INDEX_PLAY_IDS.includes(play.id))
+      : spec.plays === 'sixteenVsTen'
+        ? INDEX_PLAYS.filter((play) => play.id === '16v10')
+        : INDEX_PLAYS;
   // Insurance alone, or one spot in (roughly) five on the full list.
   const insurance = spec.plays === 'insurance' || (spec.plays === 'all' && random() < 0.2);
   let suitIndex = Math.floor(random() * 4);

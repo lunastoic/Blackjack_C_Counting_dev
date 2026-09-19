@@ -1,8 +1,11 @@
 import { CASINO_MAPS } from '../../engine/betting/casino';
 import {
+  isShoeRunDrill,
   KIT_TOOL_IDS,
-  MAP_REWARDS,
+  mapForDrill,
   PREVIEW_DRILL_IDS,
+  previewDrillSpec,
+  MAP_REWARDS,
   REWARD_LEVEL,
   rewardChips,
   rewardKey,
@@ -14,6 +17,7 @@ import { saveDataSchema } from '../../persistence/schema';
 import { useDojoStore } from '../../stores/dojoStore';
 import { useEconomyStore } from '../../stores/economyStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { useTrainingStore } from '../../stores/trainingStore';
 
 /** Schema v22: the mystery rewards on the trails and the counter's kit switches. */
 
@@ -89,5 +93,39 @@ describe('mystery rewards', () => {
     expect(settings().kitTools.pocketCard).toBe(false);
     settings().setKitTool('pocketCard', true);
     expect(settings().kitTools.pocketCard).toBe(true);
+  });
+});
+
+describe('preview drills', () => {
+  it('every money bag carries a drill with a spec, and only Casino Night is a shoe', () => {
+    for (const id of PREVIEW_DRILL_IDS) {
+      const spec = previewDrillSpec(id);
+      expect(spec.title.length).toBeGreaterThan(0);
+      expect(spec.brief.length).toBeGreaterThan(0);
+      expect(spec.level).toBe(0);
+      expect(isShoeRunDrill(id)).toBe(id === 'casinoNight');
+      expect(MAP_REWARDS[mapForDrill(id)].drill.id).toBe(id);
+    }
+  });
+
+  it('a preview drill banks no stars, chips or bests', () => {
+    const dojo = () => useDojoStore.getState();
+    const chipsBefore = useEconomyStore.getState().chips;
+    const store = useTrainingStore.getState();
+    store.loadPractice(previewDrillSpec('divideIt'));
+    expect(useTrainingStore.getState().practice).toBe(true);
+    store.begin();
+    for (let n = 0; n < 12; n += 1) {
+      const item = useTrainingStore.getState().item;
+      if (!item || useTrainingStore.getState().status !== 'asking') {
+        break;
+      }
+      useTrainingStore.getState().answer(item.kind === 'cards' ? item.correct : item.item.correct);
+    }
+    expect(useTrainingStore.getState().stars).toBeGreaterThan(0);
+    expect(dojo().flashLevels).toEqual({});
+    expect(dojo().flashBests).toEqual({});
+    expect(useEconomyStore.getState().chips).toBe(chipsBefore);
+    useTrainingStore.getState().reset();
   });
 });

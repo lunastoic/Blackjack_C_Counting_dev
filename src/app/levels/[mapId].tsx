@@ -41,7 +41,9 @@ import { CASINO_MAPS, CasinoMap, mapById } from '../../engine/betting/casino';
 import {
   FLASH_LEVELS_PER_MAP,
   FlashProgress,
+  mapRewards,
   nextFlashLevel,
+  PreviewDrillId,
   rewardState,
   RewardSlot,
 } from '../../engine/dojo';
@@ -331,6 +333,9 @@ export default function LevelMapScreen() {
             reveal={item.id === revealing || item.id === pendingReveal}
             onRevealed={finishReveal}
             onSelectLevel={(level) => openLevel(item, level)}
+            onPreviewDrill={(drill) =>
+              router.push({ pathname: '/drill/preview/[drillId]', params: { drillId: drill } })
+            }
             onTable={() => openTable(item)}
             onQuiz={() =>
               router.push({ pathname: '/quiz/[mapId]', params: { mapId: String(item.id) } })
@@ -402,6 +407,8 @@ interface MapCardProps {
   readonly reveal: boolean;
   readonly onRevealed: () => void;
   readonly onSelectLevel: (level: number) => void;
+  /** A money bag's preview drill, opened from the reward sheet. */
+  readonly onPreviewDrill: (drill: PreviewDrillId) => void;
   readonly onTable: () => void;
   readonly onQuiz: () => void;
 }
@@ -422,6 +429,7 @@ function MapCard({
   reveal,
   onRevealed,
   onSelectLevel,
+  onPreviewDrill,
   onTable,
   onQuiz,
 }: MapCardProps) {
@@ -458,6 +466,15 @@ function MapCard({
       return;
     }
     setReward({ slot, chips: 0 });
+  }
+
+  /** The gift's tool is already at the table; the bag's drill starts now. */
+  function confirmReward(slot: RewardSlot) {
+    setReward(null);
+    const drill = mapRewards(map.id)?.drill;
+    if (slot === 2 && drill) {
+      onPreviewDrill(drill.id);
+    }
   }
 
   // Unlock reveal. The pane and closed lock sit over the whole card; once the
@@ -716,7 +733,7 @@ function MapCard({
             map={map}
             slot={reward.slot}
             chips={reward.chips}
-            onConfirm={() => setReward(null)}
+            onConfirm={() => confirmReward(reward.slot)}
             onClose={() => setReward(null)}
           />
         ) : null}
@@ -842,7 +859,7 @@ function MapCard({
           map={map}
           slot={reward.slot}
           chips={reward.chips}
-          onConfirm={() => setReward(null)}
+          onConfirm={() => confirmReward(reward.slot)}
           onClose={() => setReward(null)}
         />
       ) : null}

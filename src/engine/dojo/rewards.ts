@@ -163,6 +163,11 @@ export function mapForTool(id: KitToolId): number {
   return CASINO_MAPS.find((map) => MAP_REWARDS[map.id].tool.id === id)!.id;
 }
 
+/** The casino whose money bag carries this drill. */
+export function mapForDrill(id: PreviewDrillId): number {
+  return CASINO_MAPS.find((map) => MAP_REWARDS[map.id].drill.id === id)!.id;
+}
+
 /** "mapId:slot" — how an opened reward is stored. */
 export function rewardKey(mapId: number, slot: RewardSlot): string {
   return `${mapId}:${slot}`;

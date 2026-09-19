@@ -10,7 +10,14 @@ import { mapById } from '../../engine/betting/casino';
 import { activeHand } from '../../engine/blackjack/round';
 import { PlayerAction } from '../../engine/blackjack/rules';
 import { CARDS_PER_DECK } from '../../engine/cards/deck';
-import { DOJO_XP, HEAT_LIMIT, STAR_COUNT, trainingLevelsForMap } from '../../engine/dojo';
+import {
+  DOJO_XP,
+  HEAT_LIMIT,
+  previewShoeRunSpec,
+  PreviewDrillId,
+  STAR_COUNT,
+  trainingLevelsForMap,
+} from '../../engine/dojo';
 import { cardsDealt, cardsRemaining } from '../../engine/shoe/shoe';
 import { indexPlayFor } from '../../engine/strategy/indexPlays';
 import { recommendForHand } from '../../engine/strategy/recommend';
@@ -38,6 +45,8 @@ interface ShoeRunScreenProps {
   readonly level: number;
   /** Today's shared shoe instead of the casino's boss (dealt on `mapId`'s felt). */
   readonly daily?: boolean;
+  /** A preview drill off a money bag: a short shoe that banks nothing. */
+  readonly drill?: PreviewDrillId;
 }
 
 const ACTIONS: readonly { readonly action: PlayerAction; readonly label: string }[] = [
@@ -60,7 +69,7 @@ function units(value: number): string {
  * bottom panel, the verdict on every graded call rides over it, and the run
  * ends on the results card beside a flat bettor on the same cards.
  */
-export function ShoeRunScreen({ mapId, level, daily = false }: ShoeRunScreenProps) {
+export function ShoeRunScreen({ mapId, level, daily = false, drill }: ShoeRunScreenProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -76,7 +85,9 @@ export function ShoeRunScreen({ mapId, level, daily = false }: ShoeRunScreenProp
   const [betUnits, setBetUnits] = useState(1);
 
   useEffect(() => {
-    if (daily) {
+    if (drill) {
+      state.loadPractice(previewShoeRunSpec(drill));
+    } else if (daily) {
       state.loadDaily();
     } else {
       state.load(mapId, level);
@@ -86,7 +97,7 @@ export function ShoeRunScreen({ mapId, level, daily = false }: ShoeRunScreenProp
     };
     // Loading once per level; the store's actions are stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapId, level, daily]);
+  }, [mapId, level, daily, drill]);
 
   if (!spec) {
     return null;
@@ -144,7 +155,7 @@ export function ShoeRunScreen({ mapId, level, daily = false }: ShoeRunScreenProp
   }
 
   function openLevelMap() {
-    if (daily) {
+    if (daily || drill) {
       router.back();
       return;
     }
@@ -252,6 +263,24 @@ export function ShoeRunScreen({ mapId, level, daily = false }: ShoeRunScreenProp
         );
       }
       case 'done':
+        if (drill) {
+          return (
+            <View style={styles.section}>
+              <Text style={[styles.prompt, { color: backedOff ? colors.error : colors.goldBright }]}>
+                {backedOff ? 'BACKED OFF' : `${Math.round((score?.accuracy ?? 0) * 100)}% RIGHT`}
+              </Text>
+              <Text style={styles.sub}>
+                {backedOff
+                  ? 'The pit boss saw the bet leap. Climb the ramp a step or two a hand.'
+                  : `Your bets ${units(state.you)} · one unit a hand ${units(state.flat)} on the same cards.`}
+              </Text>
+              <ArcadeButton label="Play it again" size="large" onPress={state.begin} style={styles.stretch} />
+              <Text style={styles.link} onPress={openLevelMap} accessibilityRole="button">
+                Back to the map
+              </Text>
+            </View>
+          );
+        }
         if (daily) {
           const edge = state.you - state.flat;
           return (
@@ -322,9 +351,15 @@ export function ShoeRunScreen({ mapId, level, daily = false }: ShoeRunScreenProp
       />
       <GameTableHud
         mapName={map.name}
-        modeLabel={daily ? `Daily Shoe · ${state.dayKey ?? ''}` : `Level ${level} · ${spec.title}`}
-        leftIcon={daily ? 'arrow-back' : 'map-outline'}
-        leftAccessibilityLabel={daily ? 'Back' : 'Level map'}
+        modeLabel={
+          drill
+            ? 'Preview drill'
+            : daily
+              ? `Daily Shoe · ${state.dayKey ?? ''}`
+              : `Level ${level} · ${spec.title}`
+        }
+        leftIcon={daily || drill ? 'arrow-back' : 'map-outline'}
+        leftAccessibilityLabel={daily || drill ? 'Back' : 'Level map'}
         onOpenMaps={openLevelMap}
         onOpenSettings={() => setSettingsOpen(true)}
         menuOpen={settingsOpen}
@@ -382,17 +417,21 @@ export function ShoeRunScreen({ mapId, level, daily = false }: ShoeRunScreenProp
           <Animated.View entering={FadeIn.duration(200)} style={[styles.briefOverlay, { paddingBottom: insets.bottom + spacing.xs }]}>
             <ArcadeLevelBrief
               fit
-              kicker={daily ? (state.dayKey ?? 'Today') : `Level ${level} · Boss`}
+              kicker={drill ? 'Preview drill' : daily ? (state.dayKey ?? 'Today') : `Level ${level} · Boss`}
               title={spec.title}
               body={spec.brief}
               rules={
-                daily
+                daily || drill
                   ? [
-                      // No stars on the daily shoe — the edge is the score.
+                      // No stars on the daily shoe or a preview — the run is its own reward.
                       ...shoeRunChips(spec).filter((chip) => !chip.includes('clears')),
-                      todayBest?.bestEdge != null
-                        ? `Best today ${units(todayBest.bestEdge)} edge`
-                        : 'First run seen through today pays 500 chips',
+                      ...(drill
+                        ? ['A taste of Titan — nothing banked']
+                        : [
+                            todayBest?.bestEdge != null
+                              ? `Best today ${units(todayBest.bestEdge)} edge`
+                              : 'First run seen through today pays 500 chips',
+                          ]),
                     ]
                   : shoeRunChips(spec)
               }
@@ -407,7 +446,7 @@ export function ShoeRunScreen({ mapId, level, daily = false }: ShoeRunScreenProp
         ) : null}
       </View>
 
-      {!daily && status === 'done' && stars >= 2 ? (
+      {!daily && !drill && status === 'done' && stars >= 2 ? (
         <FlashLevelCompleteOverlay
           mapName={map.name}
           level={level}

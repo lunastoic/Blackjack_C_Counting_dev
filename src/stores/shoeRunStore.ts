@@ -116,6 +116,10 @@ export interface ShoeRunState {
   readonly load: (mapId: number, level: number) => void;
   /** Point the store at today's daily shoe. */
   readonly loadDaily: (now?: number) => void;
+  /** A preview drill off a money bag: a short shoe that banks nothing. */
+  readonly loadPractice: (spec: ShoeRunLevel) => void;
+  /** True while a preview drill is running. */
+  readonly practice: boolean;
   readonly begin: () => void;
   readonly answer: (value: number) => boolean;
   readonly placeBet: (units: number) => void;
@@ -186,7 +190,12 @@ export const useShoeRunStore = create<ShoeRunState>()((set, get) => {
       daily: false,
       dayKey: null,
       dailyResult: null,
+      practice: false,
     };
+  }
+
+  function idlePractice(spec: ShoeRunLevel) {
+    return { ...idle(1, 1), spec, practice: true };
   }
 
   function idleDaily(now: number) {
@@ -338,12 +347,17 @@ export const useShoeRunStore = create<ShoeRunState>()((set, get) => {
   }
 
   function finish(backedOff: boolean): void {
-    const { spec, mapId, level, calls, daily, dayKey: day, you, flat } = get();
+    const { spec, mapId, level, calls, daily, dayKey: day, you, flat, practice } = get();
     if (!spec) {
       return;
     }
     const score = scoreCalls(calls);
     const stars = shoeRunStars(spec, score.accuracy, backedOff);
+    if (practice) {
+      // A preview drill scores itself and banks nothing.
+      set({ status: 'done', backedOff, score, stars, outcome: null });
+      return;
+    }
     if (daily && day) {
       const dailyResult = useDojoStore.getState().recordDailyShoe(day, you - flat, score.accuracy, backedOff);
       set({ status: 'done', backedOff, score, stars, outcome: null, dailyResult });
@@ -364,9 +378,16 @@ export const useShoeRunStore = create<ShoeRunState>()((set, get) => {
 
     loadDaily: (now = Date.now()) => set(idleDaily(now)),
 
+    loadPractice: (spec) => set(idlePractice(spec)),
+
     begin: () => {
-      const { mapId, level, daily, dayKey: day } = get();
-      const base = daily && day ? { ...idleDaily(Date.now()), dayKey: day } : idle(mapId, level);
+      const { mapId, level, daily, dayKey: day, practice, spec: current } = get();
+      const base =
+        practice && current
+          ? idlePractice(current)
+          : daily && day
+            ? { ...idleDaily(Date.now()), dayKey: day }
+            : idle(mapId, level);
       if (!base.spec) {
         return;
       }
@@ -493,7 +514,11 @@ export const useShoeRunStore = create<ShoeRunState>()((set, get) => {
     },
 
     reset: () => {
-      const { mapId, level, daily, dayKey: day } = get();
+      const { mapId, level, daily, dayKey: day, practice, spec: current } = get();
+      if (practice && current) {
+        set(idlePractice(current));
+        return;
+      }
       set(daily && day ? { ...idleDaily(Date.now()), dayKey: day } : idle(mapId, level));
     },
   };
