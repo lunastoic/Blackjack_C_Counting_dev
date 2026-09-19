@@ -14,9 +14,13 @@ import {
   isFlashLevelUnlocked,
   isLessonUnlocked,
   isMapFlashComplete,
+  isRewardEarned,
   LessonId,
   nextFlashLevel,
   rankForXp,
+  rewardChips,
+  rewardKey,
+  RewardSlot,
   STAR_COUNT,
   starChips,
 } from '../engine/dojo';
@@ -46,6 +50,17 @@ export interface DojoState {
    * when this run set a new best for the level.
    */
   readonly recordTrainingPace: (mapId: number, level: number, pace: number) => boolean;
+  /** Mystery rewards opened on the trails, as "mapId:slot". */
+  readonly rewardsOpened: ReadonlySet<string>;
+  /**
+   * Opens a reward that is ready: the gift hands over its table tool, the
+   * money bag pays its chips. Returns what it gave, or null when it was not
+   * ready (or was already opened).
+   */
+  readonly openReward: (
+    mapId: number,
+    slot: RewardSlot,
+  ) => { readonly chips: number } | null;
   /** Today's daily shoe: its best edge and accuracy, and whether its chips were paid. */
   readonly dailyShoe: DailyShoeRecord;
   /**
@@ -141,6 +156,7 @@ export const useDojoStore = create<DojoState>()((set, get) => ({
   flashCountTipSeen: false,
   flashPace: {},
   flashBests: {},
+  rewardsOpened: new Set<string>(),
   dailyShoe: NO_DAILY_SHOE,
 
   markFlashCountTipSeen: () => set({ flashCountTipSeen: true }),
@@ -154,6 +170,19 @@ export const useDojoStore = create<DojoState>()((set, get) => ({
     }
     set({ flashPace: { ...get().flashPace, [key]: rounded } });
     return true;
+  },
+
+  openReward: (mapId, slot) => {
+    const key = rewardKey(mapId, slot);
+    if (get().rewardsOpened.has(key) || !isRewardEarned(get().flashLevels, mapId, slot)) {
+      return null;
+    }
+    const chips = slot === 2 ? rewardChips(mapId) : 0;
+    if (chips > 0) {
+      useEconomyStore.getState().creditChips(chips);
+    }
+    set({ rewardsOpened: new Set([...get().rewardsOpened, key]) });
+    return { chips };
   },
 
   recordDailyShoe: (day, edge, accuracy, backedOff) => {
@@ -306,6 +335,7 @@ export const useDojoStore = create<DojoState>()((set, get) => ({
       flashCountTipSeen: false,
       flashPace: {},
       flashBests: {},
+      rewardsOpened: new Set<string>(),
       dailyShoe: NO_DAILY_SHOE,
     }),
 
@@ -370,5 +400,6 @@ export const useDojoStore = create<DojoState>()((set, get) => ({
       flashPace: { ...data.flashPace },
       flashBests: { ...data.flashBests },
       dailyShoe: { ...data.dailyShoe },
+      rewardsOpened: new Set(data.rewardsOpened),
     }),
 }));

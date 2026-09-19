@@ -408,6 +408,18 @@ function migrateV20toV21(data: unknown): unknown {
   };
 }
 
+/** v22: the mystery rewards on the trail — none opened, every kit tool on once earned. */
+function migrateV21toV22(data: unknown): unknown {
+  const save = (data ?? {}) as Record<string, unknown>;
+  const dojo = (save.dojo ?? {}) as Record<string, unknown>;
+  const settings = (save.settings ?? {}) as Record<string, unknown>;
+  return {
+    ...save,
+    dojo: { ...dojo, rewardsOpened: [] },
+    settings: { ...settings, kitTools: {} },
+  };
+}
+
 export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
@@ -429,6 +441,7 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   18: migrateV18toV19,
   19: migrateV19toV20,
   20: migrateV20toV21,
+  21: migrateV21toV22,
 };
 
 export class MigrationError extends Error {

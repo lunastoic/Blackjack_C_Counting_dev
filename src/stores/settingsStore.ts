@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { KitToolId } from '../engine/dojo';
 import { GameMode } from '../engine/blackjack/rules';
 import { DECK_COUNTS, DeckCount } from '../engine/shoe/shoe';
 import {
@@ -32,6 +33,13 @@ interface SettingsState {
   readonly uiStyle: UiStyle;
   /** The Modern card back; a casino that has not earned it deals `d`. */
   readonly deckCover: DeckCover;
+  /**
+   * The counter's kit: each table tool won on a trail, switched on or off.
+   * A tool missing here is on once its gift is opened — the help arrives
+   * with the reward, and the player turns it off when it is no longer needed.
+   */
+  readonly kitTools: Readonly<Record<string, boolean>>;
+  readonly setKitTool: (tool: KitToolId, on: boolean) => void;
   readonly dealerSpeed: number;
   readonly deckCounts: Readonly<Record<GameMode, DeckCount>>;
   readonly trainingAids: TrainingAidSettings;
@@ -76,6 +84,7 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
   cardDeck: DEFAULT_SETTINGS.cardDeck,
   uiStyle: DEFAULT_SETTINGS.uiStyle,
   deckCover: DEFAULT_SETTINGS.deckCover,
+  kitTools: {},
   dealerSpeed: DEFAULT_SETTINGS.dealerSpeed,
   deckCounts: { ...DEFAULT_SETTINGS.deckCounts },
   trainingAids: { ...DEFAULT_SETTINGS.trainingAids },
@@ -88,6 +97,8 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
   setCardDeck: (deck) => set((state) => (isCardDeck(deck) ? { cardDeck: deck } : state)),
   setUiStyle: (style) => set((state) => (isUiStyle(style) ? { uiStyle: style } : state)),
   setDeckCover: (cover) => set((state) => (isDeckCover(cover) ? { deckCover: cover } : state)),
+
+  setKitTool: (tool, on) => set((state) => ({ kitTools: { ...state.kitTools, [tool]: on } })),
   setDealerSpeed: (speed) => set({ dealerSpeed: clampDealerSpeed(speed) }),
   setDeckCount: (mode, count) =>
     set((state) =>
@@ -107,6 +118,7 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
       cardDeck: isCardDeck(data.cardDeck) ? data.cardDeck : DEFAULT_SETTINGS.cardDeck,
       uiStyle: isUiStyle(data.uiStyle) ? data.uiStyle : DEFAULT_SETTINGS.uiStyle,
       deckCover: isDeckCover(data.deckCover) ? data.deckCover : DEFAULT_SETTINGS.deckCover,
+      kitTools: { ...data.kitTools },
       dealerSpeed: clampDealerSpeed(data.dealerSpeed),
       deckCounts: { ...data.deckCounts },
       trainingAids: { ...data.trainingAids },

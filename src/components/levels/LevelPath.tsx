@@ -11,7 +11,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { CHIP_SETS, LEVEL_ART } from '../../assets/registry';
+import { CHIP_SETS, LEVEL_ART, REWARD_ART } from '../../assets/registry';
 import { CasinoMap } from '../../engine/betting/casino';
 import {
   FlashProgress,
@@ -19,7 +19,13 @@ import {
   flashStars,
   isFlashLevelDone,
   isFlashLevelUnlocked,
+  mapRewards,
   nextFlashLevel,
+  REWARD_LEVEL,
+  REWARD_SLOTS,
+  rewardState,
+  RewardSlot,
+  RewardState,
   trainingLevelsForMap,
 } from '../../engine/dojo';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
@@ -80,12 +86,22 @@ const MODERN_DASH_HEIGHT = 2.5;
 const MODERN_BEND = 0.5;
 /** One breath of the START node's glow, in and out. */
 const MODERN_BREATH_MS = 1100;
+/** A reward sits on the trail between the level that opens it and the next. */
+const MODERN_REWARD = 44;
+/** A reward hangs under the level that opens it, opposite that level's title. */
+const REWARD_DROP = 1.02;
+const REWARD_SIDE_STEP = 30;
+const REWARD_LABEL_MAX = 104;
 
 export type LevelNodeState = 'done' | 'current' | 'locked';
 
 interface LevelPathProps {
   readonly map: CasinoMap;
   readonly progress: FlashProgress;
+  /** Rewards already opened, as `rewardKey` — Modern only. */
+  readonly rewardsOpened?: ReadonlySet<string>;
+  /** Tapping a ready (or opened) reward on the trail. */
+  readonly onReward?: (slot: RewardSlot) => void;
   /** Best pace per level (right answers a minute), keyed by `flashLevelKey`. */
   readonly pace?: Readonly<Record<string, number>>;
   readonly width: number;
@@ -154,6 +170,8 @@ function nodeState(progress: FlashProgress, mapId: number, level: number): Level
 export function LevelPath({
   map,
   progress,
+  rewardsOpened,
+  onReward,
   pace = {},
   width,
   height,
@@ -169,6 +187,8 @@ export function LevelPath({
       <ModernLevelPath
         map={map}
         progress={progress}
+        rewardsOpened={rewardsOpened}
+        onReward={onReward}
         width={width}
         height={height}
         onSelect={onSelect}
@@ -389,6 +409,8 @@ type ModernLevelPathProps = Omit<LevelPathProps, 'pace' | 'modern' | 'interactiv
 function ModernLevelPath({
   map,
   progress,
+  rewardsOpened,
+  onReward,
   width,
   height,
   onSelect,
@@ -425,6 +447,32 @@ function ModernLevelPath({
           modern
         />
       ))}
+      {rewardsOpened && onReward
+        ? REWARD_SLOTS.map((slot) => {
+            const anchor = centers[REWARD_LEVEL[slot] - 1];
+            if (!anchor) {
+              return null;
+            }
+            const size = Math.round(MODERN_REWARD * (nodeSize / MODERN_NODE));
+            return (
+              <RewardNode
+                key={slot}
+                mapId={map.id}
+                slot={slot}
+                state={rewardState(progress, rewardsOpened, map.id, slot)}
+                center={rewardCenter(
+                  anchor,
+                  MODERN_NODES[REWARD_LEVEL[slot] - 1].side,
+                  nodeSize,
+                  size,
+                  width,
+                )}
+                size={size}
+                onPress={() => onReward(slot)}
+              />
+            );
+          })
+        : null}
       {levels.map((spec, index) => (
         <ModernLevelNode
           key={spec.level}
@@ -441,6 +489,147 @@ function ModernLevelPath({
           onPress={() => onSelect(spec.level)}
         />
       ))}
+    </View>
+  );
+}
+
+/**
+ * Where a reward sits: half way along the run between its level and the
+ * next, pushed off the trail on the side the titles leave clear, and kept
+ * inside the ladder.
+ */
+function rewardCenter(
+  level: Point,
+  labelSide: 'left' | 'right',
+  nodeSize: number,
+  size: number,
+  width: number,
+): Point {
+  // Under the node, stepped away from the side its title runs along.
+  const away = labelSide === 'right' ? -1 : 1;
+  const margin = REWARD_LABEL_MAX / 2 + spacing.xs;
+  return {
+    x: Math.min(width - margin, Math.max(margin, level.x + REWARD_SIDE_STEP * away)),
+    y: level.y + nodeSize * REWARD_DROP,
+  };
+}
+
+interface RewardNodeProps {
+  readonly mapId: number;
+  readonly slot: RewardSlot;
+  readonly state: RewardState;
+  readonly center: Point;
+  readonly size: number;
+  readonly onPress: () => void;
+}
+
+/**
+ * A mystery reward on the trail: wrapped and dim until its level is cleared,
+ * breathing gold when it is ready to open, and showing what it gave — the
+ * tool, or the drill the bag carried — once opened.
+ */
+function RewardNode({ mapId, slot, state, center, size, onPress }: RewardNodeProps) {
+  const reducedMotion = useReducedMotion();
+  const rewards = mapRewards(mapId);
+  const ready = state === 'ready';
+  const opened = state === 'opened';
+
+  // Ready rewards breathe like the START node, so the eye finds them.
+  const breath = useSharedValue(0);
+  useEffect(() => {
+    if (ready && !reducedMotion) {
+      breath.set(
+        withRepeat(
+          withSequence(
+            withTiming(1, { duration: MODERN_BREATH_MS, easing: Easing.inOut(Easing.sin) }),
+            withTiming(0, { duration: MODERN_BREATH_MS, easing: Easing.inOut(Easing.sin) }),
+          ),
+          -1,
+          true,
+        ),
+      );
+    } else {
+      cancelAnimation(breath);
+      breath.set(0);
+    }
+    return () => cancelAnimation(breath);
+  }, [ready, reducedMotion, breath]);
+  const breathStyle = useAnimatedStyle(() => ({
+    shadowOpacity: 0.35 + breath.value * 0.55,
+    shadowRadius: 5 + breath.value * 11,
+    transform: [{ scale: 1 + breath.value * 0.06 }],
+  }));
+
+  if (!rewards) {
+    return null;
+  }
+  const art = opened
+    ? slot === 1
+      ? REWARD_ART.tool[rewards.tool.id]
+      : REWARD_ART.drill[rewards.drill.id]
+    : slot === 1
+      ? REWARD_ART.gift[mapId]
+      : REWARD_ART.bag[mapId];
+  const label = opened
+    ? slot === 1
+      ? rewards.tool.short
+      : `▶ ${rewards.drill.name}`
+    : ready
+      ? 'Tap to open'
+      : 'Mystery reward';
+  const artSize = Math.round(size * 1.3);
+  return (
+    <View
+      pointerEvents="box-none"
+      style={[
+        styles.rewardSlot,
+        { left: center.x - REWARD_LABEL_MAX / 2, top: center.y - size / 2, width: REWARD_LABEL_MAX },
+      ]}
+    >
+      <View style={styles.rewardRow}>
+        <PressableScale
+          accessibilityLabel={
+            opened
+              ? slot === 1
+                ? `${rewards.tool.name}, opened`
+                : `${rewards.drill.name} drill`
+              : ready
+                ? `Mystery reward, ready to open`
+                : `Mystery reward, locked until level ${REWARD_LEVEL[slot]}`
+          }
+          accessibilityState={{ disabled: state === 'locked' }}
+          disabled={state === 'locked'}
+          onPress={onPress}
+          style={[styles.rewardTap, { width: size, height: size }]}
+        >
+          <Animated.View style={[styles.rewardGlow, ready && breathStyle, { width: size, height: size }]}>
+            <Image
+              source={art}
+              style={[
+                { width: artSize, height: artSize },
+                state === 'locked' && styles.rewardLocked,
+              ]}
+              contentFit="contain"
+              transition={120}
+            />
+          </Animated.View>
+          {state === 'locked' ? (
+            <ArcadeBadge kind="lock" style={styles.rewardBadge} />
+          ) : null}
+        </PressableScale>
+        <View
+          style={[
+            styles.rewardPill,
+            ready && styles.rewardPillReady,
+            opened && styles.rewardPillOpened,
+          ]}
+          pointerEvents="none"
+        >
+          <Text style={[styles.rewardPillText, ready && styles.rewardPillTextReady]} numberOfLines={1}>
+            {label}
+          </Text>
+        </View>
+      </View>
     </View>
   );
 }
@@ -775,6 +964,65 @@ const styles = StyleSheet.create({
   },
 
   // Modern
+  rewardSlot: {
+    position: 'absolute',
+    alignItems: 'center',
+    zIndex: 3,
+  },
+  rewardRow: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  rewardTap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  /** The gold breath on a reward that is ready to open. */
+  rewardGlow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.arcadeGold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+  },
+  rewardLocked: {
+    opacity: 0.55,
+  },
+  rewardBadge: {
+    position: 'absolute',
+    right: -4,
+    bottom: -2,
+  },
+  rewardPill: {
+    borderRadius: radii.sm,
+    alignSelf: 'center',
+    borderWidth: 2,
+    borderColor: colors.arcadeInk,
+    backgroundColor: colors.arcadePlaque,
+    paddingHorizontal: spacing.xs + 2,
+    paddingTop: 1,
+    paddingBottom: 2,
+    maxWidth: REWARD_LABEL_MAX,
+  },
+  rewardPillReady: {
+    backgroundColor: colors.arcadeGreen,
+  },
+  rewardPillOpened: {
+    backgroundColor: colors.arcadePlaqueDeep,
+  },
+  rewardPillText: {
+    fontFamily: fonts.display,
+    fontSize: 13,
+    letterSpacing: 1,
+    color: colors.arcadeGold,
+    textTransform: 'uppercase',
+    includeFontPadding: false,
+    ...arcadeShadow.soft,
+  },
+  rewardPillTextReady: {
+    color: colors.arcadeCream,
+  },
   modernFlag: {
     position: 'absolute',
     left: 0,

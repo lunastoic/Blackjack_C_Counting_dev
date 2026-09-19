@@ -209,6 +209,46 @@ export const LEVEL_ART: Record<number, Record<number, number>> = {
   },
 };
 
+/**
+ * The two mystery rewards on each casino's trail: the wrapped gift and money
+ * bag while they wait, and what they open to — a table tool, or the chips
+ * and the preview drill they carry.
+ */
+export const REWARD_ART = {
+  gift: {
+    1: require('../../assets/rewards/gift-1.png'),
+    2: require('../../assets/rewards/gift-2.png'),
+    3: require('../../assets/rewards/gift-3.png'),
+    4: require('../../assets/rewards/gift-4.png'),
+    5: require('../../assets/rewards/gift-5.png'),
+    6: require('../../assets/rewards/gift-6.png'),
+  } as Record<number, number>,
+  bag: {
+    1: require('../../assets/rewards/bag-1.png'),
+    2: require('../../assets/rewards/bag-2.png'),
+    3: require('../../assets/rewards/bag-3.png'),
+    4: require('../../assets/rewards/bag-4.png'),
+    5: require('../../assets/rewards/bag-5.png'),
+    6: require('../../assets/rewards/bag-6.png'),
+  } as Record<number, number>,
+  tool: {
+    pocketCard: require('../../assets/rewards/tool-pocketCard.png'),
+    pairSpotter: require('../../assets/rewards/tool-pairSpotter.png'),
+    trayMarks: require('../../assets/rewards/tool-trayMarks.png'),
+    trueCountReadout: require('../../assets/rewards/tool-trueCountReadout.png'),
+    betRamp: require('../../assets/rewards/tool-betRamp.png'),
+    indexChart: require('../../assets/rewards/tool-indexChart.png'),
+  } as Record<string, number>,
+  drill: {
+    deckCountdown: require('../../assets/rewards/drill-deckCountdown.png'),
+    trayGlance: require('../../assets/rewards/drill-trayGlance.png'),
+    divideIt: require('../../assets/rewards/drill-divideIt.png'),
+    rampCard: require('../../assets/rewards/drill-rampCard.png'),
+    sixteenVsTen: require('../../assets/rewards/drill-sixteenVsTen.png'),
+    casinoNight: require('../../assets/rewards/drill-casinoNight.png'),
+  } as Record<string, number>,
+};
+
 /** Casino artwork keyed by the engine's artKey. */
 export const MAP_ART: Record<string, number> = {
   'luna-luxe': require('../../assets/maps/luna-luxe.png'),

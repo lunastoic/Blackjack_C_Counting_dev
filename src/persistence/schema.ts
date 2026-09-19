@@ -6,7 +6,7 @@ import { z } from 'zod';
  * (GameSettings, LifetimeStats, PlayerProgress) rather than duplicating logic.
  */
 
-export const SAVE_SCHEMA_VERSION = 21;
+export const SAVE_SCHEMA_VERSION = 22;
 
 export const MAX_DISPLAY_NAME_LENGTH = 20;
 export const DEFAULT_DISPLAY_NAME = 'Player';
@@ -65,6 +65,8 @@ export const settingsSchema = z.object({
   cardDeck: cardDeckSchema,
   uiStyle: uiStyleSchema,
   deckCover: deckCoverSchema,
+  /** Counter's kit (v22): each earned table tool switched on or off. */
+  kitTools: z.record(z.string(), z.boolean()),
   dealerSpeed: z.number().min(0.5).max(2),
   deckCounts: z.object({
     regular: deckCountSchema,
@@ -211,6 +213,8 @@ export const dojoSchema = z.object({
     z.string(),
     z.object({ run: z.number().int().min(0), combo: z.number().int().min(0) }),
   ),
+  /** Mystery rewards opened on the trails (v22), as "mapId:slot". */
+  rewardsOpened: z.array(z.string()),
   /** The daily shoe (v21): today's best, and whether today's chips were paid. */
   dailyShoe: z.object({
     dayKey: z.string().nullable(),

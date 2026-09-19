@@ -74,6 +74,7 @@ export function collectSaveFromStores(): SaveData {
       cardDeck: settings.cardDeck,
       uiStyle: settings.uiStyle,
       deckCover: settings.deckCover,
+      kitTools: { ...settings.kitTools },
       dealerSpeed: settings.dealerSpeed,
       deckCounts: { ...settings.deckCounts },
       trainingAids: { ...settings.trainingAids },
@@ -113,6 +114,7 @@ export function collectSaveFromStores(): SaveData {
       flashPace: { ...dojo.flashPace },
       flashBests: { ...dojo.flashBests },
       dailyShoe: { ...dojo.dailyShoe },
+      rewardsOpened: [...dojo.rewardsOpened],
     },
     weakSpots: {
       spots: useWeakSpotsStore.getState().spots.map((spot) => ({

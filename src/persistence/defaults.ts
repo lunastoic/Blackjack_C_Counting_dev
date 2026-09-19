@@ -41,6 +41,7 @@ export function createDefaultSave(): SaveData {
       cardDeck: DEFAULT_SETTINGS.cardDeck,
       uiStyle: DEFAULT_SETTINGS.uiStyle,
       deckCover: DEFAULT_SETTINGS.deckCover,
+      kitTools: {},
       dealerSpeed: DEFAULT_SETTINGS.dealerSpeed,
       deckCounts: { ...DEFAULT_SETTINGS.deckCounts },
       trainingAids: { ...DEFAULT_SETTINGS.trainingAids },
@@ -70,6 +71,7 @@ export function createDefaultSave(): SaveData {
       flashPace: {},
       flashBests: {},
       dailyShoe: { dayKey: null, bestEdge: null, bestAccuracy: null, paid: false },
+      rewardsOpened: [],
     },
     weakSpots: {
       spots: [],

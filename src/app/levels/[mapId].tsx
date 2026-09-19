@@ -36,8 +36,15 @@ import { PressableScale } from '../../components/common/PressableScale';
 import { FEATURES } from '../../constants/features';
 import { mapUnlockCost } from '../../constants/mapUnlockCosts';
 import { LevelPath } from '../../components/levels/LevelPath';
+import { RewardRevealSheet } from '../../components/levels/RewardRevealSheet';
 import { CASINO_MAPS, CasinoMap, mapById } from '../../engine/betting/casino';
-import { FLASH_LEVELS_PER_MAP, FlashProgress, nextFlashLevel } from '../../engine/dojo';
+import {
+  FLASH_LEVELS_PER_MAP,
+  FlashProgress,
+  nextFlashLevel,
+  rewardState,
+  RewardSlot,
+} from '../../engine/dojo';
 import { useModernUi } from '../../hooks/useModernUi';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { playSound } from '../../services/audio';
@@ -419,6 +426,10 @@ function MapCard({
   onQuiz,
 }: MapCardProps) {
   const reducedMotion = useReducedMotion();
+  const rewardsOpened = useDojoStore((state) => state.rewardsOpened);
+  const openReward = useDojoStore((state) => state.openReward);
+  /** The reward sheet over this card: which slot, and the chips it just paid. */
+  const [reward, setReward] = useState<{ slot: RewardSlot; chips: number } | null>(null);
   const next = nextFlashLevel(progress, map.id);
   // The table opens with the casino; the ladder only tracks training progress.
   const cleared = next === null;
@@ -431,6 +442,22 @@ function MapCard({
 
   function onPathLayout(event: LayoutChangeEvent) {
     setPathHeight(Math.floor(event.nativeEvent.layout.height));
+  }
+
+  /** A reward on the trail: open it when it is ready, else show what it gave. */
+  function onReward(slot: RewardSlot) {
+    const state = rewardState(progress, rewardsOpened, map.id, slot);
+    if (state === 'locked') {
+      return;
+    }
+    if (state === 'ready') {
+      const opened = openReward(map.id, slot);
+      playSound('achievementUnlock');
+      void haptics.success();
+      setReward({ slot, chips: opened?.chips ?? 0 });
+      return;
+    }
+    setReward({ slot, chips: 0 });
   }
 
   // Unlock reveal. The pane and closed lock sit over the whole card; once the
@@ -654,6 +681,8 @@ function MapCard({
                 <LevelPath
                   map={map}
                   progress={progress}
+                  rewardsOpened={rewardsOpened}
+                  onReward={onReward}
                   width={pathWidth}
                   height={pathHeight}
                   onSelect={onSelectLevel}
@@ -680,6 +709,17 @@ function MapCard({
             </Animated.View>
           ) : null}
         </View>
+
+        {reward ? (
+          <RewardRevealSheet
+            visible
+            map={map}
+            slot={reward.slot}
+            chips={reward.chips}
+            onConfirm={() => setReward(null)}
+            onClose={() => setReward(null)}
+          />
+        ) : null}
       </View>
     );
   }
@@ -794,6 +834,17 @@ function MapCard({
             </View>
           </PressableScale>
         </Animated.View>
+      ) : null}
+
+      {reward ? (
+        <RewardRevealSheet
+          visible
+          map={map}
+          slot={reward.slot}
+          chips={reward.chips}
+          onConfirm={() => setReward(null)}
+          onClose={() => setReward(null)}
+        />
       ) : null}
     </View>
   );
