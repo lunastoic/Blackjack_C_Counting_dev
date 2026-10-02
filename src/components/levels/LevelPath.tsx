@@ -64,29 +64,26 @@ const LEVEL_ART_SCALE = 1.25;
  * trail between the level that opens it and the next — and every casino
  * cuts its own course from its own seed, so no two ladders bend alike.
  */
-const RIVER_X_MIN = 0.17;
-const RIVER_X_MAX = 0.83;
+/** The river's course down the ladder, as shares of the height. */
 const RIVER_Y_TOP = 0.1;
 const RIVER_Y_BOTTOM = 0.91;
 /** A run that carries a reward falls this much further than a plain one. */
 const RIVER_REWARD_RUN = 1.5;
-/** Sideways swing of a crossing, as a share of the width — longer when a reward rides it. */
-const RIVER_LEVEL_SWING: readonly [number, number] = [0.34, 0.62];
-const RIVER_REWARD_SWING: readonly [number, number] = [0.42, 0.66];
-/** Where on its crossing a reward sits: part way across, part way down. */
-const RIVER_REWARD_ALONG: readonly [number, number] = [0.45, 0.58];
-const RIVER_REWARD_DOWN: readonly [number, number] = [0.44, 0.56];
-/** Now and then the river drifts on along the same bank instead of crossing. */
-const RIVER_DRIFT_CHANCE = 0.12;
-const RIVER_DRIFT_SWING: readonly [number, number] = [0.14, 0.22];
-/** The flattest move worth keeping once clamped to the banks; flatter is redrawn. */
-const RIVER_MIN_MOVE = 0.12;
-/** A crossing with a reward on it must stay wide, so the reward clears the START flag below. */
-const RIVER_REWARD_MIN_MOVE = 0.42;
+/**
+ * Every level sits on a bank, the banks alternating down the card, each a
+ * random way out from the centre line (as a share of the width) — further
+ * out where a reward rides the run, so the crossing is wide enough for it.
+ */
+const RIVER_BANK: readonly [number, number] = [0.12, 0.38];
+const RIVER_REWARD_BANK: readonly [number, number] = [0.27, 0.38];
+/** How far down its run a reward sits: past the middle, clear of the title above. */
+const RIVER_REWARD_DOWN: readonly [number, number] = [0.5, 0.56];
 const RIVER_ATTEMPTS = 64;
 /** Clear water kept between any two pieces of art on the trail. */
 const RIVER_CLEARANCE = 6;
-/** Samples per bend when laying dashes along the river. */
+/** A reward sits at least this far to the side of the level under it, clear of that level's START flag. */
+const RIVER_FLAG_CLEARANCE = 58;
+/** Samples per run when laying dashes along the river. */
 const RIVER_SAMPLES = 24;
 /** Reference ladder the node size scales against. */
 const MODERN_MOCK_WIDTH = 323;
@@ -105,6 +102,8 @@ const MODERN_BREATH_MS = 1100;
 /** A reward's box on the trail; its art draws past the box and its label sits beside it. */
 const MODERN_REWARD = 40;
 const REWARD_ART_SCALE = 1.2;
+/** The gold rim of a silhouette: the wrap drawn again behind itself, a touch larger. */
+const REWARD_RIM_SCALE = 1.1;
 const REWARD_LABEL_MAX = 140;
 const REWARD_LABEL_GAP = 4;
 
@@ -448,14 +447,21 @@ interface RiverSpec {
   readonly rewardSize: number;
 }
 
+interface River {
+  readonly course: Waypoint[];
+  /** The trail itself, sampled top to bottom. */
+  readonly line: Point[];
+}
+
 /**
- * Cuts the casino's river: the levels cross from bank to bank with a random
- * swing (now and then drifting on along one bank), a reward rides part way
- * along the crossing it opens — on the line itself — and that run falls
- * further to give it room. Draws from the seed until a course runs clear
- * with no two pieces of art touching, keeping the roomiest otherwise.
+ * Cuts the casino's river: the levels sit on alternating banks, each a
+ * random way out, and the trail crosses between them as an S that leaves
+ * and arrives straight down — a meander. Each reward rides the crossing it
+ * opens, that run falling further to give it room. Draws from the seed
+ * until a course runs clear (no two pieces of art touching, every reward
+ * off to the side of the START flag below it), keeping the roomiest otherwise.
  */
-function riverLayout({ seed, width, height, levels, nodeSize, rewardSize }: RiverSpec): Waypoint[] {
+function riverLayout({ seed, width, height, levels, nodeSize, rewardSize }: RiverSpec): River {
   const radius = (stop: Stop) => (stop.kind === 'level' ? nodeSize : rewardSize * REWARD_ART_SCALE) / 2;
   const top = RIVER_Y_TOP * height;
   const span = (RIVER_Y_BOTTOM - RIVER_Y_TOP) * height;
@@ -467,85 +473,68 @@ function riverLayout({ seed, width, height, levels, nodeSize, rewardSize }: Rive
     rewardAfter(run + 1) !== undefined ? RIVER_REWARD_RUN : 1,
   );
   const unit = span / Math.max(1, falls.reduce((sum, fall) => sum + fall, 0));
+  /** The river between two levels at a depth: an S that leaves and arrives straight down. */
+  const across = (from: Point, to: Point, depth: number) => {
+    const t = to.y === from.y ? 1 : (depth - from.y) / (to.y - from.y);
+    return from.x + ((to.x - from.x) * (1 - Math.cos(Math.PI * t))) / 2;
+  };
 
-  let best: Waypoint[] = [];
+  let best: River = { course: [], line: [] };
   let bestGap = -Infinity;
   for (let attempt = 0; attempt < RIVER_ATTEMPTS; attempt += 1) {
     const rng = mulberry32(seed * 7919 + attempt * 104729 + 17);
-    // The river enters on one bank, heading for the other.
-    let heading: 1 | -1 = rng() < 0.5 ? 1 : -1;
-    let x =
-      heading > 0
-        ? between(rng, [RIVER_X_MIN, RIVER_X_MIN + 0.14])
-        : between(rng, [RIVER_X_MAX - 0.14, RIVER_X_MAX]);
-    let y = top;
+    // The banks: alternating, a random way out, wider where a reward rides the run.
+    let side: 1 | -1 = rng() < 0.5 ? 1 : -1;
+    const banks: number[] = [];
+    for (let level = 1; level <= levels; level += 1) {
+      const carries = rewardAfter(level) !== undefined || (level > 1 && rewardAfter(level - 1) !== undefined);
+      banks.push((0.5 + side * between(rng, carries ? RIVER_REWARD_BANK : RIVER_BANK)) * width);
+      side = side === 1 ? -1 : 1;
+    }
+
     let fell = 0;
-    const course: Waypoint[] = [{ kind: 'level', level: 1, x: x * width, y }];
-    let clear = true;
+    const course: Waypoint[] = [{ kind: 'level', level: 1, x: banks[0], y: top }];
+    const line: Point[] = [];
     for (let run = 0; run < falls.length; run += 1) {
-      const slot = rewardAfter(run + 1);
-      const drift = slot === undefined && rng() < RIVER_DRIFT_CHANCE;
-      const swing = between(
-        rng,
-        drift ? RIVER_DRIFT_SWING : slot !== undefined ? RIVER_REWARD_SWING : RIVER_LEVEL_SWING,
-      );
-      // A drift carries on the way the river just went; a crossing turns it.
-      const way: 1 | -1 = drift ? (heading === 1 ? -1 : 1) : heading;
-      const nextX = Math.min(RIVER_X_MAX, Math.max(RIVER_X_MIN, x + way * swing));
-      if (Math.abs(nextX - x) < (slot !== undefined ? RIVER_REWARD_MIN_MOVE : RIVER_MIN_MOVE)) {
-        clear = false;
-        break;
-      }
+      const from = course[course.length - 1];
       fell += falls[run];
       const last = run === falls.length - 1;
-      const nextY = top + fell * unit + (last ? 0 : (rng() - 0.5) * 0.1 * unit);
+      const to = { x: banks[run + 1], y: top + fell * unit + (last ? 0 : (rng() - 0.5) * 0.1 * unit) };
+      const slot = rewardAfter(run + 1);
       if (slot !== undefined) {
-        const along = between(rng, RIVER_REWARD_ALONG);
-        const down = between(rng, RIVER_REWARD_DOWN);
-        course.push({ kind: 'reward', slot, x: (x + (nextX - x) * along) * width, y: y + (nextY - y) * down });
+        const depth = from.y + (to.y - from.y) * between(rng, RIVER_REWARD_DOWN);
+        course.push({ kind: 'reward', slot, x: across(from, to, depth), y: depth });
       }
-      x = nextX;
-      y = nextY;
-      heading = way === 1 ? -1 : 1;
-      course.push({ kind: 'level', level: run + 2, x: x * width, y });
+      for (let sample = run === 0 ? 0 : 1; sample <= RIVER_SAMPLES; sample += 1) {
+        const depth = from.y + ((to.y - from.y) * sample) / RIVER_SAMPLES;
+        line.push({ x: across(from, to, depth), y: depth });
+      }
+      course.push({ kind: 'level', level: run + 2, ...to });
     }
-    if (!clear) {
-      continue;
-    }
-    // The tightest pair of stops decides: art must never touch.
+
+    // The tightest spot decides: art must never touch, and a reward stays
+    // off to the side of the level under it.
     let gap = Infinity;
     for (let a = 0; a < course.length; a += 1) {
       for (let b = a + 1; b < course.length; b += 1) {
         const distance = Math.hypot(course[a].x - course[b].x, course[a].y - course[b].y);
         gap = Math.min(gap, distance - radius(course[a]) - radius(course[b]));
       }
+      if (course[a].kind === 'reward' && a + 1 < course.length) {
+        const aside = Math.abs(course[a].x - course[a + 1].x);
+        gap = Math.min(gap, aside - RIVER_FLAG_CLEARANCE + RIVER_CLEARANCE);
+      }
     }
+    const river: River = { course, line };
     if (gap >= RIVER_CLEARANCE) {
-      return course;
+      return river;
     }
     if (gap > bestGap) {
       bestGap = gap;
-      best = course;
+      best = river;
     }
   }
-  if (best.length > 0) {
-    return best;
-  }
-  // Every draw was redrawn: a plain zigzag bank to bank, rewards half way along.
-  const bank = (index: number) => (index % 2 === 0 ? RIVER_X_MIN : RIVER_X_MAX) * width;
-  const plain: Waypoint[] = [{ kind: 'level', level: 1, x: bank(0), y: top }];
-  let fell = 0;
-  for (let run = 0; run < falls.length; run += 1) {
-    const from = plain[plain.length - 1];
-    fell += falls[run];
-    const to = { x: bank(run + 1), y: top + fell * unit };
-    const slot = rewardAfter(run + 1);
-    if (slot !== undefined) {
-      plain.push({ kind: 'reward', slot, x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 });
-    }
-    plain.push({ kind: 'level', level: run + 2, ...to });
-  }
-  return plain;
+  return best;
 }
 
 /**
@@ -568,7 +557,7 @@ function ModernLevelPath({
   const scale = Math.min(width / MODERN_MOCK_WIDTH, height / MODERN_MOCK_HEIGHT);
   const nodeSize = Math.round(Math.min(MODERN_NODE, Math.max(MODERN_MIN_NODE, MODERN_NODE * scale)));
   const rewardSize = Math.round(MODERN_REWARD * (nodeSize / MODERN_NODE));
-  const course = useMemo(
+  const river = useMemo(
     () => riverLayout({ seed: map.id, width, height, levels: levels.length, nodeSize, rewardSize }),
     [map.id, width, height, levels.length, nodeSize, rewardSize],
   );
@@ -583,9 +572,9 @@ function ModernLevelPath({
 
   return (
     <View style={{ width, height }}>
-      <RiverTrail course={course} />
+      <RiverTrail line={river.line} />
       {rewardsOpened && onReward
-        ? course.map((stop) =>
+        ? river.course.map((stop) =>
             stop.kind === 'reward' ? (
               <RewardNode
                 key={`reward-${stop.slot}`}
@@ -602,7 +591,7 @@ function ModernLevelPath({
             ) : null,
           )
         : null}
-      {course.map((stop) => {
+      {river.course.map((stop) => {
         const spec = stop.kind === 'level' ? levels.find((level) => level.level === stop.level) : undefined;
         if (!spec) {
           return null;
@@ -735,15 +724,33 @@ function RewardNode({
         style={[styles.rewardTap, { width: size, height: size }]}
       >
         <Animated.View style={[styles.rewardGlow, ready && breathStyle, { width: size, height: size }]}>
-          <Image
-            source={art}
-            style={[
-              { width: artSize, height: artSize },
-              state === 'locked' && styles.rewardLocked,
-            ]}
-            contentFit="contain"
-            transition={120}
-          />
+          {opened ? (
+            <Image source={art} style={{ width: artSize, height: artSize }} contentFit="contain" transition={120} />
+          ) : (
+            // Until it is opened the prize keeps its secret: the wrap as an ink
+            // silhouette with a gold rim and a question mark, dimmer while locked.
+            <View style={{ width: artSize, height: artSize }}>
+              <Image
+                source={art}
+                style={[
+                  StyleSheet.absoluteFill,
+                  { transform: [{ scale: REWARD_RIM_SCALE }] },
+                  !ready && styles.rewardRimLocked,
+                ]}
+                tintColor={colors.arcadeGold}
+                contentFit="contain"
+              />
+              <Image
+                source={art}
+                style={StyleSheet.absoluteFill}
+                tintColor={colors.arcadeInk}
+                contentFit="contain"
+              />
+              <View style={[StyleSheet.absoluteFill, styles.rewardQueryWrap]} pointerEvents="none">
+                <Text style={[styles.rewardQuery, !ready && styles.rewardQueryLocked]}>?</Text>
+              </View>
+            </View>
+          )}
         </Animated.View>
         {state === 'locked' ? (
           <ArcadeBadge kind="lock" style={styles.rewardBadge} />
@@ -915,23 +922,6 @@ function curvePoint(from: Point, to: Point, bendRatio: number, t: number): Point
   return cubicPoint(from, { x: from.x, y: from.y + bend }, { x: to.x, y: to.y - bend }, to, t);
 }
 
-/** The river as one smooth line through its waypoints: Catmull-Rom bends, sampled. */
-function riverLine(points: readonly Point[]): Point[] {
-  const line: Point[] = [];
-  for (let index = 0; index < points.length - 1; index += 1) {
-    const before = points[Math.max(index - 1, 0)];
-    const from = points[index];
-    const to = points[index + 1];
-    const after = points[Math.min(index + 2, points.length - 1)];
-    const out = { x: from.x + (to.x - before.x) / 6, y: from.y + (to.y - before.y) / 6 };
-    const into = { x: to.x - (after.x - from.x) / 6, y: to.y - (after.y - from.y) / 6 };
-    for (let sample = index === 0 ? 0 : 1; sample <= RIVER_SAMPLES; sample += 1) {
-      line.push(cubicPoint(from, out, into, to, sample / RIVER_SAMPLES));
-    }
-  }
-  return line;
-}
-
 interface Dash {
   readonly x: number;
   readonly y: number;
@@ -1011,8 +1001,8 @@ function TrailSegment({ from, to, bend, nodeSize }: TrailSegmentProps) {
 }
 
 /** The Modern trail: fine gold dashes along the whole river, under the nodes. */
-function RiverTrail({ course }: { readonly course: readonly Point[] }) {
-  const dashes = useMemo(() => dashesOnLine(riverLine(course), MODERN_DASH, MODERN_DASH_GAP, 0), [course]);
+function RiverTrail({ line }: { readonly line: readonly Point[] }) {
+  const dashes = useMemo(() => dashesOnLine(line, MODERN_DASH, MODERN_DASH_GAP, 0), [line]);
   return (
     <>
       {dashes.map((dash, index) => (
@@ -1146,8 +1136,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
     shadowRadius: 0,
   },
-  rewardLocked: {
+  rewardRimLocked: {
     opacity: 0.55,
+  },
+  rewardQueryWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: '14%',
+  },
+  rewardQuery: {
+    fontFamily: fonts.display,
+    fontSize: 22,
+    color: colors.arcadeGold,
+    includeFontPadding: false,
+  },
+  rewardQueryLocked: {
+    opacity: 0.7,
   },
   rewardBadge: {
     position: 'absolute',
