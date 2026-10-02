@@ -55,15 +55,16 @@ describe('progression store', () => {
       }
     });
 
-    it('casinos open in order: the next one only, regardless of level', () => {
+    it('every locked casino can be opened, each only once', () => {
       expect(useProgressionStore.getState().canUnlockMap(2)).toBe(true);
-      expect(useProgressionStore.getState().canUnlockMap(3)).toBe(false);
-      expect(useProgressionStore.getState().unlockMap(3)).toBe(false);
-
-      expect(useProgressionStore.getState().unlockMap(2)).toBe(true);
-      expect(useProgressionStore.getState().isMapUnlocked(2)).toBe(true);
-      expect(useProgressionStore.getState().unlockMap(2)).toBe(false); // once
       expect(useProgressionStore.getState().canUnlockMap(3)).toBe(true);
+      expect(useProgressionStore.getState().canUnlockMap(1)).toBe(false); // already open
+
+      expect(useProgressionStore.getState().unlockMap(3)).toBe(true);
+      expect(useProgressionStore.getState().isMapUnlocked(3)).toBe(true);
+      expect(useProgressionStore.getState().unlockMap(3)).toBe(false); // once
+      expect(useProgressionStore.getState().canUnlockMap(3)).toBe(false);
+      expect(useProgressionStore.getState().unlockMap(2)).toBe(true);
     });
 
     it('opens the table with the casino', () => {
@@ -94,19 +95,25 @@ describe('progression store', () => {
 
     it('prices follow the constants table; Luna Luxe is never for sale', () => {
       expect(MAP_UNLOCK_COSTS).toEqual({
-        2: 125_000,
-        3: 300_000,
-        4: 600_000,
-        5: 1_000_000,
-        6: 2_000_000,
+        2: 100_000,
+        3: 250_000,
+        4: 625_000,
+        5: 1_550_000,
+        6: 3_900_000,
       });
+      // Each casino costs about 2.5× the one before.
+      for (const id of [3, 4, 5, 6]) {
+        const ratio = MAP_UNLOCK_COSTS[id] / MAP_UNLOCK_COSTS[id - 1];
+        expect(ratio).toBeGreaterThan(2.4);
+        expect(ratio).toBeLessThan(2.6);
+      }
       expect(mapUnlockCost(1)).toBeNull();
-      expect(mapUnlockCost(2)).toBe(125_000);
+      expect(mapUnlockCost(2)).toBe(100_000);
       expect(mapUnlockCost(99)).toBeNull();
     });
 
     it('debits the price once and opens the casino, its table and its reveal', () => {
-      useEconomyStore.setState({ chips: 130_000 });
+      useEconomyStore.setState({ chips: 105_000 });
       expect(store().buyMap(2)).toBe(true);
       expect(chips()).toBe(5_000);
       expect(store().isMapUnlocked(2)).toBe(true);
@@ -115,9 +122,9 @@ describe('progression store', () => {
     });
 
     it('refuses when short on chips and leaves everything untouched', () => {
-      useEconomyStore.setState({ chips: 124_999 });
+      useEconomyStore.setState({ chips: 99_999 });
       expect(store().buyMap(2)).toBe(false);
-      expect(chips()).toBe(124_999);
+      expect(chips()).toBe(99_999);
       expect(store().isMapUnlocked(2)).toBe(false);
       expect(store().licenseForMap(2)).toBe('none');
       expect(store().pendingRevealMapId).toBeNull();
@@ -127,23 +134,25 @@ describe('progression store', () => {
       useEconomyStore.setState({ chips: 300_000 });
       expect(store().buyMap(2)).toBe(true);
       expect(store().buyMap(2)).toBe(false);
-      expect(chips()).toBe(175_000);
+      expect(chips()).toBe(200_000);
 
       // An earned unlock is not for sale either.
       store().unlockMap(3);
       expect(store().buyMap(3)).toBe(false);
-      expect(chips()).toBe(175_000);
+      expect(chips()).toBe(200_000);
     });
 
-    it('sells casinos in order only', () => {
+    it('sells any locked casino, in any order; Luna Luxe never', () => {
       useEconomyStore.setState({ chips: 10_000_000 });
-      expect(store().buyMap(3)).toBe(false);
       expect(store().buyMap(1)).toBe(false);
       expect(chips()).toBe(10_000_000);
 
+      // Skipping ahead is allowed — the price climbs for it.
+      expect(store().buyMap(6)).toBe(true);
+      expect(store().isMapUnlocked(6)).toBe(true);
+      expect(store().isMapUnlocked(2)).toBe(false);
       expect(store().buyMap(2)).toBe(true);
-      expect(store().buyMap(3)).toBe(true);
-      expect(chips()).toBe(10_000_000 - 125_000 - 300_000);
+      expect(chips()).toBe(10_000_000 - 3_900_000 - 100_000);
     });
 
     it('only buys access: the previous casino\'s ladder, stars and XP stay put', () => {
@@ -158,7 +167,7 @@ describe('progression store', () => {
         xpIntoLevel: store().xpIntoLevel,
         totalDojoXp: useDojoStore.getState().totalDojoXp,
       };
-      useEconomyStore.setState({ chips: 125_000 });
+      useEconomyStore.setState({ chips: 100_000 });
 
       expect(store().buyMap(2)).toBe(true);
 
@@ -172,7 +181,7 @@ describe('progression store', () => {
     });
 
     it('a bought casino still opens the next one for free once its ladder is cleared', () => {
-      useEconomyStore.setState({ chips: 125_000 });
+      useEconomyStore.setState({ chips: 100_000 });
       useDojoStore.getState().hydrate(createDefaultSave().dojo);
       expect(store().buyMap(2)).toBe(true);
       for (let level = 1; level <= 6; level++) {

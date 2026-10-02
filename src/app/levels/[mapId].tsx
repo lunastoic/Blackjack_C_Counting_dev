@@ -22,6 +22,7 @@ import Animated, {
   useSharedValue,
   withRepeat,
   withSequence,
+  withDelay,
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -88,11 +89,13 @@ const MODERN_CARD_OUTLINE = 3;
 /** Unlock reveal: the screen settles, the new card slides to centre… */
 const REVEAL_SCROLL_DELAY_MS = 350;
 /** …holds a beat, the lock swings open… */
-const REVEAL_HOLD_MS = 450;
-const REVEAL_SWAP_MS = 250;
+/** The unlock: one continuous motion — hold, the lock springs open, the pane lifts as the ladder rises. */
+const REVEAL_HOLD_MS = 320;
+const REVEAL_SWAP_MS = 320;
 /** …shows the open lock, then the pane lifts and the ladder fades in. */
-const REVEAL_SWAP_HOLD_MS = 900;
-const REVEAL_LIFT_MS = 550;
+/** The pane starts lifting this long after the lock springs — overlapping, not waiting. */
+const REVEAL_LIFT_DELAY_MS = 140;
+const REVEAL_LIFT_MS = 640;
 
 /** A card's look: locked pane → lock open (pane still up) → ladder showing. */
 type RevealStage = 'locked' | 'unlocking' | 'open';
@@ -488,6 +491,7 @@ function MapCard({
   const unlockOpacity = useSharedValue(0);
   const lockScale = useSharedValue(1);
   const contentOpacity = useSharedValue(unlocked && !reveal ? 1 : 0);
+  const contentScale = useSharedValue(1);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const clearTimers = useCallback(() => {
@@ -508,7 +512,8 @@ function MapCard({
     unlockOpacity.set(0);
     lockScale.set(1);
     contentOpacity.set(unlocked ? 1 : 0);
-  }, [revealing, unlocked, clearTimers, paneOpacity, lockOpacity, unlockOpacity, lockScale, contentOpacity]);
+    contentScale.set(1);
+  }, [revealing, unlocked, clearTimers, paneOpacity, lockOpacity, unlockOpacity, lockScale, contentOpacity, contentScale]);
 
   // Once the revealing card is centred the sequence runs to the end, even if
   // the player swipes on; a second arming while it runs is ignored.
@@ -526,28 +531,32 @@ function MapCard({
         if (reducedMotion) {
           lockOpacity.set(0);
           unlockOpacity.set(1);
-          return;
-        }
-        lockOpacity.set(withTiming(0, { duration: REVEAL_SWAP_MS }));
-        unlockOpacity.set(withTiming(1, { duration: REVEAL_SWAP_MS }));
-        lockScale.set(
-          withSequence(
-            withTiming(1.25, { duration: 180, easing: Easing.out(Easing.quad) }),
-            withTiming(1, { duration: 260, easing: Easing.out(Easing.back(2)) }),
-          ),
-        );
-      }, REVEAL_HOLD_MS),
-    );
-    timers.push(
-      setTimeout(() => {
-        if (reducedMotion) {
           paneOpacity.set(0);
           contentOpacity.set(1);
           return;
         }
-        paneOpacity.set(withTiming(0, { duration: REVEAL_LIFT_MS }));
-        contentOpacity.set(withTiming(1, { duration: REVEAL_LIFT_MS }));
-      }, REVEAL_HOLD_MS + REVEAL_SWAP_HOLD_MS),
+        // The lock springs open and swells; while it is still settling the
+        // pane lifts away and the ladder rises into place under it — every
+        // part overlaps the next, so the whole thing reads as one motion.
+        lockOpacity.set(withTiming(0, { duration: REVEAL_SWAP_MS, easing: Easing.out(Easing.cubic) }));
+        unlockOpacity.set(withTiming(1, { duration: REVEAL_SWAP_MS, easing: Easing.out(Easing.cubic) }));
+        lockScale.set(
+          withSequence(
+            withTiming(1.22, { duration: 200, easing: Easing.out(Easing.quad) }),
+            withTiming(1.08, { duration: 420, easing: Easing.out(Easing.cubic) }),
+          ),
+        );
+        paneOpacity.set(
+          withDelay(REVEAL_LIFT_DELAY_MS, withTiming(0, { duration: REVEAL_LIFT_MS, easing: Easing.inOut(Easing.cubic) })),
+        );
+        contentScale.set(0.965);
+        contentOpacity.set(
+          withDelay(REVEAL_LIFT_DELAY_MS, withTiming(1, { duration: REVEAL_LIFT_MS, easing: Easing.out(Easing.cubic) })),
+        );
+        contentScale.set(
+          withDelay(REVEAL_LIFT_DELAY_MS, withTiming(1, { duration: REVEAL_LIFT_MS + 120, easing: Easing.out(Easing.back(1.2)) })),
+        );
+      }, REVEAL_HOLD_MS),
     );
     timers.push(
       setTimeout(() => {
@@ -555,9 +564,9 @@ function MapCard({
         // Reset for any later reveal; the card reads 'open' from `reveal` dropping.
         setRevealStage('locked');
         onRevealed();
-      }, REVEAL_HOLD_MS + REVEAL_SWAP_HOLD_MS + REVEAL_LIFT_MS),
+      }, REVEAL_HOLD_MS + REVEAL_LIFT_DELAY_MS + REVEAL_LIFT_MS + 120),
     );
-  }, [armed, reducedMotion, onRevealed, paneOpacity, lockOpacity, unlockOpacity, lockScale, contentOpacity]);
+  }, [armed, reducedMotion, onRevealed, paneOpacity, lockOpacity, unlockOpacity, lockScale, contentOpacity, contentScale]);
 
   const paneStyle = useAnimatedStyle(() => ({ opacity: paneOpacity.value }));
   const lockStyle = useAnimatedStyle(() => ({
@@ -568,7 +577,10 @@ function MapCard({
     opacity: unlockOpacity.value,
     transform: [{ scale: lockScale.value }],
   }));
-  const contentStyle = useAnimatedStyle(() => ({ opacity: contentOpacity.value }));
+  const contentStyle = useAnimatedStyle(() => ({
+    opacity: contentOpacity.value,
+    transform: [{ scale: contentScale.value }],
+  }));
 
   const locked = stage === 'locked';
   const lockLabel =

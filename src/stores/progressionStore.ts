@@ -89,9 +89,8 @@ export const useProgressionStore = create<ProgressionState>()((set, get) => ({
     if (FEATURES.levelMapGating) {
       return get().level >= map.unlockLevel;
     }
-    // Map ids are sequential (1…6): casinos open one after another.
-    const previous = mapById(mapId - 1);
-    return !previous || get().isMapUnlocked(previous.id);
+    // Any locked casino can be bought; the ladder still opens them in order.
+    return true;
   },
 
   unlockMap: (mapId) => {

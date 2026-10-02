@@ -432,8 +432,10 @@ describe('table licenses (quiz-first progression)', () => {
     expect(quiz().licenseEarned).toBeNull();
     expect(useProgressionStore.getState().licenseForMap(2)).toBe('licensed');
 
-    // Other casinos still need their own sprint.
-    expect(useProgressionStore.getState().licenseForMap(3)).toBe('none');
+    // The full license opens the next casino with it; the ones after still
+    // need their own sprint.
+    expect(useProgressionStore.getState().licenseForMap(3)).toBe('licensed');
+    expect(useProgressionStore.getState().licenseForMap(4)).toBe('none');
   });
 
   it('deals the quiz from the casino shoe (Luna Luxe 1 deck, Kepler 8)', () => {

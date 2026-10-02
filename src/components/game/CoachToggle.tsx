@@ -14,6 +14,9 @@ interface CoachToggleProps {
   readonly onSelect: (level: CountCoachLevel) => void;
 }
 
+/** Diameter of the Modern coach circle — a chip's worth of felt. */
+const MODERN_CIRCLE = 54;
+
 const ICONS: Record<CountCoachLevel, React.ComponentProps<typeof Ionicons>['name']> = {
   off: 'eye-off-outline',
   learn: 'school-outline',
@@ -34,6 +37,8 @@ export function CoachToggle({ level, onSelect }: CoachToggleProps) {
 
   if (modern) {
     const full = level === 'full';
+    // A round bevel the size of a chip: the cap in the middle, a small ON /
+    // OFF pill riding its foot. Gold face when the coach is on.
     return (
       <PressableScale
         onPress={() => onSelect(next)}
@@ -41,39 +46,29 @@ export function CoachToggle({ level, onSelect }: CoachToggleProps) {
         accessibilityLabel={`Count Coach: ${COUNT_COACH_LABELS[level]}`}
         accessibilityHint={`Switches to ${COUNT_COACH_LABELS[next]}`}
         hitSlop={spacing.sm}
-        style={styles.modernTab}
+        style={styles.modernCircleSlot}
       >
         <ArcadeBevel
-          face={colors.arcadePlaque}
-          deep={colors.arcadePlaqueDeep}
+          face={full ? colors.arcadeGold : colors.arcadePlaque}
+          deep={full ? colors.arcadeGoldDeep : colors.arcadePlaqueDeep}
           drop={3}
           outline={2}
           band={3}
-          radius={radii.md}
-          faceStyle={styles.modernFace}
+          radius={MODERN_CIRCLE / 2}
+          style={styles.modernCircle}
+          faceStyle={styles.modernCircleFace}
         >
-          <Ionicons name={ICONS[level]} size={22} color={colors.arcadeGold} />
-          <Text style={styles.modernLabel} numberOfLines={1}>
-            COACH
-          </Text>
-          <ArcadeBevel
-            face={full ? colors.arcadeGold : colors.arcadeNeutral}
-            deep={full ? colors.arcadeGoldDeep : colors.arcadeNeutralDeep}
-            drop={2}
-            outline={2}
-            band={2}
-            radius={8}
-            style={styles.modernState}
-            faceStyle={styles.modernStateFace}
-          >
-            <Text
-              style={[styles.modernStateText, !full && styles.modernStateTextDim]}
-              numberOfLines={1}
-            >
-              {COUNT_COACH_LABELS[level].toUpperCase()}
-            </Text>
-          </ArcadeBevel>
+          <Ionicons
+            name={ICONS[level]}
+            size={24}
+            color={full ? colors.arcadeInkOnLight : colors.arcadeGold}
+          />
         </ArcadeBevel>
+        <View style={[styles.modernPill, full ? styles.modernPillOn : styles.modernPillOff]}>
+          <Text style={[styles.modernPillText, full && styles.modernPillTextOn]} numberOfLines={1}>
+            {full ? 'ON' : COUNT_COACH_LABELS[level].toUpperCase()}
+          </Text>
+        </View>
       </PressableScale>
     );
   }
@@ -171,6 +166,47 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   /* Modern */
+  modernCircleSlot: {
+    width: MODERN_CIRCLE + 8,
+    alignItems: 'center',
+  },
+  modernCircle: {
+    width: MODERN_CIRCLE,
+  },
+  modernCircleFace: {
+    width: MODERN_CIRCLE,
+    height: MODERN_CIRCLE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  /** The ON / OFF pill rides the circle's foot. */
+  modernPill: {
+    marginTop: -spacing.sm,
+    borderRadius: radii.pill,
+    borderWidth: 2,
+    borderColor: colors.arcadeInk,
+    paddingHorizontal: spacing.sm,
+    paddingTop: 1,
+    paddingBottom: 2,
+  },
+  modernPillOn: {
+    backgroundColor: colors.arcadeGreen,
+  },
+  modernPillOff: {
+    backgroundColor: colors.arcadeNeutral,
+  },
+  modernPillText: {
+    fontFamily: fonts.display,
+    fontSize: 12,
+    lineHeight: 13,
+    letterSpacing: 1,
+    color: colors.arcadeMuted,
+    includeFontPadding: false,
+  },
+  modernPillTextOn: {
+    color: colors.arcadeCream,
+    ...arcadeShadow.soft,
+  },
   modernTab: {
     width: TRAINING_TOGGLE_WIDTH,
   },

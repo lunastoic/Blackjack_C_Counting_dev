@@ -90,24 +90,47 @@ export function PairSpotter() {
   );
 }
 
-/** Titan's gift: the bet ramp pinned over the chips while a bet is sized. */
+/**
+ * Titan's gift: the bet ramp, folded to a small tab over the chips until the
+ * player wants it. A tap opens the card; another folds it away. It never
+ * opens on its own — the player asks for the help.
+ */
 export function BetRampCard() {
+  const [open, setOpen] = useState(false);
+  const reducedMotion = useReducedMotion();
   const steps = Array.from({ length: BET_SPREAD_MAX }, (_, index) => ({
     label: index === 0 ? '≤+2' : `+${index + 2}`,
     units: index + 1,
   }));
   return (
-    <View style={styles.ramp} accessibilityLabel="Bet ramp: true count minus one, one to eight units">
-      <Text style={styles.rampHead}>BET RAMP · TC − 1</Text>
-      <View style={styles.rampRow}>
-        {steps.map((step) => (
-          <View key={step.units} style={styles.rampStep}>
-            <View style={[styles.rampBar, { height: 5 + step.units * 4 }]} />
-            <Text style={styles.rampCount}>{step.label}</Text>
-            <Text style={styles.rampUnits}>{step.units}</Text>
+    <View style={styles.rampSlot}>
+      {open ? (
+        <Animated.View
+          style={styles.ramp}
+          accessibilityLabel="Bet ramp: true count minus one, one to eight units"
+          entering={reducedMotion ? undefined : FadeIn.duration(140)}
+          exiting={reducedMotion ? undefined : FadeOut.duration(120)}
+        >
+          <Text style={styles.rampHead}>BET RAMP · TC − 1</Text>
+          <View style={styles.rampRow}>
+            {steps.map((step) => (
+              <View key={step.units} style={styles.rampStep}>
+                <View style={[styles.rampBar, { height: 5 + step.units * 4 }]} />
+                <Text style={styles.rampCount}>{step.label}</Text>
+                <Text style={styles.rampUnits}>{step.units}</Text>
+              </View>
+            ))}
           </View>
-        ))}
-      </View>
+        </Animated.View>
+      ) : null}
+      <PressableScale
+        accessibilityLabel={open ? 'Fold the bet ramp away' : 'Open the bet ramp'}
+        onPress={() => setOpen((shown) => !shown)}
+        style={styles.rampTab}
+      >
+        <Ionicons name="stats-chart" size={13} color={colors.arcadeGold} />
+        <Text style={styles.rampTabText}>{open ? 'RAMP ▾' : 'RAMP ▸'}</Text>
+      </PressableScale>
     </View>
   );
 }
@@ -224,6 +247,31 @@ const styles = StyleSheet.create({
     fontWeight: fontWeights.bold,
     color: colors.arcadeMint,
   },
+  rampSlot: {
+    alignSelf: 'stretch',
+    alignItems: 'flex-end',
+    gap: spacing.xxs,
+    marginBottom: spacing.xs,
+  },
+  rampTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xxs,
+    backgroundColor: colors.arcadePlaque,
+    borderWidth: 2,
+    borderColor: colors.arcadeInk,
+    borderRadius: radii.sm,
+    paddingHorizontal: spacing.sm,
+    paddingTop: 1,
+    paddingBottom: 3,
+  },
+  rampTabText: {
+    fontFamily: fonts.display,
+    fontSize: 13,
+    letterSpacing: 1,
+    color: colors.arcadeGold,
+    includeFontPadding: false,
+  },
   ramp: {
     alignSelf: 'stretch',
     backgroundColor: colors.arcadeCream,
@@ -233,7 +281,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.xxs,
     paddingBottom: spacing.xs,
-    marginBottom: spacing.xs,
   },
   rampHead: {
     fontFamily: fonts.display,
