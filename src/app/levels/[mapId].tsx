@@ -680,9 +680,24 @@ function MapCard({
                       contentFit="contain"
                     />
                   </View>
-                  <Text style={styles.lockTextModern}>
-                    {!locked ? 'UNLOCKED' : price !== null ? `UNLOCK · ${formatChips(price)}` : 'TABLE LOCKED'}
-                  </Text>
+                  {!locked ? (
+                    <Text style={styles.lockTextModern}>UNLOCKED</Text>
+                  ) : (
+                    <>
+                      {/* The honest way in first; the chips are the shortcut. */}
+                      <Text style={styles.lockHintModern}>
+                        Unlock by completing all of {previous?.name ?? 'the previous casino'}’s levels
+                      </Text>
+                      {price !== null ? (
+                        <>
+                          <Text style={styles.lockOrModern}>or</Text>
+                          <View style={styles.lockPriceModern}>
+                            <Text style={styles.lockTextModern}>UNLOCK · {formatChips(price)} CHIPS</Text>
+                          </View>
+                        </>
+                      ) : null}
+                    </>
+                  )}
                 </Animated.View>
               </Pressable>
             </Animated.View>
@@ -1147,5 +1162,39 @@ const styles = StyleSheet.create({
     color: colors.arcadeGold,
     includeFontPadding: false,
     ...arcadeShadow.deep,
+  },
+  /** "Unlock by completing all of Luna Luxe Casino's levels" — the way in. */
+  lockHintModern: {
+    fontFamily: fonts.mono,
+    fontSize: fontSizes.small,
+    lineHeight: 19,
+    color: colors.arcadeCream,
+    textAlign: 'center',
+    maxWidth: 220,
+    textShadowColor: colors.chipShadow,
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 0,
+  },
+  lockOrModern: {
+    fontFamily: fonts.display,
+    fontSize: 16,
+    letterSpacing: 2,
+    color: colors.arcadeMuted,
+    includeFontPadding: false,
+    textTransform: 'uppercase',
+  },
+  /** The chip price on its own plaque, so it reads as the tappable shortcut. */
+  lockPriceModern: {
+    backgroundColor: colors.arcadePlaque,
+    borderWidth: 2,
+    borderColor: colors.arcadeInk,
+    borderRadius: radii.sm,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xxs,
+    paddingBottom: spacing.xs,
+    shadowColor: colors.arcadeInk,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
   },
 });
