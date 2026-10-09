@@ -94,6 +94,8 @@ export interface ShoeRunState {
   readonly heat: number;
   readonly insured: boolean;
   readonly question: ShoeRunQuestion | null;
+  /** When the open count check was asked (`Date.now()`), for its clock. Null between checks. */
+  readonly questionAt: number | null;
   readonly calls: readonly ShoeRunCall[];
   readonly verdict: ShoeRunVerdict | null;
   /** The finished hand's results, per hand. */
@@ -160,6 +162,16 @@ const ACTION_LABEL: Record<PlayerAction, string> = {
   split: 'split',
 };
 
+/** The open count check's clock (Table Night). Cleared whenever the check closes. */
+let checkClock: ReturnType<typeof setTimeout> | null = null;
+
+function stopCheckClock(): void {
+  if (checkClock) {
+    clearTimeout(checkClock);
+    checkClock = null;
+  }
+}
+
 export const useShoeRunStore = create<ShoeRunState>()((set, get) => {
   function idle(mapId: number, level: number) {
     const spec = trainingLevelSpec(mapId, level);
@@ -177,6 +189,7 @@ export const useShoeRunStore = create<ShoeRunState>()((set, get) => {
       heat: 0,
       insured: false,
       question: null,
+      questionAt: null,
       calls: [],
       verdict: null,
       resolution: null,
@@ -242,9 +255,30 @@ export const useShoeRunStore = create<ShoeRunState>()((set, get) => {
     if (due) {
       const kind = spec.checks[Math.floor(hands / spec.checkEvery - 1) % spec.checks.length];
       const correct = correctFor(kind);
-      set({ status: 'question', question: { kind, correct, choices: choicesFor(kind, correct) } });
+      set({
+        status: 'question',
+        question: { kind, correct, choices: choicesFor(kind, correct) },
+        questionAt: Date.now(),
+      });
+      // Table Night: the check has a few seconds, then it counts as a miss.
+      stopCheckClock();
+      if (spec.checkTimeMs) {
+        checkClock = setTimeout(checkTimedOut, spec.checkTimeMs);
+      }
       return;
     }
+    openBetting();
+  }
+
+  /** The check's clock ran out: a miss, and on to the bet. */
+  function checkTimedOut(): void {
+    checkClock = null;
+    const { status, question } = get();
+    if (status !== 'question' || !question) {
+      return;
+    }
+    record(false, 'count', `Too slow — count was ${formatSigned(question.correct)}`);
+    set({ questionAt: null });
     openBetting();
   }
 
@@ -374,13 +408,23 @@ export const useShoeRunStore = create<ShoeRunState>()((set, get) => {
   return {
     ...idle(1, 1),
 
-    load: (mapId, level) => set(idle(mapId, level)),
+    load: (mapId, level) => {
+      stopCheckClock();
+      set(idle(mapId, level));
+    },
 
-    loadDaily: (now = Date.now()) => set(idleDaily(now)),
+    loadDaily: (now = Date.now()) => {
+      stopCheckClock();
+      set(idleDaily(now));
+    },
 
-    loadPractice: (spec) => set(idlePractice(spec)),
+    loadPractice: (spec) => {
+      stopCheckClock();
+      set(idlePractice(spec));
+    },
 
     begin: () => {
+      stopCheckClock();
       const { mapId, level, daily, dayKey: day, practice, spec: current } = get();
       const base =
         practice && current
@@ -402,8 +446,10 @@ export const useShoeRunStore = create<ShoeRunState>()((set, get) => {
       if (status !== 'question' || !question) {
         return false;
       }
+      stopCheckClock();
       const right = value === question.correct;
       record(right, 'count', right ? 'Count right' : `Count was ${formatSigned(question.correct)}`);
+      set({ questionAt: null });
       openBetting();
       return right;
     },
@@ -514,6 +560,7 @@ export const useShoeRunStore = create<ShoeRunState>()((set, get) => {
     },
 
     reset: () => {
+      stopCheckClock();
       const { mapId, level, daily, dayKey: day, practice, spec: current } = get();
       if (practice && current) {
         set(idlePractice(current));

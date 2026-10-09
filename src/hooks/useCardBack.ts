@@ -15,7 +15,9 @@ export function useCardBack(): number {
   const modern = useModernUi();
   const mapId = useRouteMapId();
   const chosen = useSettingsStore((state) => state.deckCover);
-  const cover = useDojoStore((state) => effectiveDeckCover(state.flashLevels, mapId, chosen));
+  const cover = useDojoStore((state) =>
+    effectiveDeckCover(state.flashLevels, state.rewardsOpened, mapId, chosen),
+  );
   if (!modern) {
     return CARD_BACK;
   }

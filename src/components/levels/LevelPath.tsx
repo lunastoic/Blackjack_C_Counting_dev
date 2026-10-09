@@ -632,10 +632,12 @@ interface RewardNodeProps {
 }
 
 /**
- * A mystery reward on the trail: wrapped and dim until its level is cleared,
- * breathing gold when it is ready to open, and showing what it gave — the
- * tool, or the drill the bag carried — once opened. Its label sits beside
- * it, so the river keeps its spacing.
+ * A mystery reward on the trail, always drawn as its wrap — the gift or the
+ * money bag — as an ink silhouette with a rim:
+ *   locked  — dim gold rim and a "?", with the lock badge
+ *   ready   — a gold flare behind it that breathes, bright rim, "Tap to claim"
+ *   opened  — claimed: a grey rim and a ✓, so it reads as used
+ * Its label sits beside it, so the river keeps its spacing.
  */
 function RewardNode({
   mapId,
@@ -682,20 +684,9 @@ function RewardNode({
   if (!rewards) {
     return null;
   }
-  const art = opened
-    ? slot === 1
-      ? REWARD_ART.tool[rewards.tool.id]
-      : REWARD_ART.drill[rewards.drill.id]
-    : slot === 1
-      ? REWARD_ART.gift[mapId]
-      : REWARD_ART.bag[mapId];
-  const label = opened
-    ? slot === 1
-      ? rewards.tool.short
-      : `▶ ${rewards.drill.name}`
-    : ready
-      ? 'Tap to open'
-      : 'Mystery reward';
+  const art = slot === 1 ? REWARD_ART.gift[mapId] : REWARD_ART.bag[mapId];
+  const what = slot === 1 ? 'Gift' : 'Money bag';
+  const label = opened ? 'Claimed' : ready ? 'Tap to claim' : 'Mystery reward';
   const artSize = Math.round(size * REWARD_ART_SCALE);
   return (
     <View
@@ -711,11 +702,9 @@ function RewardNode({
       <PressableScale
         accessibilityLabel={
           opened
-            ? slot === 1
-              ? `${rewards.tool.name}, opened`
-              : `${rewards.drill.name} drill`
+            ? `${what}, claimed`
             : ready
-              ? `Mystery reward, ready to open`
+              ? `${what}, ready to claim`
               : `Mystery reward, locked until level ${REWARD_LEVEL[slot]}`
         }
         accessibilityState={{ disabled: state === 'locked' }}
@@ -723,34 +712,51 @@ function RewardNode({
         onPress={onPress}
         style={[styles.rewardTap, { width: size, height: size }]}
       >
+        {ready ? (
+          // The gold flare: a soft disc of light behind the wrap, so a reward
+          // waiting to be claimed reads as something to tap.
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.rewardFlare,
+              breathStyle,
+              { width: artSize * 1.3, height: artSize * 1.3, borderRadius: artSize },
+            ]}
+          >
+            <View style={[styles.rewardFlareCore, { borderRadius: artSize }]} />
+          </Animated.View>
+        ) : null}
         <Animated.View style={[styles.rewardGlow, ready && breathStyle, { width: size, height: size }]}>
-          {opened ? (
-            <Image source={art} style={{ width: artSize, height: artSize }} contentFit="contain" transition={120} />
-          ) : (
-            // Until it is opened the prize keeps its secret: the wrap as an ink
-            // silhouette with a gold rim and a question mark, dimmer while locked.
-            <View style={{ width: artSize, height: artSize }}>
-              <Image
-                source={art}
+          {/* The wrap as an ink silhouette with a rim: gold until it is claimed, grey after. */}
+          <View style={[{ width: artSize, height: artSize }, opened && styles.rewardClaimed]}>
+            <Image
+              source={art}
+              style={[
+                StyleSheet.absoluteFill,
+                { transform: [{ scale: REWARD_RIM_SCALE }] },
+                state === 'locked' && styles.rewardRimLocked,
+              ]}
+              tintColor={opened ? colors.arcadeMuted : colors.arcadeGold}
+              contentFit="contain"
+            />
+            <Image
+              source={art}
+              style={StyleSheet.absoluteFill}
+              tintColor={colors.arcadeInk}
+              contentFit="contain"
+            />
+            <View style={[StyleSheet.absoluteFill, styles.rewardQueryWrap]} pointerEvents="none">
+              <Text
                 style={[
-                  StyleSheet.absoluteFill,
-                  { transform: [{ scale: REWARD_RIM_SCALE }] },
-                  !ready && styles.rewardRimLocked,
+                  styles.rewardQuery,
+                  state === 'locked' && styles.rewardQueryLocked,
+                  opened && styles.rewardQueryClaimed,
                 ]}
-                tintColor={colors.arcadeGold}
-                contentFit="contain"
-              />
-              <Image
-                source={art}
-                style={StyleSheet.absoluteFill}
-                tintColor={colors.arcadeInk}
-                contentFit="contain"
-              />
-              <View style={[StyleSheet.absoluteFill, styles.rewardQueryWrap]} pointerEvents="none">
-                <Text style={[styles.rewardQuery, !ready && styles.rewardQueryLocked]}>?</Text>
-              </View>
+              >
+                {opened ? '✓' : '?'}
+              </Text>
             </View>
-          )}
+          </View>
         </Animated.View>
         {state === 'locked' ? (
           <ArcadeBadge kind="lock" style={styles.rewardBadge} />
@@ -1138,6 +1144,29 @@ const styles = StyleSheet.create({
   },
   rewardRimLocked: {
     opacity: 0.55,
+  },
+  /** Ready to claim: the flare behind the wrap. */
+  rewardFlare: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(242, 196, 69, 0.22)',
+    shadowColor: colors.arcadeGold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 14,
+  },
+  rewardFlareCore: {
+    width: '62%',
+    height: '62%',
+    backgroundColor: 'rgba(255, 220, 120, 0.35)',
+  },
+  /** Claimed: the wrap goes grey and quiet. */
+  rewardClaimed: {
+    opacity: 0.8,
+  },
+  rewardQueryClaimed: {
+    color: colors.arcadeMuted,
   },
   rewardQueryWrap: {
     alignItems: 'center',

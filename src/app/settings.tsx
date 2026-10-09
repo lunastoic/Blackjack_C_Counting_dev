@@ -68,6 +68,7 @@ export default function SettingsScreen() {
   }
 
   const flashLevels = useDojoStore((state) => state.flashLevels);
+  const rewardsOpened = useDojoStore((state) => state.rewardsOpened);
   const resetDojoProgress = useDojoStore((state) => state.resetProgress);
   const startOnboarding = useDojoStore((state) => state.startOnboarding);
 
@@ -120,6 +121,18 @@ export default function SettingsScreen() {
     <AppScreen header={<ProgressionHeader />}>
       <ScreenTitleRow title="Settings" />
       <View style={styles.stack}>
+        {/* Cards first: the card backs won on the trails are picked here. */}
+        <SectionCard title="Cards">
+          <DeckCoverRow
+            selected={settings.deckCover}
+            progress={flashLevels}
+            opened={rewardsOpened}
+            onSelect={settings.setDeckCover}
+          />
+          <Divider />
+          <CardDeckRow selected={settings.cardDeck} onSelect={settings.setCardDeck} />
+        </SectionCard>
+
         <SectionCard title="Player">
           <Text style={styles.fieldLabel}>Display name</Text>
           <TextInput
@@ -154,18 +167,6 @@ export default function SettingsScreen() {
             value={settings.reducedMotion}
             onChange={settings.setReducedMotion}
           />
-        </SectionCard>
-
-        <SectionCard title="Look">
-          <DeckCoverRow
-            selected={settings.deckCover}
-            progress={flashLevels}
-            onSelect={settings.setDeckCover}
-          />
-        </SectionCard>
-
-        <SectionCard title="Cards">
-          <CardDeckRow selected={settings.cardDeck} onSelect={settings.setCardDeck} />
         </SectionCard>
 
         <SectionCard title="Dealer speed">

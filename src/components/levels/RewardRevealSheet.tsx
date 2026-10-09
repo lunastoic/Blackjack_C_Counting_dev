@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import React, { useEffect } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -13,11 +13,11 @@ import Animated, {
   withTiming,
   ZoomIn,
 } from 'react-native-reanimated';
-import { REWARD_ART } from '../../assets/registry';
+import { DECK_COVER_ART, REWARD_ART } from '../../assets/registry';
 import { CasinoMap } from '../../engine/betting/casino';
-import { mapRewards, RewardSlot } from '../../engine/dojo';
+import { mapRewards, rewardChips, RewardSlot } from '../../engine/dojo';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
-import { colors, fonts, fontSizes, fontWeights, spacing } from '../../theme';
+import { colors, fonts, fontSizes, spacing } from '../../theme';
 import { ArcadeButton, ArcadePanel, ArcadePlaque } from '../arcade';
 import { formatChips } from '../../utils/format';
 
@@ -25,33 +25,41 @@ interface RewardRevealSheetProps {
   readonly visible: boolean;
   readonly map: CasinoMap;
   readonly slot: RewardSlot;
-  /** Chips the bag just paid; 0 when it was opened before. */
-  readonly chips: number;
-  /** The gift's tool goes to the table; the bag's drill can be played now. */
-  readonly onConfirm: () => void;
+  /** Already claimed: the pop-up just shows what it gave. */
+  readonly claimed: boolean;
+  /** The gift's card back is the one in use. */
+  readonly equipped: boolean;
+  /** Claim it: the gift's OK, the bag's Claim. */
+  readonly onClaim: () => void;
+  /** The gift's Equip: claim it (if not yet) and deal its card back. */
+  readonly onEquip: () => void;
   readonly onClose: () => void;
 }
 
 const HALO_MS = 1400;
 
 /**
- * Opening a mystery reward: the wrap falls away and the prize lands on the
- * casino's own panel — the gift's table tool, or the bag's chips and the
- * drill it carries. The halo behind the art breathes while it is up.
+ * A reward on the trail, opened. The gift holds the Ivory card back — Equip
+ * deals it everywhere, OK just keeps it — and the money bag holds chips,
+ * paid on Claim. Tapping a claimed reward shows what it gave. The halo
+ * behind the art breathes while the reward is still to claim.
  */
 export function RewardRevealSheet({
   visible,
   map,
   slot,
-  chips,
-  onConfirm,
+  claimed,
+  equipped,
+  onClaim,
+  onEquip,
   onClose,
 }: RewardRevealSheetProps) {
   const reducedMotion = useReducedMotion();
   const halo = useSharedValue(0);
+  const glowing = visible && !claimed;
 
   useEffect(() => {
-    if (visible && !reducedMotion) {
+    if (glowing && !reducedMotion) {
       halo.set(
         withRepeat(
           withSequence(
@@ -64,10 +72,10 @@ export function RewardRevealSheet({
       );
     } else {
       cancelAnimation(halo);
-      halo.set(visible ? 0.6 : 0);
+      halo.set(glowing ? 0.6 : 0);
     }
     return () => cancelAnimation(halo);
-  }, [visible, reducedMotion, halo]);
+  }, [glowing, reducedMotion, halo]);
 
   const haloStyle = useAnimatedStyle(() => ({
     shadowOpacity: 0.45 + halo.value * 0.45,
@@ -80,12 +88,7 @@ export function RewardRevealSheet({
     return null;
   }
   const gift = slot === 1;
-  const art = gift ? REWARD_ART.tool[rewards.tool.id] : REWARD_ART.drill[rewards.drill.id];
-  const title = gift ? rewards.tool.name : rewards.drill.name;
-  const body = gift ? rewards.tool.blurb : rewards.drill.blurb;
-  const note = gift
-    ? 'It sits on the table from now on — switch it off in the ≡ menu when you no longer need it.'
-    : `A taste of ${rewards.drill.teases}. Replay it any time from the bag — no stars, no strikes.`;
+  const chips = rewardChips(map.id);
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
@@ -100,25 +103,61 @@ export function RewardRevealSheet({
           entering={reducedMotion ? undefined : ZoomIn.springify().damping(14)}
         >
           <ArcadePanel slab style={styles.panel}>
-            <ArcadePlaque kicker="Mystery reward" title={map.name} />
-            <Animated.View style={[styles.artSlot, haloStyle]}>
-              <Image source={art} style={styles.art} contentFit="contain" transition={160} />
-            </Animated.View>
-            {chips > 0 ? (
-              <Text style={styles.chips}>+{formatChips(chips)} chips</Text>
-            ) : null}
-            <Text style={styles.title}>{title}</Text>
-            <Text style={styles.body}>{body}</Text>
-            <Text style={styles.note}>{note}</Text>
-            <ArcadeButton
-              label={gift ? 'Put it on the table' : 'Play it now'}
-              size="large"
-              onPress={onConfirm}
-              style={styles.cta}
+            <ArcadePlaque
+              kicker={gift ? (claimed ? 'Gift · claimed' : 'Gift') : claimed ? 'Money bag · claimed' : 'Money bag'}
+              title={map.name}
             />
-            <Text style={styles.later} onPress={onClose} accessibilityRole="button">
-              Later
-            </Text>
+            <Animated.View style={[styles.artSlot, !claimed && styles.artGlow, haloStyle]}>
+              {gift ? (
+                <Image
+                  source={DECK_COVER_ART[rewards.gift.cover][map.id]}
+                  style={styles.cover}
+                  contentFit="cover"
+                  transition={160}
+                  accessibilityIgnoresInvertColors
+                />
+              ) : (
+                <Image source={REWARD_ART.bag[map.id]} style={styles.art} contentFit="contain" transition={160} />
+              )}
+            </Animated.View>
+            {gift ? (
+              <>
+                <Text style={styles.title}>{rewards.gift.name}</Text>
+                <Text style={styles.body}>{rewards.gift.blurb}</Text>
+                <ArcadeButton
+                  label={equipped ? 'Equipped' : 'Equip'}
+                  trailing={equipped ? '✓' : undefined}
+                  size="large"
+                  variant={equipped ? 'neutral' : 'gold'}
+                  disabled={equipped}
+                  onPress={onEquip}
+                  style={styles.cta}
+                />
+                <ArcadeButton
+                  label="OK"
+                  size="medium"
+                  variant="neutral"
+                  onPress={claimed ? onClose : onClaim}
+                  style={styles.cta}
+                />
+              </>
+            ) : (
+              <>
+                <Text style={styles.chips}>+{formatChips(chips)} chips</Text>
+                <Text style={styles.body}>
+                  {claimed
+                    ? 'Already in your stack. Spend them at the table.'
+                    : 'Chips for your stack, to bet at the table.'}
+                </Text>
+                <ArcadeButton
+                  label={claimed ? 'OK' : 'Claim'}
+                  size="large"
+                  variant={claimed ? 'neutral' : 'green'}
+                  onPress={claimed ? onClose : onClaim}
+                  style={styles.cta}
+                />
+              </>
+            )}
           </ArcadePanel>
         </Animated.View>
       </Animated.View>
@@ -147,6 +186,7 @@ const styles = StyleSheet.create({
   },
   artSlot: {
     marginTop: spacing.sm,
+    marginBottom: spacing.xs,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: colors.arcadeGold,
@@ -154,13 +194,25 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
     shadowRadius: 0,
   },
+  /** Still to claim: a gold flare behind the prize. */
+  artGlow: {
+    borderRadius: 999,
+    backgroundColor: 'rgba(242, 196, 69, 0.16)',
+    padding: spacing.md,
+  },
   art: {
-    width: 148,
-    height: 148,
+    width: 132,
+    height: 132,
+  },
+  cover: {
+    width: 96,
+    height: 134,
+    borderRadius: 8,
+    transform: [{ rotate: '-6deg' }],
   },
   chips: {
     fontFamily: fonts.display,
-    fontSize: 30,
+    fontSize: 32,
     letterSpacing: 1,
     color: colors.arcadeMint,
     includeFontPadding: false,
@@ -182,24 +234,10 @@ const styles = StyleSheet.create({
     lineHeight: fontSizes.caption + 7,
     color: colors.arcadeCream,
     textAlign: 'center',
-  },
-  note: {
-    fontFamily: fonts.mono,
-    fontSize: fontSizes.caption,
-    lineHeight: fontSizes.caption + 5,
-    color: colors.arcadeMuted,
-    textAlign: 'center',
+    marginBottom: spacing.xs,
   },
   cta: {
     alignSelf: 'stretch',
     marginTop: spacing.xs,
-  },
-  later: {
-    fontFamily: fonts.mono,
-    fontSize: fontSizes.small,
-    fontWeight: fontWeights.semibold,
-    color: colors.arcadeMuted,
-    textDecorationLine: 'underline',
-    paddingVertical: spacing.xs,
   },
 });

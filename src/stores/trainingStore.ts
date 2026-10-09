@@ -21,6 +21,8 @@ import {
   groupSizeForStreak,
   isCheckpointLevel,
   isClearingStars,
+  isMeteredLevel,
+  isRoundsLevel,
   isStreakLevel,
   makeBetSizeItem,
   makeDeckEstimateItem,
@@ -224,7 +226,7 @@ export interface TrainingState {
   readonly begin: () => void;
   /** Answer the current question. Returns whether it was right. No-op outside `asking`. */
   readonly answer: (value: number) => boolean;
-  /** After a miss on a checkpoint drill that can still pass: resume the deal. */
+  /** After a miss on a checkpoint drill that can still pass — or any Zero Hero round — resume the deal. */
   readonly continueAfterMiss: () => void;
   /** Cleared and paused: go for the third star. */
   readonly keepGoing: () => void;
@@ -457,16 +459,17 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
   // -------------------------------------------------------------------------
 
   /**
-   * A question just opened: drain from wherever the meter stands. Only the
-   * streak drills race the meter — on a count stream or a table the skill is
-   * keeping the count, so the question waits; speed only feeds the combo.
+   * A question just opened: drain from wherever the meter stands. The streak
+   * drills race the meter, and so do timed count streams (Card Rain, Zero
+   * Hero); on the other streams and tables the skill is keeping the count, so
+   * the question waits and speed only feeds the combo.
    */
   function drainMeter(): void {
     const { meter, meterDrainMs: drainMs, spec } = get();
     cancelMeterTimer();
     const now = Date.now();
     openedAt = now;
-    if (isCheckpointLevel(spec)) {
+    if (!isMeteredLevel(spec)) {
       return;
     }
     const fill = meterFillAt(meter, drainMs, now);
@@ -779,6 +782,21 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
     set({ question: answered, tally });
     noteBest();
 
+    // Zero Hero: a star per round called right, banked as it comes (no pause
+    // at the clear). Each round's result waits on the felt for "Next round".
+    if (isRoundsLevel(spec)) {
+      const reached = starsReached(state.targets, tally.correct);
+      if (reached > state.stars) {
+        bankStars(reached);
+      }
+      if (isLast || reached >= STAR_COUNT || !canStillPass(spec.pass, tally, totalCheckpoints(spec))) {
+        endRun();
+        return wasCorrect;
+      }
+      set({ status: 'feedback' });
+      return wasCorrect;
+    }
+
     // The level's misses are the whole run's strikes, stretch included.
     if (!canStillPass(spec.pass, tally, totalCheckpoints(spec))) {
       endRun();
@@ -875,8 +893,9 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
     },
 
     continueAfterMiss: () => {
-      const { status, question } = get();
-      if (status !== 'feedback' || question?.wasCorrect !== false) {
+      const { status, question, spec } = get();
+      // Zero Hero waits after every round, right or wrong; the others only after a miss.
+      if (status !== 'feedback' || (question?.wasCorrect !== false && !isRoundsLevel(spec))) {
         return;
       }
       resumeAfterCheck();

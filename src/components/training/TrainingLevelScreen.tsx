@@ -19,6 +19,8 @@ import {
   isClearingStars,
   isFlashLevel,
   isFlashLevelDone,
+  isMeteredLevel,
+  isRoundsLevel,
   isStreakLevel,
   levelTutorial,
   previewDrillSpec,
@@ -70,6 +72,7 @@ import { CountEntry } from './CountEntry';
 import { CountStreamStage } from './CountStreamStage';
 import { DeckEstimateStage } from './DeckEstimateStage';
 import { LevelTutorialPanel } from './LevelTutorialPanel';
+import { RainStage } from './RainStage';
 import { StarBankToast } from './StarBankToast';
 import { TableStage } from './TableStage';
 import { TRAINING_METER_HEIGHT, TrainingMeter } from './TrainingMeter';
@@ -141,6 +144,15 @@ function streakKind(item: StreakItem | null): QuestionKind {
     default:
       return 'runningCount';
   }
+}
+
+/**
+ * "3 CARDS" — or, on the first group of a new stage, "NOW 3 CARDS!" so the
+ * step up is called out as it lands.
+ */
+function groupCaption(stageLength: number | undefined, streak: number, size: number): string {
+  const stepUp = stageLength !== undefined && streak > 0 && streak % stageLength === 0;
+  return stepUp ? `NICE! NOW ${size} CARDS` : `${size} CARDS`;
 }
 
 /** The brief's personal-best pill: "Best 27 right · combo 12". */
@@ -277,6 +289,10 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
   const checkpointSpec = isCheckpointLevel(spec) ? spec : null;
   const streakSpec = isStreakLevel(spec) ? spec : null;
   const isExam = checkpointSpec?.mode === 'tableCount' && checkpointSpec.exam;
+  const rain = spec.mode === 'countStream' && spec.presentation === 'rain';
+  const roundsSpec = isRoundsLevel(spec) ? spec : null;
+  /** Zero Hero: the round on the felt (1-based). */
+  const roundNumber = frame?.round ?? 1;
   const chipSetKey = map.chipSetKey;
   const seatStake = map.chipDenominations[0];
   const nextSpec = drill
@@ -396,7 +412,31 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
   const nextTarget = nextStarTarget(targets, stars);
   const nextStars = starGlyphs(Math.min(STAR_COUNT, stars + 1));
   const cells: StatusCell[] = [];
-  if (checkpointSpec) {
+  if (roundsSpec) {
+    const rounds = roundsSpec.rounds.count;
+    const misses = tally.asked - tally.correct;
+    const allowed = missesAllowed(roundsSpec);
+    cells.push({
+      label: 'ROUND',
+      value: `${Math.min(roundNumber, rounds)}`,
+      dim: `/${rounds}`,
+      accessibilityLabel: `Round ${Math.min(roundNumber, rounds)} of ${rounds}`,
+    });
+    cells.push({
+      label: 'RIGHT',
+      value: `${tally.correct}`,
+      dim: `/${nextTarget}`,
+      stars: nextStars,
+      accessibilityLabel: `${tally.correct} of ${nextTarget} rounds right toward ${nextStars.length} stars`,
+    });
+    cells.push({
+      label: 'MISSES',
+      value: `${misses}`,
+      dim: `/${allowed}`,
+      tone: misses > 0 ? 'error' : 'gold',
+      accessibilityLabel: `${misses} of ${allowed} misses allowed`,
+    });
+  } else if (checkpointSpec) {
     const allowed = missesAllowed(checkpointSpec);
     const misses = tally.asked - tally.correct;
     cells.push({
@@ -413,12 +453,14 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
       tone: misses > 0 ? 'error' : 'gold',
       accessibilityLabel: allowed > 0 ? `${misses} of ${allowed} misses allowed` : `${misses} misses`,
     });
-    cells.push({
-      label: checkpointSpec.deckCount === 1 ? 'DECK' : 'DECKS',
-      value: `${checkpointSpec.deckCount}`,
-      locked: true,
-      accessibilityLabel: `${checkpointSpec.deckCount} deck, fixed`,
-    });
+    if (!rain) {
+      cells.push({
+        label: checkpointSpec.deckCount === 1 ? 'DECK' : 'DECKS',
+        value: `${checkpointSpec.deckCount}`,
+        locked: true,
+        accessibilityLabel: `${checkpointSpec.deckCount} deck, fixed`,
+      });
+    }
   } else {
     const strikes = streakSpec?.strikes ?? 0;
     cells.push({
@@ -487,7 +529,7 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
             speed={speed.animation}
             valueTags={revealing}
             serial={itemSerial}
-            caption={spec.mode === 'cardGroup' ? `${cards.length} CARDS` : undefined}
+            caption={spec.mode === 'cardGroup' ? groupCaption(spec.stageLength, streak, cards.length) : undefined}
             missed={question?.wasCorrect === false}
           />
         );
@@ -520,6 +562,16 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
           <BetSizeStage item={item.item} showRamp={spec.showRamp} reveal={revealing} serial={itemSerial} />
         ) : null;
       case 'countStream':
+        if (rain) {
+          return (
+            <RainStage
+              cards={cardsSinceCheck}
+              dealt={frame?.cardsDrawn ?? 0}
+              cardWidth={SINGLE_CARD_WIDTH}
+              cardMs={speed.cardMs}
+            />
+          );
+        }
         return (
           <CountStreamStage
             frame={frame}
@@ -527,7 +579,8 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
             cardWidth={SINGLE_CARD_WIDTH}
             speed={speed.animation}
             showScale={spec.showDeckScale}
-            showProgress={!asksDecks}
+            // Zero Hero keeps its stop a secret: no card counter.
+            showProgress={!asksDecks && !roundsSpec}
           />
         );
       case 'tableCount': {
@@ -780,9 +833,13 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
           <Text style={styles.statusText}>
             {fresh
               ? 'New shoe — the count starts at 0.'
-              : spec.mode === 'tableCount'
-                ? 'Count every card on the table…'
-                : 'Keep counting…'}
+              : roundsSpec
+                ? `Round ${roundNumber} of ${roundsSpec.rounds.count} — fresh deck, count from 0…`
+                : rain
+                  ? 'Keep counting — the rain stops every few cards…'
+                  : spec.mode === 'tableCount'
+                    ? 'Count every card on the table…'
+                    : 'Keep counting…'}
           </Text>
         </View>
       );
@@ -852,6 +909,28 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
       );
     }
 
+    // Zero Hero: each round's result, then the next round on a fresh deck.
+    if (roundsSpec && status === 'feedback') {
+      const dealt = frame?.cardsDrawn ?? 0;
+      const left = CARDS_PER_DECK - dealt;
+      return (
+        <View style={styles.questionSection}>
+          <Text style={[styles.feedback, { color: question.wasCorrect ? colors.success : colors.error }]}>
+            {question.wasCorrect
+              ? `Correct! The count was ${formatCount(question.correct)}.`
+              : `Not quite — the count was ${formatCount(question.correct)}.`}
+          </Text>
+          <Text style={styles.reviewText}>{dealt} cards dealt.</Text>
+          <Text style={styles.statusText}>
+            The {left} cards left would add up to {formatCount(-question.correct)}, bringing the deck back to 0.
+          </Text>
+          <View style={styles.actionRow}>
+            <PrimaryButton label="Next round" onPress={continueAfterMiss} />
+          </View>
+        </View>
+      );
+    }
+
     // feedback / failed / levelComplete
     const scorecard = isExam && status === 'failed' ? accuracyRows(tally) : null;
     return (
@@ -890,7 +969,9 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
   // Results
   // ---------------------------------------------------------------------------
 
-  const completeTitle = checkpointSpec
+  const completeTitle = roundsSpec
+    ? `${tally.correct} of ${tally.asked} rounds right.`
+    : checkpointSpec
     ? isExam
       ? 'Certified card counter.'
       : `${tally.correct} of ${tally.asked} checks.`
@@ -938,7 +1019,7 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
       {/* The Modern brief carries the stars, strikes and pace itself, and needs
           the strip's height to stay one page. */}
       {modern && status === 'idle' ? null : <TrainingStatusStrip cells={cells} />}
-      {seated && !checkpointSpec ? <TrainingMeter meter={meter} drainMs={meterDrainMs} /> : null}
+      {seated && isMeteredLevel(spec) ? <TrainingMeter meter={meter} drainMs={meterDrainMs} /> : null}
 
       {/* The felt and the panel share one box so the Modern brief can lie
           over both — the deck stays dealt underneath, ready for the primer. */}

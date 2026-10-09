@@ -1,6 +1,7 @@
 import {
   CheckpointLevelSpec,
   isCheckpointLevel,
+  isRoundsLevel,
   QuestionKind,
   ShoeRunLevel,
   STAR_COUNT,
@@ -73,6 +74,12 @@ export function starGlyphs(stars: number): string {
 
 /** What a streak level counts toward its stars. */
 function streakUnit(spec: TrainingLevelSpec): string {
+  if (spec.mode === 'cancelGrid') {
+    return 'grids';
+  }
+  if (isRoundsLevel(spec)) {
+    return 'rounds right';
+  }
   return isCheckpointLevel(spec) ? 'checks' : 'right';
 }
 
@@ -111,6 +118,9 @@ export function shoeRunChips(spec: ShoeRunLevel): string[] {
     `Graded: ${graded.join(', ')}`,
     `${Math.round(spec.clearAccuracy * 100)}% right clears · ${Math.round(spec.perfectAccuracy * 100)}% for ★★★`,
   ];
+  if (spec.checkTimeMs) {
+    chips.push(`${Math.round(spec.checkTimeMs / 1000)} seconds per count call`);
+  }
   if (spec.heat) {
     chips.push('Ramp too fast and the pit boss backs you off');
   }
@@ -135,6 +145,16 @@ export function requirementChips(
         ? 'A miss ends the run'
         : `${spec.strikes} strike${spec.strikes === 1 ? '' : 's'}, then out`,
     );
+    if (spec.mode === 'cancelGrid') {
+      chips.push('The meter drains while the grid is up');
+    }
+    return chips;
+  }
+  if (isRoundsLevel(spec)) {
+    const rounds = spec.rounds;
+    chips.push(`${spec.pass.minCorrect} of ${rounds.count} rounds right clears`);
+    chips.push(`A fresh deck each round · stops at card ${rounds.minCards}–${rounds.maxCards}`);
+    chips.push('Exact entry · the meter drains while you answer');
     return chips;
   }
   const total = totalCheckpoints(spec);
@@ -151,7 +171,14 @@ export function requirementChips(
       );
     }
   }
-  chips.push(deckLabel(spec.deckCount));
+  chips.push(
+    spec.mode === 'countStream' && spec.presentation === 'rain'
+      ? `A check every ${spec.checkGap?.min ?? 5}–${spec.checkGap?.max ?? 10} cards`
+      : deckLabel(spec.deckCount),
+  );
+  if (spec.mode === 'countStream' && spec.timed) {
+    chips.push('The meter drains while you answer');
+  }
   if (spec.mode === 'tableCount') {
     chips.push(spec.seats === 1 ? 'You vs. the dealer' : `${spec.seats} players + dealer`);
   }

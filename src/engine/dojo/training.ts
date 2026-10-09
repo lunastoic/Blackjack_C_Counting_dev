@@ -26,6 +26,7 @@ import {
   Shoe,
   totalCards,
 } from '../shoe/shoe';
+import { GridSpec } from './cancelGrid';
 import { CLEAR_STARS, FLASH_AUTOPLAY_STAND, FLASH_LEVELS_PER_MAP } from './countFlash';
 
 /**
@@ -41,9 +42,14 @@ import { CLEAR_STARS, FLASH_AUTOPLAY_STAND, FLASH_LEVELS_PER_MAP } from './count
  *   countStream   cards one at a time, random count checks (checkpoints)
  *   tableCount    autoplayed blackjack, random count checks (checkpoints)
  *
- * There are no countdown timers anywhere in the ladder: difficulty comes from
- * more cards, faster dealing, fewer pauses and bigger shoes. Pure TypeScript —
- * no React / RN imports (see architecture-guard test).
+ * Luna Luxe adds two more: `cancelGrid` (a puzzle of cards that cancel) and
+ * count streams dealt as Card Rain or as Zero Hero rounds.
+ *
+ * The clock is the answer meter: it drains while a question is open, and on
+ * Luna Luxe it runs on every level — the grid drains while it is on the felt,
+ * the timed streams while a count is asked, and the table night gives each
+ * count check its own few seconds. Pure TypeScript — no React / RN imports
+ * (see architecture-guard test).
  */
 
 // ---------------------------------------------------------------------------
@@ -259,6 +265,25 @@ export interface CardGroupLevel extends StreakBase {
   readonly groupOrder: 'progressive' | 'random';
   /** Bias the deal toward cancelling pairs (+1/−1) and ±2 pairs. */
   readonly emphasizeCancellation: boolean;
+  /**
+   * Staged groups: this many right answers at each size, a star at the end
+   * of each stage (pairs → ★, threes → ★★, fours → ★★★). Without it the
+   * progressive sizes split `streakTarget` evenly and stars follow the usual
+   * half / full / half-again targets.
+   */
+  readonly stageLength?: number;
+}
+
+/**
+ * Cancel Out: grids of cards to clear by dragging +1s onto −1s and tapping
+ * the 7s, 8s and 9s, then calling the count of whatever is left. One grid
+ * per star; the meter drains the whole time a grid is on the felt.
+ */
+export interface CancelGridLevel extends LevelBase {
+  readonly mode: 'cancelGrid';
+  readonly grids: readonly GridSpec[];
+  /** Misses the run survives: a drop that doesn't cancel, a wrong tap or call. */
+  readonly strikes: number;
 }
 
 export interface DeckEstimateLevel extends StreakBase {
@@ -312,6 +337,11 @@ export interface IndexPlayLevel extends StreakBase {
  */
 export interface ShoeRunLevel extends LevelBase {
   readonly mode: 'shoeRun';
+  /**
+   * Each count check gets this long (ms) before it counts as a miss — the
+   * table night's version of the answer meter. Omitted: checks wait.
+   */
+  readonly checkTimeMs?: number;
   readonly deckCount: DeckCount;
   /** Hands in the run (the cut card can end it sooner). */
   readonly hands: number;
@@ -355,6 +385,21 @@ export interface CountStreamLevel extends LevelBase {
   readonly finalCountQuestion: boolean;
   readonly answerInput: AnswerInput;
   readonly showDeckScale: boolean;
+  /** The answer meter drains while a check is open (streams otherwise wait). */
+  readonly timed?: boolean;
+  /** Card Rain: cards drop in from the top of the felt. */
+  readonly presentation?: 'rain';
+  /**
+   * Checks every `min`–`max` cards (inclusive) instead of spread evenly; the
+   * deal stops at the last check, so `cardCount` is only a cap.
+   */
+  readonly checkGap?: { readonly min: number; readonly max: number };
+  /**
+   * Zero Hero: `count` rounds, each a freshly shuffled deck dealt to a secret
+   * stop between `minCards` and `maxCards`, then the count. The count starts
+   * over each round; a star per right call, two to clear.
+   */
+  readonly rounds?: { readonly count: number; readonly minCards: number; readonly maxCards: number };
 }
 
 /**
@@ -388,6 +433,7 @@ export interface TableCountLevel extends LevelBase {
 export type TrainingLevelSpec =
   | CardValueLevel
   | CardGroupLevel
+  | CancelGridLevel
   | DeckEstimateLevel
   | TrueCountLevel
   | BetSizeLevel
@@ -447,7 +493,25 @@ const RC_DECKS_TC_BET: readonly QuestionKind[] = [
 
 /** Total question checkpoints in a level, including the final-count question. */
 export function totalCheckpoints(spec: CheckpointLevelSpec): number {
+  if (spec.mode === 'countStream' && spec.rounds) {
+    return spec.rounds.count;
+  }
   return spec.checkpoints + (spec.mode === 'countStream' && spec.finalCountQuestion ? 1 : 0);
+}
+
+/** A Zero Hero level: rounds of a fresh deck, each ending on the count. */
+export function isRoundsLevel(spec: TrainingLevelSpec): spec is CountStreamLevel & {
+  readonly rounds: NonNullable<CountStreamLevel['rounds']>;
+} {
+  return spec.mode === 'countStream' && spec.rounds !== undefined;
+}
+
+/** The meter races this level's questions (streak drills always; streams when timed). */
+export function isMeteredLevel(spec: TrainingLevelSpec): boolean {
+  if (isCheckpointLevel(spec)) {
+    return spec.mode === 'countStream' && spec.timed === true;
+  }
+  return spec.mode !== 'shoeRun';
 }
 
 export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
@@ -466,16 +530,17 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         strikes: 3,
       },
       {
-        mode: 'cardGroup',
+        mode: 'cancelGrid',
         level: 2,
-        title: 'Two Card Combos',
+        title: 'Cancel Out',
         brief:
-          'Count both cards together. A +1 and a −1 cancel to 0 — see the pair, call the sum. Three strikes.',
+          'A grid of cards. Drag a +1 onto the nearest −1 and both vanish; tap a 7, 8 or 9 to clear it. When no pairs are left, call the count of what remains. A star per grid, three strikes, and the meter drains while the grid is up — every clear tops it up.',
         speed: 'easy',
-        groupSizes: [2],
-        groupOrder: 'progressive',
-        emphasizeCancellation: false,
-        streakTarget: 21,
+        grids: [
+          { rows: 5, cols: 4, maxLeftover: 0 },
+          { rows: 5, cols: 4, maxLeftover: 2 },
+          { rows: 6, cols: 5, maxLeftover: 3 },
+        ],
         strikes: 3,
       },
       {
@@ -483,50 +548,41 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         level: 3,
         title: 'Card Groups',
         brief:
-          'Three cards at a time. Cancel what you can and call the net value of the group. Three strikes.',
+          'Pairs first, then three cards, then four — call the net value of each group. Eight right at each size earns a star: the pairs ★, the threes ★★ to clear it, the fours ★★★. Three strikes for the whole run, and the meter keeps draining.',
         speed: 'easy',
-        groupSizes: [3],
+        groupSizes: [2, 3, 4],
         groupOrder: 'progressive',
-        emphasizeCancellation: false,
-        streakTarget: 21,
-        strikes: 3,
-      },
-      {
-        mode: 'cardGroup',
-        level: 4,
-        title: 'Four Card Groups',
-        brief:
-          'Four cards at a time. Cancel the highs against the lows and call the net value of the group. Three strikes.',
-        speed: 'easy',
-        groupSizes: [4],
-        groupOrder: 'progressive',
-        emphasizeCancellation: false,
-        streakTarget: 21,
+        emphasizeCancellation: true,
+        stageLength: 8,
+        streakTarget: 16,
         strikes: 3,
       },
       {
         mode: 'countStream',
-        level: 5,
-        title: 'Running Count Drill',
+        level: 4,
+        title: 'Card Rain',
         brief:
-          'Cards come one at a time and the count is never shown. Keep it in your head — when the deal pauses, call the running count. Ten checks, all correct; a miss restarts from zero.',
-        speed: 'normal',
-        deckCount: 1,
-        cardCount: 36,
-        checkpoints: 10,
+          'Cards drop from the top one at a time and the count is never shown. Every 5 to 10 cards the rain stops — type the running count since the first card. Eight checks, two misses allowed, and the meter drains while you answer.',
+        speed: 'easy',
+        deckCount: 2,
+        cardCount: 104,
+        checkpoints: 8,
         questions: RC,
         questionOrder: 'alternate',
-        pass: ALL_CORRECT(10),
+        pass: { minCorrect: 6, maxRunningCountMisses: 2 },
         finalCountQuestion: false,
-        answerInput: 'choices',
+        answerInput: 'entry',
         showDeckScale: false,
+        timed: true,
+        presentation: 'rain',
+        checkGap: { min: 5, max: 10 },
       },
       {
         mode: 'shoeRun',
-        level: 6,
-        title: 'Beat the Shoe',
+        level: 5,
+        title: 'Table Night',
         brief:
-          'Boss. A one-deck shoe and the hands are yours to play — the buttons show the book play. Before every hand, call the running count. Ten hands; 80% right clears it, every one for three stars.',
+          'Your first real table: a one-deck shoe and ten hands to play — the glowing button is the book play. Before every hand, call the running count with the clock running. 80% right clears it, every one for three stars.',
         speed: 'normal',
         deckCount: 1,
         hands: 10,
@@ -539,6 +595,26 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         answerInput: 'choices',
         clearAccuracy: 0.8,
         perfectAccuracy: 1,
+        checkTimeMs: 8000,
+      },
+      {
+        mode: 'countStream',
+        level: 6,
+        title: 'Zero Hero',
+        brief:
+          'Boss. A shuffled deck, one card at a time — but the deal stops early, somewhere between card 39 and 48. Type the running count. Three rounds, a fresh deck each: two right clears it, all three for three stars. The meter drains while you answer.',
+        speed: 'normal',
+        deckCount: 1,
+        cardCount: 48,
+        checkpoints: 3,
+        questions: RC,
+        questionOrder: 'alternate',
+        pass: { minCorrect: 2, maxRunningCountMisses: 1 },
+        finalCountQuestion: false,
+        answerInput: 'entry',
+        showDeckScale: false,
+        timed: true,
+        rounds: { count: 3, minCards: 39, maxCards: 48 },
       },
     ],
   },
@@ -1158,6 +1234,18 @@ export type StarTargets = readonly [number, number, number];
  * on a checkpoint level (its misses are the run's strikes). Halves round up.
  */
 export function starTargets(spec: TrainingLevelSpec): StarTargets {
+  // One star per grid, per stage of groups, or per Zero Hero round called right.
+  if (spec.mode === 'cancelGrid') {
+    return [1, 2, 3];
+  }
+  if (spec.mode === 'cardGroup' && spec.stageLength) {
+    const stage = spec.stageLength;
+    return [stage, stage * 2, stage * 3];
+  }
+  if (isRoundsLevel(spec)) {
+    const rounds = spec.rounds.count;
+    return [Math.ceil(rounds / 3), Math.ceil((rounds * 2) / 3), rounds];
+  }
   const base = isCheckpointLevel(spec)
     ? totalCheckpoints(spec)
     : spec.mode === 'shoeRun'
@@ -1319,7 +1407,7 @@ export function groupSizeForStreak(spec: CardGroupLevel, streak: number, rng: Rn
   if (spec.groupOrder === 'random') {
     return sizes[Math.floor(rng() * sizes.length)];
   }
-  const perStage = Math.ceil(spec.streakTarget / sizes.length);
+  const perStage = spec.stageLength ?? Math.ceil(spec.streakTarget / sizes.length);
   return sizes[Math.min(sizes.length - 1, Math.floor(streak / perStage))];
 }
 
@@ -1653,6 +1741,8 @@ export interface StreamFrame {
   readonly cardsRemaining: number;
   /** 1-based hand number on table levels; 0 for a plain stream. */
   readonly handNumber: number;
+  /** Zero Hero: the 1-based round this card belongs to (each round is a fresh deck). */
+  readonly round?: number;
 }
 
 export interface QuestionPart {
@@ -1780,12 +1870,100 @@ export function scheduleCheckpoints(
   return checkpoints;
 }
 
+/** A whole number in [min, max]. */
+function between(min: number, max: number, random: Rng): number {
+  return min + Math.floor(random() * (max - min + 1));
+}
+
+/** Deals `count` cards one at a time off `shoe`, the count carried from `startCount`. */
+function dealStream(
+  shoe: Shoe,
+  count: number,
+  startCount: number,
+  round?: number,
+): { readonly shoe: Shoe; readonly frames: StreamFrame[] } {
+  let current = shoe;
+  let runningCount = startCount;
+  const frames: StreamFrame[] = [];
+  for (let i = 0; i < count; i++) {
+    const result = draw(current, 'faceUp');
+    current = result.shoe;
+    runningCount += hiLoValue(result.card.rank);
+    frames.push({
+      beat: 'card',
+      card: result.card,
+      table: EMPTY_TABLE,
+      runningCount,
+      cardsDrawn: current.drawnCount,
+      cardsRemaining: cardsRemaining(current),
+      handNumber: 0,
+      ...(round !== undefined ? { round } : {}),
+    });
+  }
+  return { shoe: current, frames };
+}
+
+/**
+ * Card Rain: a check after every `checkGap.min`–`checkGap.max` cards, and the
+ * deal stops on the last one. Gaps past the end of the shoe are dropped.
+ */
+function buildGapScript(spec: CountStreamLevel, rng: Rng, random: Rng): TrainingScript {
+  const gap = spec.checkGap!;
+  const cap = Math.min(spec.cardCount, totalCards(spec.deckCount));
+  const stops: number[] = [];
+  let dealt = 0;
+  for (let k = 0; k < spec.checkpoints; k++) {
+    const next = dealt + between(gap.min, gap.max, random);
+    if (next > cap) {
+      break;
+    }
+    stops.push(next);
+    dealt = next;
+  }
+  const { frames } = dealStream(createShoe(spec.deckCount, rng), dealt, 0);
+  const checkpoints: Checkpoint[] = stops.map((stop) => ({
+    frameIndex: stop - 1,
+    parts: [{ kind: 'runningCount' as const, correct: frames[stop - 1].runningCount }],
+    isFinal: false,
+  }));
+  return { deckCount: spec.deckCount, frames, checkpoints };
+}
+
+/**
+ * Zero Hero: each round shuffles a fresh deck, deals it to a secret stop and
+ * asks for the count there. Rounds sit end to end in one script; the count
+ * starts over at 0 with every round.
+ */
+function buildRoundsScript(spec: CountStreamLevel, rng: Rng, random: Rng): TrainingScript {
+  const rounds = spec.rounds!;
+  const frames: StreamFrame[] = [];
+  const checkpoints: Checkpoint[] = [];
+  for (let round = 1; round <= rounds.count; round++) {
+    const stop = Math.min(totalCards(spec.deckCount), between(rounds.minCards, rounds.maxCards, random));
+    const dealt = dealStream(createShoe(spec.deckCount, rng), stop, 0, round);
+    frames.push(...dealt.frames);
+    const last = frames[frames.length - 1];
+    checkpoints.push({
+      frameIndex: frames.length - 1,
+      parts: [{ kind: 'runningCount', correct: last.runningCount }],
+      isFinal: true,
+    });
+  }
+  return { deckCount: spec.deckCount, frames, checkpoints };
+}
+
 /** One card at a time from a fresh shoe — the running-count stream. */
 export function buildCountStreamScript(
   spec: CountStreamLevel,
   rng: Rng = defaultRng,
   random: Rng = rng,
 ): TrainingScript {
+  if (spec.rounds) {
+    return buildRoundsScript(spec, rng, random);
+  }
+  if (spec.checkGap) {
+    return buildGapScript(spec, rng, random);
+  }
   let shoe = createShoe(spec.deckCount, rng);
   const count = Math.min(spec.cardCount, totalCards(spec.deckCount));
   const frames: StreamFrame[] = [];

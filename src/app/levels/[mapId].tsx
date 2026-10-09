@@ -42,9 +42,9 @@ import { CASINO_MAPS, CasinoMap, mapById } from '../../engine/betting/casino';
 import {
   FLASH_LEVELS_PER_MAP,
   FlashProgress,
-  mapRewards,
+  giftCover,
   nextFlashLevel,
-  PreviewDrillId,
+  rewardKey,
   rewardState,
   RewardSlot,
 } from '../../engine/dojo';
@@ -62,6 +62,7 @@ import {
   useFlashDebugStore,
 } from '../../stores/flashDebugStore';
 import { useProgressionStore } from '../../stores/progressionStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { colors, fonts, fontSizes, fontWeights, layout, radii, shadows, spacing } from '../../theme';
 import { formatChips } from '../../utils/format';
 
@@ -336,9 +337,6 @@ export default function LevelMapScreen() {
             reveal={item.id === revealing || item.id === pendingReveal}
             onRevealed={finishReveal}
             onSelectLevel={(level) => openLevel(item, level)}
-            onPreviewDrill={(drill) =>
-              router.push({ pathname: '/drill/preview/[drillId]', params: { drillId: drill } })
-            }
             onTable={() => openTable(item)}
             onQuiz={() =>
               router.push({ pathname: '/quiz/[mapId]', params: { mapId: String(item.id) } })
@@ -410,8 +408,6 @@ interface MapCardProps {
   readonly reveal: boolean;
   readonly onRevealed: () => void;
   readonly onSelectLevel: (level: number) => void;
-  /** A money bag's preview drill, opened from the reward sheet. */
-  readonly onPreviewDrill: (drill: PreviewDrillId) => void;
   readonly onTable: () => void;
   readonly onQuiz: () => void;
 }
@@ -432,15 +428,16 @@ function MapCard({
   reveal,
   onRevealed,
   onSelectLevel,
-  onPreviewDrill,
   onTable,
   onQuiz,
 }: MapCardProps) {
   const reducedMotion = useReducedMotion();
   const rewardsOpened = useDojoStore((state) => state.rewardsOpened);
   const openReward = useDojoStore((state) => state.openReward);
-  /** The reward sheet over this card: which slot, and the chips it just paid. */
-  const [reward, setReward] = useState<{ slot: RewardSlot; chips: number } | null>(null);
+  const deckCover = useSettingsStore((state) => state.deckCover);
+  const setDeckCover = useSettingsStore((state) => state.setDeckCover);
+  /** The reward pop-up over this card, by slot. */
+  const [reward, setReward] = useState<{ slot: RewardSlot } | null>(null);
   const next = nextFlashLevel(progress, map.id);
   // The table opens with the casino; the ladder only tracks training progress.
   const cleared = next === null;
@@ -455,29 +452,41 @@ function MapCard({
     setPathHeight(Math.floor(event.nativeEvent.layout.height));
   }
 
-  /** A reward on the trail: open it when it is ready, else show what it gave. */
+  /** A reward on the trail: ready or claimed, it opens its pop-up. Claiming happens there. */
   function onReward(slot: RewardSlot) {
     const state = rewardState(progress, rewardsOpened, map.id, slot);
     if (state === 'locked') {
       return;
     }
     if (state === 'ready') {
-      const opened = openReward(map.id, slot);
-      playSound('achievementUnlock');
-      void haptics.success();
-      setReward({ slot, chips: opened?.chips ?? 0 });
-      return;
+      playSound('buttonTap');
+      void haptics.lightTap();
     }
-    setReward({ slot, chips: 0 });
+    setReward({ slot });
   }
 
-  /** The gift's tool is already at the table; the bag's drill starts now. */
-  function confirmReward(slot: RewardSlot) {
-    setReward(null);
-    const drill = mapRewards(map.id)?.drill;
-    if (slot === 2 && drill) {
-      onPreviewDrill(drill.id);
+  /** The gift's OK or the bag's Claim: mark it claimed (the bag pays its chips). */
+  function claimReward(slot: RewardSlot) {
+    const claimed = openReward(map.id, slot);
+    if (claimed) {
+      playSound(slot === 2 ? 'chipTap' : 'achievementUnlock');
+      void haptics.success();
     }
+    setReward(null);
+  }
+
+  /** The gift's Equip: claim it if it is still waiting, then deal its card back everywhere. */
+  function equipReward(slot: RewardSlot) {
+    const cover = giftCover(map.id);
+    if (rewardState(progress, rewardsOpened, map.id, slot) === 'ready') {
+      openReward(map.id, slot);
+      playSound('achievementUnlock');
+      void haptics.success();
+    }
+    if (cover) {
+      setDeckCover(cover);
+    }
+    setReward(null);
   }
 
   // Unlock reveal. The pane and closed lock sit over the whole card; once the
@@ -759,8 +768,10 @@ function MapCard({
             visible
             map={map}
             slot={reward.slot}
-            chips={reward.chips}
-            onConfirm={() => confirmReward(reward.slot)}
+            claimed={rewardsOpened.has(rewardKey(map.id, reward.slot))}
+            equipped={reward.slot === 1 && giftCover(map.id) === deckCover && rewardsOpened.has(rewardKey(map.id, 1))}
+            onClaim={() => claimReward(reward.slot)}
+            onEquip={() => equipReward(reward.slot)}
             onClose={() => setReward(null)}
           />
         ) : null}
@@ -885,8 +896,10 @@ function MapCard({
           visible
           map={map}
           slot={reward.slot}
-          chips={reward.chips}
-          onConfirm={() => confirmReward(reward.slot)}
+          claimed={rewardsOpened.has(rewardKey(map.id, reward.slot))}
+          equipped={reward.slot === 1 && giftCover(map.id) === deckCover && rewardsOpened.has(rewardKey(map.id, 1))}
+          onClaim={() => claimReward(reward.slot)}
+          onEquip={() => equipReward(reward.slot)}
           onClose={() => setReward(null)}
         />
       ) : null}

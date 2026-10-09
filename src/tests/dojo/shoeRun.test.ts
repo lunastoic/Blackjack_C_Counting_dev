@@ -79,18 +79,19 @@ describe('beat the shoe — rules', () => {
 
 describe('beat the shoe — store', () => {
   it('every boss played perfectly earns three stars and records the run', () => {
-    for (const mapId of [1, 2, 3, 4, 5, 6]) {
-      playBossPerfectly(mapId, 6);
+    // Luna Luxe's shoe is its table night at level 5; the rest end on one.
+    for (const [mapId, level] of [[1, 5], [2, 6], [3, 6], [4, 6], [5, 6], [6, 6]]) {
+      playBossPerfectly(mapId, level);
       expect(boss().backedOff).toBe(false);
       expect(boss().score?.accuracy).toBe(1);
       expect(boss().stars).toBe(3);
       expect(boss().calls.length).toBeGreaterThan(0);
-      expect(useDojoStore.getState().flashLevels[`${mapId}:6`]).toBe(3);
+      expect(useDojoStore.getState().flashLevels[`${mapId}:${level}`]).toBe(3);
     }
   });
 
   it('a count check is asked before the second hand, and a wrong answer is graded', () => {
-    boss().load(1, 6);
+    boss().load(1, 5);
     boss().begin();
     expect(boss().status).toBe('play');
     expect(boss().hands).toBe(1);
@@ -105,6 +106,47 @@ describe('beat the shoe — store', () => {
     expect(boss().answer(correct + 1)).toBe(false);
     expect(boss().calls).toEqual([{ kind: 'count', right: false }]);
     expect(boss().verdict?.right).toBe(false);
+  });
+
+  it('table night: a count check left too long counts as a miss and moves on to the hand', () => {
+    jest.useFakeTimers();
+    try {
+      boss().load(1, 5);
+      expect(boss().spec?.checkTimeMs).toBe(8000);
+      boss().begin();
+      while (boss().status === 'play') {
+        boss().act('stand');
+      }
+      boss().nextHand();
+      expect(boss().status).toBe('question');
+      expect(boss().questionAt).not.toBeNull();
+      jest.advanceTimersByTime(7999);
+      expect(boss().status).toBe('question');
+      jest.advanceTimersByTime(1);
+      expect(boss().status).not.toBe('question');
+      expect(boss().questionAt).toBeNull();
+      expect(boss().calls).toEqual([{ kind: 'count', right: false }]);
+      expect(boss().verdict?.text).toMatch(/Too slow/);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('a count answered in time stops the clock', () => {
+    jest.useFakeTimers();
+    try {
+      boss().load(1, 5);
+      boss().begin();
+      while (boss().status === 'play') {
+        boss().act('stand');
+      }
+      boss().nextHand();
+      expect(boss().answer(boss().question!.correct)).toBe(true);
+      jest.advanceTimersByTime(20000);
+      expect(boss().calls).toEqual([{ kind: 'count', right: true }]);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('a leap from one unit to eight gets the player backed off with no stars', () => {

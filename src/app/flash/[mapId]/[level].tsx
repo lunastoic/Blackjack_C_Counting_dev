@@ -1,5 +1,6 @@
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import React from 'react';
+import { CancelGridScreen } from '../../../components/training/CancelGridScreen';
 import { ShoeRunScreen } from '../../../components/training/ShoeRunScreen';
 import { TrainingLevelScreen } from '../../../components/training/TrainingLevelScreen';
 import { isFlashLevel, trainingLevelSpec } from '../../../engine/dojo';
@@ -26,9 +27,14 @@ export default function FlashLevelRoute() {
   if (!(mapUnlocked && unlocked) && !debugUnlockAll) {
     return <Redirect href={{ pathname: '/levels/[mapId]', params: { mapId: String(mapId) } }} />;
   }
-  // Each casino's boss is a shoe the trainee plays, not a drill.
-  if (trainingLevelSpec(mapId, level).mode === 'shoeRun') {
+  const mode = trainingLevelSpec(mapId, level).mode;
+  // A shoe the trainee plays (the bosses, Luna's table night) is not a drill.
+  if (mode === 'shoeRun') {
     return <ShoeRunScreen mapId={mapId} level={level} />;
+  }
+  // Luna Luxe's Cancel Out is a board of cards, not a question stream.
+  if (mode === 'cancelGrid') {
+    return <CancelGridScreen mapId={mapId} level={level} />;
   }
   return <TrainingLevelScreen mapId={mapId} level={level} />;
 }

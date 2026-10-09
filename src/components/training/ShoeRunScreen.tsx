@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -38,6 +38,7 @@ import { ChoiceGrid } from './AnswerPads';
 import { formatAnswer, formatUnits, questionPrompt, shoeRunChips, starGlyphs } from './copy';
 import { CountEntry } from './CountEntry';
 import { TableStage } from './TableStage';
+import { TrainingMeter } from './TrainingMeter';
 import { TrainingStatusStrip } from './TrainingStatusStrip';
 
 interface ShoeRunScreenProps {
@@ -98,6 +99,13 @@ export function ShoeRunScreen({ mapId, level, daily = false, drill }: ShoeRunScr
     // Loading once per level; the store's actions are stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapId, level, daily, drill]);
+
+  // The open check's clock, stable across re-renders so the bar never restarts.
+  const questionAt = state.questionAt;
+  const checkMeter = useMemo(
+    () => (questionAt !== null ? { fill: 1, at: questionAt, draining: true } : null),
+    [questionAt],
+  );
 
   if (!spec) {
     return null;
@@ -173,6 +181,12 @@ export function ShoeRunScreen({ mapId, level, daily = false, drill }: ShoeRunScr
         const format = (value: number) => formatAnswer(question.kind, value);
         return (
           <View style={styles.section}>
+            {/* Table Night: the call's clock, draining from full the moment it is asked. */}
+            {spec!.checkTimeMs && checkMeter ? (
+              <View style={styles.checkClock}>
+                <TrainingMeter key={checkMeter.at} meter={checkMeter} drainMs={spec!.checkTimeMs} />
+              </View>
+            ) : null}
             <Text style={styles.prompt}>{questionPrompt(question.kind, false)}</Text>
             {spec!.answerInput === 'entry' ? (
               <CountEntry
@@ -483,6 +497,9 @@ export function ShoeRunScreen({ mapId, level, daily = false, drill }: ShoeRunScr
 }
 
 const styles = StyleSheet.create({
+  checkClock: {
+    alignSelf: 'stretch',
+  },
   root: {
     flex: 1,
     backgroundColor: colors.background,

@@ -8,7 +8,12 @@ import { CARD_FACES } from '../../assets/cards.generated';
 import { DECK_COVER_ART } from '../../assets/registry';
 import { CASINO_MAPS, LUNA_LUXE } from '../../engine/betting/casino';
 import { GameMode } from '../../engine/blackjack/rules';
-import { DECK_COVER_UNLOCK_LEVEL, deckCoverEarnedCount, FlashProgress } from '../../engine/dojo';
+import {
+  DECK_COVER_NAMES,
+  DECK_COVER_UNLOCK,
+  deckCoverEarnedCount,
+  FlashProgress,
+} from '../../engine/dojo';
 import {
   CARD_DECKS,
   CardDeck,
@@ -288,48 +293,46 @@ export const CARD_DECK_LABELS: Readonly<Record<CardDeck, string>> = {
 
 const DECK_PREVIEW_WIDTH = 56;
 
-export const DECK_COVER_LABELS: Readonly<Record<DeckCover, string>> = {
-  d: 'D',
-  e: 'E',
-  f: 'F',
-};
+export const DECK_COVER_LABELS: Readonly<Record<DeckCover, string>> = DECK_COVER_NAMES;
 
 export const DECK_COVER_BLURB =
-  'One cover for every casino, each in its own colours. A casino earns E when you clear its level 2 and F at level 4 — until then it stays on D.';
+  'One card back for every casino, each in its own colours. Counter is free; Ivory comes from each casino’s gift after level 1, and Onyx from clearing its level 4. Until a casino has earned your pick, it deals Counter.';
 
 /**
- * "Default", or the level that earns the cover and how many casinos have.
- * `compact` is the short form for the narrow in-game sheet ("Lv 2 · 3/6").
+ * "Free", or where the cover is earned and how many casinos have it.
+ * `compact` is the short form for the narrow in-game sheet ("Gift · 3/6").
  */
 export function deckCoverCaption(cover: DeckCover, earned: number, compact = false): string {
-  const level = DECK_COVER_UNLOCK_LEVEL[cover];
-  if (level === 0) {
-    return 'Default';
+  const unlock = DECK_COVER_UNLOCK[cover];
+  if (unlock.kind === 'default') {
+    return 'Free';
   }
-  return compact
-    ? `Lv ${level} · ${earned}/${CASINO_MAPS.length}`
-    : `Level ${level} · ${earned} of ${CASINO_MAPS.length}`;
+  const where = unlock.kind === 'gift' ? 'Gift' : compact ? `Lv ${unlock.level}` : `Level ${unlock.level}`;
+  return compact ? `${where} · ${earned}/${CASINO_MAPS.length}` : `${where} · ${earned} of ${CASINO_MAPS.length}`;
 }
 
 /**
- * Deck cover: D / E / F, each shown in Luna Luxe's colours with how many
- * casinos have earned it. A cover no casino has earned yet is locked.
+ * Card back: Counter / Ivory / Onyx, each shown in Luna Luxe's colours with
+ * how many casinos have earned it. A cover no casino has earned is locked.
  */
 export function DeckCoverRow({
   selected,
   progress,
+  opened,
   onSelect,
 }: {
   selected: DeckCover;
   progress: FlashProgress;
+  /** Rewards claimed on the trails ("mapId:slot") — the gifts hold Ivory. */
+  opened: ReadonlySet<string>;
   onSelect: (cover: DeckCover) => void;
 }) {
   return (
     <View style={styles.deckRow}>
-      <Text style={styles.toggleLabel}>Deck cover</Text>
+      <Text style={styles.toggleLabel}>Card back</Text>
       <View style={styles.deckOptions}>
         {DECK_COVERS.map((cover) => {
-          const earned = deckCoverEarnedCount(progress, cover);
+          const earned = deckCoverEarnedCount(progress, opened, cover);
           const locked = earned === 0;
           const active = selected === cover;
           const caption = deckCoverCaption(cover, earned);
@@ -338,7 +341,7 @@ export function DeckCoverRow({
               key={cover}
               onPress={() => onSelect(cover)}
               disabled={locked}
-              accessibilityLabel={`Deck cover ${DECK_COVER_LABELS[cover]}: ${caption}`}
+              accessibilityLabel={`Card back ${DECK_COVER_LABELS[cover]}: ${caption}`}
               accessibilityState={{ selected: active, disabled: locked }}
               style={[
                 styles.deckOption,
@@ -363,7 +366,7 @@ export function DeckCoverRow({
               <Text style={[styles.deckOptionText, active && styles.deckOptionTextActive]}>
                 {DECK_COVER_LABELS[cover]}
               </Text>
-              <Text style={styles.deckCaption}>{caption}</Text>
+              <Text style={styles.deckCaption}>{active ? 'In use' : caption}</Text>
             </PressableScale>
           );
         })}

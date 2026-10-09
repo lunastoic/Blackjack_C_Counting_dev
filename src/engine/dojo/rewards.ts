@@ -1,11 +1,15 @@
 import { CASINO_MAPS, mapById } from '../betting/casino';
+import { DeckCover } from '../types';
 import { FlashProgress, isFlashLevelDone } from './countFlash';
 
 /**
  * The two mystery rewards on every casino's trail. The gift after level 1
- * gives a table tool for the skill the casino teaches; the money bag after
- * level 3 gives chips and a preview drill of the next casino's skill — so
- * the trail keeps pulling the player toward the counting still to come.
+ * gives the Ivory card back in the casino's own colours; the money bag after
+ * level 3 pays chips. Each is claimed from a small pop-up on the trail.
+ *
+ * Each casino still owns a table tool (the counter's kit) and a preview
+ * drill: the tool is earned by clearing the casino's level 1, and the drills
+ * stay defined here for the screens that still open them.
  */
 
 export const REWARD_SLOTS = [1, 2] as const;
@@ -50,15 +54,35 @@ export interface PreviewDrill {
   readonly teases: string;
 }
 
+/** What a gift holds: a card back, dealt in the casino's own colours. */
+export interface GiftCover {
+  readonly cover: DeckCover;
+  readonly name: string;
+  readonly blurb: string;
+}
+
 export interface MapRewards {
   readonly mapId: number;
+  /** The gift after level 1. */
+  readonly gift: GiftCover;
+  /** The counter's-kit tool earned by clearing level 1. */
   readonly tool: KitTool;
   readonly drill: PreviewDrill;
+}
+
+/** The Ivory card back: a cream card printed in the casino's colour. */
+function ivoryGift(casino: string): GiftCover {
+  return {
+    cover: 'e',
+    name: 'Ivory cards',
+    blurb: `A cream card back printed in ${casino}'s colours. Equip it now, or switch card backs any time in Settings.`,
+  };
 }
 
 export const MAP_REWARDS: Readonly<Record<number, MapRewards>> = {
   1: {
     mapId: 1,
+    gift: ivoryGift('Luna Luxe'),
     tool: {
       id: 'pocketCard',
       name: 'Hi-Lo pocket card',
@@ -74,6 +98,7 @@ export const MAP_REWARDS: Readonly<Record<number, MapRewards>> = {
   },
   2: {
     mapId: 2,
+    gift: ivoryGift('Io Inferno'),
     tool: {
       id: 'pairSpotter',
       name: 'Pair spotter',
@@ -89,6 +114,7 @@ export const MAP_REWARDS: Readonly<Record<number, MapRewards>> = {
   },
   3: {
     mapId: 3,
+    gift: ivoryGift('Europa'),
     tool: {
       id: 'trayMarks',
       name: 'Tray marks',
@@ -104,6 +130,7 @@ export const MAP_REWARDS: Readonly<Record<number, MapRewards>> = {
   },
   4: {
     mapId: 4,
+    gift: ivoryGift('Ganymede'),
     tool: {
       id: 'trueCountReadout',
       name: 'True-count readout',
@@ -119,6 +146,7 @@ export const MAP_REWARDS: Readonly<Record<number, MapRewards>> = {
   },
   5: {
     mapId: 5,
+    gift: ivoryGift('Titan'),
     tool: {
       id: 'betRamp',
       name: 'Bet ramp card',
@@ -134,6 +162,7 @@ export const MAP_REWARDS: Readonly<Record<number, MapRewards>> = {
   },
   6: {
     mapId: 6,
+    gift: ivoryGift('Kepler'),
     tool: {
       id: 'indexChart',
       name: 'Index chart',
@@ -173,6 +202,11 @@ export function rewardKey(mapId: number, slot: RewardSlot): string {
   return `${mapId}:${slot}`;
 }
 
+/** The card back a casino's gift holds. */
+export function giftCover(mapId: number): DeckCover | undefined {
+  return MAP_REWARDS[mapId]?.gift.cover;
+}
+
 /** The money bag's chips: a tenth of the casino's table maximum. */
 export function rewardChips(mapId: number): number {
   return Math.round((mapById(mapId)?.maxBet ?? 0) / 10);
@@ -183,6 +217,7 @@ export function isRewardEarned(progress: FlashProgress, mapId: number, slot: Rew
   return isFlashLevelDone(progress, mapId, REWARD_LEVEL[slot]);
 }
 
+/** locked → ready (its level is cleared, gold on the trail) → opened (claimed). */
 export type RewardState = 'locked' | 'ready' | 'opened';
 
 export function rewardState(

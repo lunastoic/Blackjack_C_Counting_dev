@@ -63,11 +63,17 @@ describe('training ladder — configuration', () => {
         expect(spec.title.length).toBeGreaterThan(0);
         expect(spec.brief.length).toBeGreaterThan(0);
         expect(SPEED_PROFILES[spec.speed]).toBeDefined();
-        expect(isStreakLevel(spec) || isCheckpointLevel(spec) || spec.mode === 'shoeRun').toBe(true);
+        expect(
+          isStreakLevel(spec) || isCheckpointLevel(spec) || spec.mode === 'shoeRun' || spec.mode === 'cancelGrid',
+        ).toBe(true);
       }
-      // Every casino ends on its boss: a shoe the trainee plays.
-      expect(map.levels[5].mode).toBe('shoeRun');
-      {
+      // Every casino ends on its boss: a shoe the trainee plays — except Luna
+      // Luxe, whose boss is Zero Hero (its shoe is the table night before it).
+      if (map.mapId === 1) {
+        expect(map.levels[4].mode).toBe('shoeRun');
+        expect(map.levels[5]).toMatchObject({ mode: 'countStream', title: 'Zero Hero' });
+      } else {
+        expect(map.levels[5].mode).toBe('shoeRun');
       }
     }
     expect(() => trainingLevelSpec(7, 1)).toThrow(RangeError);
@@ -102,26 +108,43 @@ describe('training ladder — configuration', () => {
     }
   });
 
-  it('Map 1 follows the spec: values → pairs → three cards → four cards → running count → the boss', () => {
+  it('Map 1 follows the spec: values → Cancel Out → card groups → Card Rain → table night → Zero Hero', () => {
     const [l1, l2, l3, l4, l5, l6] = trainingLevelsForMap(1);
     expect(l1).toMatchObject({ mode: 'cardValue', streakTarget: 21, strikes: 3 });
-    expect(l2).toMatchObject({ mode: 'cardGroup', groupSizes: [2], streakTarget: 21, strikes: 3 });
-    expect(l3).toMatchObject({ mode: 'cardGroup', groupSizes: [3], streakTarget: 21, strikes: 3 });
-    expect(l4).toMatchObject({ mode: 'cardGroup', groupSizes: [4], streakTarget: 21, strikes: 3 });
-    expect(l5).toMatchObject({
-      mode: 'countStream',
-      deckCount: 1,
-      cardCount: 36,
-      checkpoints: 10,
-      finalCountQuestion: false,
+    expect(l2).toMatchObject({ mode: 'cancelGrid', title: 'Cancel Out', strikes: 3 });
+    expect(l3).toMatchObject({
+      mode: 'cardGroup',
+      title: 'Card Groups',
+      groupSizes: [2, 3, 4],
+      groupOrder: 'progressive',
+      stageLength: 8,
+      strikes: 3,
     });
-    expect(l6).toMatchObject({
+    expect(l4).toMatchObject({
+      mode: 'countStream',
+      title: 'Card Rain',
+      presentation: 'rain',
+      checkGap: { min: 5, max: 10 },
+      answerInput: 'entry',
+      timed: true,
+    });
+    expect(l5).toMatchObject({
       mode: 'shoeRun',
+      title: 'Table Night',
       deckCount: 1,
       betting: false,
       heat: false,
       checks: ['runningCount'],
       checkEvery: 1,
+      checkTimeMs: 8000,
+    });
+    expect(l6).toMatchObject({
+      mode: 'countStream',
+      title: 'Zero Hero',
+      answerInput: 'entry',
+      timed: true,
+      rounds: { count: 3, minCards: 39, maxCards: 48 },
+      pass: { minCorrect: 2, maxRunningCountMisses: 1 },
     });
   });
 
@@ -164,6 +187,11 @@ describe('training ladder — configuration', () => {
 
   it('answers are picked on Luna Luxe and Io, typed from Europa on (deck estimates stay picked)', () => {
     for (const { map, spec } of allSpecs) {
+      // Luna Luxe's Card Rain and Zero Hero ask for the exact count.
+      if (spec.mode === 'countStream' && (spec.presentation === 'rain' || spec.rounds)) {
+        expect(answersByEntry(spec)).toBe(true);
+        continue;
+      }
       if (
         map.mapId <= 2 ||
         spec.mode === 'deckEstimate' ||
@@ -193,7 +221,8 @@ describe('training ladder — configuration', () => {
     const strikesByMap: Record<number, number> = { 1: 3, 2: 2, 3: 1 };
     for (const { map, spec } of allSpecs) {
       if (isStreakLevel(spec)) {
-        expect(spec.streakTarget).toBe(21);
+        // Luna's staged Card Groups clears after two stages of eight instead.
+        expect(spec.streakTarget).toBe(spec.mode === 'cardGroup' && spec.stageLength ? 16 : 21);
         // Bet sizing, insurance and index plays are new skills, so each gets one strike back.
         const newSkill = spec.mode === 'betSize' || spec.mode === 'indexPlay';
         const strikes = newSkill ? 1 : (strikesByMap[map.mapId] ?? 0);
@@ -254,6 +283,14 @@ describe('training ladder — star stages', () => {
   it('stages every level at half, the level itself, and half again (halves round up)', () => {
     expect(STAR_COUNT).toBe(3);
     for (const { spec } of allSpecs) {
+      // Luna Luxe's staged levels star per grid, per group stage and per round instead.
+      if (
+        spec.mode === 'cancelGrid' ||
+        (spec.mode === 'cardGroup' && spec.stageLength) ||
+        (spec.mode === 'countStream' && spec.rounds)
+      ) {
+        continue;
+      }
       const base = isCheckpointLevel(spec)
         ? totalCheckpoints(spec)
         : spec.mode === 'shoeRun'
@@ -294,7 +331,8 @@ describe('training ladder — star stages', () => {
 
   it('the stretch of every checkpoint level deals the extra checks from a fresh shoe', () => {
     for (const { map, spec } of allSpecs) {
-      if (!isCheckpointLevel(spec)) {
+      // Zero Hero has no stretch: its third star is its third round.
+      if (!isCheckpointLevel(spec) || (spec.mode === 'countStream' && spec.rounds)) {
         continue;
       }
       const [, clear, third] = starTargets(spec);
@@ -354,10 +392,15 @@ describe('training ladder — streak items', () => {
     if (spec.mode !== 'cardGroup') {
       throw new Error('expected card groups');
     }
-    // Luna Luxe's groups are three cards throughout; a progressive list climbs.
-    expect(groupSizeForStreak(spec, 0)).toBe(3);
-    expect(groupSizeForStreak(spec, 20)).toBe(3);
-    const climbing = { ...spec, groupSizes: [3, 4, 5] };
+    // Luna Luxe's groups climb in stages of eight: pairs, threes, then fours.
+    expect(groupSizeForStreak(spec, 0)).toBe(2);
+    expect(groupSizeForStreak(spec, 7)).toBe(2);
+    expect(groupSizeForStreak(spec, 8)).toBe(3);
+    expect(groupSizeForStreak(spec, 15)).toBe(3);
+    expect(groupSizeForStreak(spec, 16)).toBe(4);
+    expect(groupSizeForStreak(spec, 30)).toBe(4);
+    expect(starTargets(spec)).toEqual([8, 16, 24]);
+    const climbing = { ...spec, stageLength: undefined, groupSizes: [3, 4, 5] };
     expect(groupSizeForStreak(climbing, 0)).toBe(3);
     expect(groupSizeForStreak(climbing, 7)).toBe(4);
     expect(groupSizeForStreak(climbing, 14)).toBe(5);
@@ -438,7 +481,8 @@ describe('training ladder — count streams', () => {
 
   it('every frame’s running count is the Hi-Lo sum of the cards seen so far', () => {
     for (const { spec } of allSpecs) {
-      if (spec.mode !== 'countStream') {
+      // Card Rain and Zero Hero deal to their checks — covered below.
+      if (spec.mode !== 'countStream' || spec.checkGap || spec.rounds) {
         continue;
       }
       const script = buildCountStreamScript(spec, seededRng(spec.level * 7));
@@ -450,6 +494,59 @@ describe('training ladder — count streams', () => {
         expect(frame.cardsRemaining).toBe(totalCards(spec.deckCount) - index - 1);
       });
       expect(script.frames).toHaveLength(Math.min(spec.cardCount, totalCards(spec.deckCount)));
+    }
+  });
+
+  it('Card Rain checks every 5 to 10 cards and stops on the last check', () => {
+    const spec = trainingLevelSpec(1, 4) as CountStreamLevel;
+    for (let seed = 1; seed <= 40; seed++) {
+      const script = buildCountStreamScript(spec, seededRng(seed), seededRng(seed + 100));
+      expect(script.checkpoints).toHaveLength(spec.checkpoints);
+      let previous = -1;
+      let sum = 0;
+      script.frames.forEach((frame) => {
+        sum += hiLoValue(frame.card!.rank);
+        expect(frame.runningCount).toBe(sum);
+      });
+      for (const checkpoint of script.checkpoints) {
+        const gap = checkpoint.frameIndex - previous;
+        expect(gap).toBeGreaterThanOrEqual(5);
+        expect(gap).toBeLessThanOrEqual(10);
+        expect(checkpoint.parts).toEqual([
+          { kind: 'runningCount', correct: script.frames[checkpoint.frameIndex].runningCount },
+        ]);
+        previous = checkpoint.frameIndex;
+      }
+      expect(script.frames).toHaveLength(previous + 1);
+    }
+  });
+
+  it('Zero Hero deals three fresh decks, each stopping between card 39 and 48, the count from 0', () => {
+    const spec = trainingLevelSpec(1, 6) as CountStreamLevel;
+    expect(starTargets(spec)).toEqual([1, 2, 3]);
+    expect(totalCheckpoints(spec)).toBe(3);
+    for (let seed = 1; seed <= 40; seed++) {
+      const script = buildCountStreamScript(spec, seededRng(seed), seededRng(seed + 7));
+      expect(script.checkpoints).toHaveLength(3);
+      let start = 0;
+      script.checkpoints.forEach((checkpoint, index) => {
+        const round = script.frames.slice(start, checkpoint.frameIndex + 1);
+        expect(round.length).toBeGreaterThanOrEqual(39);
+        expect(round.length).toBeLessThanOrEqual(48);
+        // Every round is its own deck: no card twice, the count starting at 0.
+        expect(new Set(round.map((frame) => frame.card!.id)).size).toBe(round.length);
+        let sum = 0;
+        for (const frame of round) {
+          sum += hiLoValue(frame.card!.rank);
+          expect(frame.runningCount).toBe(sum);
+          expect(frame.round).toBe(index + 1);
+        }
+        expect(round[round.length - 1].cardsDrawn).toBe(round.length);
+        expect(checkpoint.isFinal).toBe(true);
+        expect(checkpoint.parts).toEqual([{ kind: 'runningCount', correct: sum }]);
+        start = checkpoint.frameIndex + 1;
+      });
+      expect(start).toBe(script.frames.length);
     }
   });
 

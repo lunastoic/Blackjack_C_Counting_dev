@@ -3,6 +3,7 @@ import {
   CountStreamLevel,
   flashLevelKey,
   FLASH_LEVELS_PER_MAP,
+  isRoundsLevel,
   meterDrainMs,
   SPEED_PROFILES,
   totalCheckpoints,
@@ -13,6 +14,8 @@ import { createDefaultSave } from '../../persistence/defaults';
 import { __resetPersistenceForTests } from '../../persistence/hydrate';
 import { useShoeRunStore } from '../../stores/shoeRunStore';
 import { playBossPerfectly } from './shoeRunHelpers';
+import { playCancelGridPerfectly } from './cancelGridHelpers';
+import { useCancelGridStore } from '../../stores/cancelGridStore';
 import { useDojoStore } from '../../stores/dojoStore';
 import { useEconomyStore } from '../../stores/economyStore';
 import { useProgressionStore } from '../../stores/progressionStore';
@@ -412,20 +415,35 @@ describe('training store — streak drills', () => {
     expect(jest.getTimerCount()).toBe(0);
   });
 
-  it('card groups on Luna Luxe stay at three cards', () => {
+  it('card groups on Luna Luxe climb pairs → threes → fours, a star at the end of each stage', () => {
     store().load(1, 3);
     store().begin();
-    const sizes = new Set<number>();
-    for (let n = 1; n <= 21; n++) {
+    const sizeAt: number[] = [];
+    for (let n = 1; n <= 16; n++) {
       const item = store().item;
       if (item?.kind === 'cards') {
-        sizes.add(item.cards.length);
+        sizeAt.push(item.cards.length);
         expect(item.correct).toBe(item.cards.reduce((s, c) => s + hiLoValue(c.rank), 0));
       }
       answerCorrectly();
+      if (n === 8) {
+        expect(store().stars).toBe(1);
+        expect(store().status).toBe('asking');
+      }
     }
-    expect([...sizes]).toEqual([3]);
+    expect(sizeAt.slice(0, 8).every((size) => size === 2)).toBe(true);
+    expect(sizeAt.slice(8).every((size) => size === 3)).toBe(true);
+    // The threes clear it; the fours are the stretch.
     expect(store().status).toBe('cleared');
+    expect(store().stars).toBe(2);
+    store().keepGoing();
+    for (let n = 17; n <= 24; n++) {
+      const item = store().item;
+      expect(item?.kind === 'cards' ? item.cards.length : 0).toBe(4);
+      answerCorrectly();
+    }
+    expect(store().status).toBe('levelComplete');
+    expect(store().stars).toBe(3);
   });
 
   it('deck estimation and true-count drills serve their own items', () => {
@@ -534,7 +552,7 @@ describe('training store — answer meter', () => {
   });
 
   it('on a count stream the question waits: no meter, no timeout — keeping the count is the skill', () => {
-    store().load(1, 5);
+    store().load(2, 1);
     store().begin();
     advanceUntil('asking');
     expect(store().meter.draining).toBe(false);
@@ -543,6 +561,20 @@ describe('training store — answer meter', () => {
     expect(store().timedOut).toBe(false);
     answerCorrectly();
     expect(store().status).toBe('feedback');
+  });
+
+  it('Card Rain races the meter while a count is asked; running dry ends the run', () => {
+    store().load(1, 4);
+    store().begin();
+    advanceUntil('asking');
+    expect(store().meter.draining).toBe(true);
+    expect(store().question?.choices).toEqual([]);
+    answerCorrectly();
+    expect(store().meter.draining).toBe(false);
+    advanceUntil('asking');
+    jest.advanceTimersByTime(store().meterDrainMs);
+    expect(store().status).toBe('failed');
+    expect(store().timedOut).toBe(true);
   });
 
   it('only ever gets faster up the ladder: every level drains no slower than the last, and every casino faster than the one before', () => {
@@ -569,7 +601,8 @@ describe('training store — count streams', () => {
     jest.useFakeTimers();
     resetStores();
     __setTrainingRandomForTests(seededRng(7), seededRng(7));
-    store().load(1, 5);
+    // Io's Full Deck Count: one deck, eight checks and the final count, all correct.
+    store().load(2, 1);
   });
 
   afterEach(() => {
@@ -599,7 +632,7 @@ describe('training store — count streams', () => {
   it('clears the level after every checkpoint is right; the count continues between checks', () => {
     store().begin();
     const spec = store().spec as CountStreamLevel;
-    expect(store().targets).toEqual([5, 10, 15]);
+    expect(store().targets).toEqual([5, 9, 14]);
     for (let k = 0; k < totalCheckpoints(spec); k++) {
       advanceUntil('asking');
       expect(store().checkpointIndex).toBe(k);
@@ -616,8 +649,8 @@ describe('training store — count streams', () => {
     expect(store().status).toBe('cleared');
     expect(store().stars).toBe(2);
     expect(store().stretch).toBe(false);
-    expect(useDojoStore.getState().flashLevels[flashLevelKey(1, 5)]).toBe(2);
-    expect(useDojoStore.getState().isFlashLevelUnlocked(1, 6)).toBe(true);
+    expect(useDojoStore.getState().flashLevels[flashLevelKey(2, 1)]).toBe(2);
+    expect(useDojoStore.getState().isFlashLevelUnlocked(2, 2)).toBe(true);
 
     // The stretch: a fresh shoe, five more checks, the count from 0 again.
     store().keepGoing();
@@ -636,13 +669,13 @@ describe('training store — count streams', () => {
     }
     expect(store().status).toBe('levelComplete');
     expect(store().stars).toBe(3);
-    expect(store().tally.asked).toBe(15);
-    expect(useDojoStore.getState().flashLevels[flashLevelKey(1, 5)]).toBe(3);
+    expect(store().tally.asked).toBe(14);
+    expect(useDojoStore.getState().flashLevels[flashLevelKey(2, 1)]).toBe(3);
   });
 
   it('a miss on the stretch of an all-correct level ends the run cleared at two stars', () => {
     store().begin();
-    for (let k = 0; k < 10; k++) {
+    for (let k = 0; k < 9; k++) {
       advanceUntil('asking');
       answerCorrectly();
     }
@@ -653,7 +686,7 @@ describe('training store — count streams', () => {
     expect(store().stars).toBe(2);
     expect(store().question?.wasCorrect).toBe(false);
     expect(jest.getTimerCount()).toBe(0);
-    expect(useDojoStore.getState().flashLevels[flashLevelKey(1, 5)]).toBe(2);
+    expect(useDojoStore.getState().flashLevels[flashLevelKey(2, 1)]).toBe(2);
   });
 
   it('a wrong count on an all-correct level fails the run, shows the review, and can restart from zero', () => {
@@ -669,13 +702,56 @@ describe('training store — count streams', () => {
     expect(
       before + store().cardsSinceCheck.reduce((sum, card) => sum + hiLoValue(card.rank), 0),
     ).toBe(store().question?.correct);
-    expect(useDojoStore.getState().flashLevels[flashLevelKey(1, 5)]).toBeUndefined();
+    expect(useDojoStore.getState().flashLevels[flashLevelKey(2, 1)]).toBeUndefined();
 
     store().begin();
     expect(store().status).toBe('running');
     expect(store().tally.asked).toBe(0);
     expect(store().checkpointIndex).toBe(0);
     expect(store().frameIndex).toBe(-1);
+  });
+
+  it('Zero Hero: a star per round right, each round a fresh deck from 0, waiting for "Next round"', () => {
+    store().load(1, 6);
+    store().begin();
+    expect(store().targets).toEqual([1, 2, 3]);
+    advanceUntil('asking');
+    expect(store().meter.draining).toBe(true);
+    expect(store().question?.isFinal).toBe(true);
+    const firstStop = store().frame!.cardsDrawn;
+    expect(firstStop).toBeGreaterThanOrEqual(39);
+    expect(firstStop).toBeLessThanOrEqual(48);
+    answerCorrectly();
+    expect(store().status).toBe('feedback');
+    expect(store().stars).toBe(1);
+    // Right or wrong, the round waits on the felt.
+    jest.advanceTimersByTime(30_000);
+    expect(store().status).toBe('feedback');
+    store().continueAfterMiss();
+    advanceUntil('asking');
+    expect(store().frame?.round).toBe(2);
+    const seen = store().script!.frames.filter((frame) => frame.round === 2);
+    expect(seen.reduce((sum, frame) => sum + hiLoValue(frame.card!.rank), 0)).toBe(store().question?.correct);
+    answerWrongly();
+    expect(store().status).toBe('feedback');
+    store().continueAfterMiss();
+    advanceUntil('asking');
+    answerCorrectly();
+    expect(store().status).toBe('levelComplete');
+    expect(store().stars).toBe(2);
+    expect(useDojoStore.getState().flashLevels[flashLevelKey(1, 6)]).toBe(2);
+  });
+
+  it('Zero Hero: two rounds wrong ends the run before the third', () => {
+    store().load(1, 6);
+    store().begin();
+    advanceUntil('asking');
+    answerWrongly();
+    store().continueAfterMiss();
+    advanceUntil('asking');
+    answerWrongly();
+    expect(store().status).toBe('failed');
+    expect(store().stars).toBe(0);
   });
 
   it('a full deck ends with the final count question at 0', () => {
@@ -807,9 +883,18 @@ describe('training store — live tables', () => {
     expect(useProgressionStore.getState().licenseForMap(1)).toBe('licensed');
     expect(useProgressionStore.getState().isMapUnlocked(2)).toBe(false);
 
-    playBossPerfectly(1, 6);
-    expect(useShoeRunStore.getState().stars).toBe(3);
-    expect(useShoeRunStore.getState().outcome?.tableUnlocked).toBe(true);
+    // Zero Hero, every round right.
+    store().load(1, 6);
+    store().begin();
+    for (let round = 1; round <= 3; round++) {
+      advanceUntil('asking');
+      answerCorrectly();
+      if (round < 3) {
+        store().continueAfterMiss();
+      }
+    }
+    expect(store().stars).toBe(3);
+    expect(store().outcome?.tableUnlocked).toBe(true);
     expect(useDojoStore.getState().isMapFlashComplete(1)).toBe(true);
     expect(useDojoStore.getState().nextFlashLevel(1)).toBeNull();
     expect(useProgressionStore.getState().isMapUnlocked(2)).toBe(true);
@@ -841,6 +926,12 @@ describe('training store — live tables', () => {
           expect(useDojoStore.getState().flashLevels[flashLevelKey(map.mapId, spec.level)]).toBe(3);
           continue;
         }
+        if (spec.mode === 'cancelGrid') {
+          playCancelGridPerfectly(map.mapId, spec.level);
+          expect(useCancelGridStore.getState().stars).toBe(3);
+          expect(useDojoStore.getState().flashLevels[flashLevelKey(map.mapId, spec.level)]).toBe(3);
+          continue;
+        }
         store().load(map.mapId, spec.level);
         store().begin();
         let guard = 0;
@@ -851,6 +942,10 @@ describe('training store — live tables', () => {
           }
           advanceUntil('asking');
           answerCorrectly();
+          // Zero Hero waits after each round for "Next round".
+          if (store().status === 'feedback' && isRoundsLevel(store().spec)) {
+            store().continueAfterMiss();
+          }
           if (store().status === 'feedback') {
             jest.advanceTimersByTime(store().speed.feedbackMs);
           }

@@ -10,6 +10,7 @@ export * from './objectives';
 export * from './countFlash';
 export * from './deckCovers';
 export * from './training';
+export * from './cancelGrid';
 export * from './shoeRun';
 export * from './rewards';
 export * from './previewDrills';

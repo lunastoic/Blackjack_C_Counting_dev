@@ -28,25 +28,27 @@ const LEVEL_TUTORIALS: Readonly<Record<string, readonly TutorialSlide[]>> = {
     'Tap its value: −1, 0 or +1, before the meter runs dry. Twenty-one right clears the level; a fourth miss ends the run.',
   ]),
   '1:2': slides(
-    ['Two cards, one number', 'Add both values and tap the total.'],
-    ['Pairs that cancel', 'A +1 next to a −1 is 0. Two lows are +2, two highs are −2.'],
+    ['Cancel them out', 'A +1 and a −1 add up to 0. Drag a 2–6 onto the nearest 10–A and both vanish.'],
+    ['Zeros just go', 'A 7, 8 or 9 is already 0 — tap it to clear it.'],
+    ['Call what’s left', 'When no pairs are left, tap the count of the cards still on the board.'],
+    ['Watch the meter', 'It drains while the grid is up; every clear tops it up. A bad drop costs a strike.'],
   ),
   '1:3': slides(
-    ['Three cards, one number', 'Add all three values and tap the total.'],
+    ['Pairs, then threes, then fours', 'Add the cards in each group and tap the total. Eight right at each size earns a star.'],
     ['Cancel first, then count', 'Pair every high with a low. Whatever is left over is the answer.'],
   ),
   '1:4': slides(
-    ['Four cards, one number', 'Add all four values and tap the total.'],
-    ['Cancel first, then count', 'Pair every high with a low. Whatever is left over is the answer.'],
+    ['Card Rain', 'Cards drop from the top one at a time. The total is never shown — start at 0 and add each card.'],
+    ['When the rain stops', 'Every 5 to 10 cards it pauses. Type the running count since the very first card.'],
   ),
   '1:5': slides(
-    ['The count is yours to keep', 'Cards come one at a time and the total is never shown. Start at 0 and add each card.'],
-    ['When the deal pauses', 'Tap the running count. Ten checks, all correct — one miss restarts the deck.'],
+    ['Table night: your hands, your count', 'A one-deck shoe. You play every hand — the glowing button is the book play.'],
+    ['Count before you bet', 'Before each hand, call the running count before the clock runs out.'],
+    ['Eighty percent clears it', 'Ten hands. Every count right earns all three stars.'],
   ),
   '1:6': slides(
-    ['Boss: your hands, your count', 'A one-deck shoe. You play every hand — the glowing button is the book play.'],
-    ['Count before you bet', 'Before each hand, call the running count. The hole card counts when it flips.'],
-    ['Eighty percent clears it', 'Ten hands. Every count right earns all three stars.'],
+    ['Boss: Zero Hero', 'A full deck always counts back to 0, so the deal stops early: somewhere from card 39 to 48.'],
+    ['Type the count', 'When the cards stop, type the running count. Three rounds; two right clears it.'],
   ),
 
   // -------------------------------------------------------------------------

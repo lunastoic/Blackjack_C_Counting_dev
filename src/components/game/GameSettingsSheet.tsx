@@ -399,7 +399,7 @@ function TrainingTab({
   modern?: boolean;
 }) {
   const settings = useSettingsStore();
-  // The tools won from the gifts on the trails; the rest stay wrapped.
+  // The tools won by clearing each casino's level 1; the rest stay locked.
   const earned = useKitEarned();
   const weakSpotCount = useWeakSpotsStore((state) => state.spots.length);
   const weakSpotsLabel = weakSpotCount > 0 ? `Weak spots (${weakSpotCount})` : 'Weak spots';
@@ -474,8 +474,8 @@ function TrainingTab({
               <React.Fragment key={id}>
                 {index > 0 ? <View style={styles.dividerModern} /> : null}
                 <MenuRow
-                  label={won ? tool.name : 'Mystery reward'}
-                  sub={won ? tool.blurb : `${mapById(mapForTool(id))?.name ?? ''} · gift after level 1`}
+                  label={won ? tool.name : 'Locked tool'}
+                  sub={won ? tool.blurb : `${mapById(mapForTool(id))?.name ?? ''} · clear level 1`}
                 >
                   {won ? (
                     <ArcadeSwitch
@@ -588,6 +588,7 @@ function SettingsTab({
 }) {
   const settings = useSettingsStore();
   const flashLevels = useDojoStore((state) => state.flashLevels);
+  const rewardsOpened = useDojoStore((state) => state.rewardsOpened);
   const map = useGameSessionStore((state) => state.map);
   const deckCount = map?.deckCount ?? 6;
   const pace = map?.dealerPace ?? 1;
@@ -615,10 +616,10 @@ function SettingsTab({
           </MenuRow>
         </View>
         <View style={styles.cardModern}>
-          <MenuRow label="Look" sub="Deck cover" style={styles.rowFlatModern} />
+          <MenuRow label="Card back" sub="Pick the cards every casino deals" style={styles.rowFlatModern} />
           <View style={styles.coverOptionsModern}>
             {DECK_COVERS.map((cover) => {
-              const earned = deckCoverEarnedCount(flashLevels, cover);
+              const earned = deckCoverEarnedCount(flashLevels, rewardsOpened, cover);
               const locked = earned === 0;
               const active = cover === settings.deckCover;
               const caption = deckCoverCaption(cover, earned, true);
@@ -628,7 +629,7 @@ function SettingsTab({
                   onPress={() => settings.setDeckCover(cover)}
                   disabled={locked}
                   accessibilityRole="button"
-                  accessibilityLabel={`Deck cover ${DECK_COVER_LABELS[cover]}: ${caption}`}
+                  accessibilityLabel={`Card back ${DECK_COVER_LABELS[cover]}: ${caption}`}
                   accessibilityState={{ selected: active, disabled: locked }}
                   style={({ pressed }) => [
                     styles.coverOptionModern,
@@ -725,6 +726,7 @@ function SettingsTab({
         <DeckCoverRow
           selected={settings.deckCover}
           progress={flashLevels}
+          opened={rewardsOpened}
           onSelect={settings.setDeckCover}
         />
       </View>
