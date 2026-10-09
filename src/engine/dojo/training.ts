@@ -536,10 +536,11 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         brief:
           'A grid of cards. Drag a +1 onto the nearest −1 and both vanish; tap a 7, 8 or 9 to clear it. When no pairs are left, call the count of what remains. A star per grid, three strikes, and the meter drains while the grid is up — every clear tops it up.',
         speed: 'easy',
+        // Five across, four down — twenty cards a grid.
         grids: [
-          { rows: 5, cols: 4, maxLeftover: 0 },
-          { rows: 5, cols: 4, maxLeftover: 2 },
-          { rows: 6, cols: 5, maxLeftover: 3 },
+          { rows: 4, cols: 5, maxLeftover: 0 },
+          { rows: 4, cols: 5, maxLeftover: 2 },
+          { rows: 4, cols: 5, maxLeftover: 3 },
         ],
         strikes: 3,
       },

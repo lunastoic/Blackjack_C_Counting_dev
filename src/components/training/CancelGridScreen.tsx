@@ -40,6 +40,9 @@ import { StarBankToast } from './StarBankToast';
 import { TrainingMeter } from './TrainingMeter';
 import { StatusCell, TrainingStatusStrip } from './TrainingStatusStrip';
 
+/** Room under the board for the "GRID 1 OF 3" label and the top inset. */
+const BOARD_LABEL_ROOM = 36;
+
 interface CancelGridScreenProps {
   readonly mapId: number;
   readonly level: number;
@@ -271,7 +274,7 @@ export function CancelGridScreen({ mapId, level }: CancelGridScreenProps) {
         <View style={styles.section}>
           <Text style={styles.clearedTitle}>Level cleared — {starGlyphs(CLEAR_STARS)}</Text>
           <Text style={styles.statusText}>
-            {chips > 0 ? `+${formatChips(chips)} chips. ` : ''}Keep going for {starGlyphs(STAR_COUNT)}? One bigger
+            {chips > 0 ? `+${formatChips(chips)} chips. ` : ''}Keep going for {starGlyphs(STAR_COUNT)}? One more
             grid — strikes carry over.
           </Text>
           <View style={styles.actionRow}>
@@ -306,7 +309,11 @@ export function CancelGridScreen({ mapId, level }: CancelGridScreenProps) {
     return null;
   }
 
-  const cardWidth = grid && board.width > 0 ? gridCardWidth(grid, board.width, board.height) : 0;
+  // The box's own padding and the grid label come off before the cards are sized.
+  const cardWidth =
+    grid && board.width > 0
+      ? gridCardWidth(grid, board.width - layout.screenPaddingH * 2, board.height - BOARD_LABEL_ROOM)
+      : 0;
   const passingBank = starBank && stars < CLEAR_STARS ? starBank : null;
 
   return (
