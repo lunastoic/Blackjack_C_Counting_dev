@@ -30,6 +30,7 @@ import { ModernPlaque } from '../../components/game/ModernPlaque';
 import { PayoutBanner } from '../../components/game/PayoutBanner';
 import { RegularInfoBar } from '../../components/game/RegularInfoBar';
 import { ShuffleCeremony } from '../../components/game/ShuffleCeremony';
+import { TableSpread } from '../../components/flash/FlashTutorial';
 import { StrategyChartModal } from '../../components/game/StrategyChartModal';
 import { TableCamera } from '../../components/game/TableCamera';
 import { TablePilesRow } from '../../components/game/TablePilesRow';
@@ -64,6 +65,9 @@ import {
 import { FEATURES } from '../../constants/features';
 import { mapUnlockCost } from '../../constants/mapUnlockCosts';
 import { formatChips } from '../../utils/format';
+
+/** The table's card spread stays clear of the kit tabs on the felt's edges. */
+const TABLE_SPREAD_INSET = 44;
 
 const RESULT_BADGE: Record<HandResult, { text: string; color: string }> = {
   blackjack: { text: 'BLACKJACK', color: colors.goldBright },
@@ -366,6 +370,8 @@ export default function GameScreen() {
             areaLabel={`DEALER${dealerSpeed !== 1 ? ` · ${dealerSpeed.toFixed(2)}×` : ''}`}
             cardGap={CARD_GAP}
             maxWidth={dealerRowWidth}
+            // Before the deal, the deck lies spread across the dealer's side of the felt.
+            emptyContent={phase === 'betting' && !isAutoplayRound ? <TableSpread width={width - TABLE_SPREAD_INSET * 2} /> : undefined}
           />
         </View>
 

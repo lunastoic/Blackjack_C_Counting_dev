@@ -24,6 +24,8 @@ interface DealerAreaProps {
   /** Side-by-side this far apart; see HandView. */
   readonly cardGap?: number;
   readonly maxWidth?: number;
+  /** Shown in place of the empty-hand label when there is no round (the game table's card spread). */
+  readonly emptyContent?: React.ReactNode;
 }
 
 /** The Modern label's line height; the total tag is centred on it. */
@@ -49,6 +51,7 @@ export function DealerArea({
   spacedCards = false,
   cardGap,
   maxWidth,
+  emptyContent,
 }: DealerAreaProps) {
   const modern = useModernUi();
   const labelTotal =
@@ -86,6 +89,8 @@ export function DealerArea({
           cardGap={cardGap}
           maxWidth={maxWidth}
         />
+      ) : emptyContent ? (
+        emptyContent
       ) : (
         <View style={styles.emptyHand}>
           <Text style={[styles.emptyHandText, modern && styles.emptyHandTextModern]}>

@@ -287,6 +287,22 @@ export function FlashTutorialDeck({
   );
 }
 
+/**
+ * The game table's spread: the same 52-card ribbon, laid across the dealer's
+ * side of the felt while the player bets. It fans out of the shoe spot and
+ * gathers back when the deal starts. Sized to the ribbon itself, no pile.
+ */
+export function TableSpread({ width }: { readonly width: number }) {
+  const height = SPREAD_DECK_BOTTOM - PILE_TOP;
+  return (
+    <View pointerEvents="none" style={[styles.tableSpread, { width, height }]}>
+      <View style={[styles.tableSpreadInner, { width, height: SPREAD_DECK_BOTTOM, top: -PILE_TOP }]}>
+        <RibbonSpread width={width} pile={{ x: width / 2, y: SPREAD_DECK_BOTTOM / 2 }} />
+      </View>
+    </View>
+  );
+}
+
 /** All 52 cards face up in a gentle ribbon, fanned out of / collected into the pile. */
 function RibbonSpread({ width, pile }: { width: number; pile: Point }) {
   const reducedMotion = useReducedMotion();
@@ -575,6 +591,14 @@ const styles = StyleSheet.create({
   area: {
     flex: 1,
     minHeight: 0,
+  },
+  tableSpread: {
+    alignSelf: 'center',
+    overflow: 'visible',
+  },
+  tableSpreadInner: {
+    position: 'absolute',
+    left: 0,
   },
   spreadSlot: {
     position: 'absolute',

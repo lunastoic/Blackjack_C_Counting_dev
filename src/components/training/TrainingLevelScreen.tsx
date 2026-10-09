@@ -502,14 +502,16 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
 
   function renderStage() {
     if (status === 'idle') {
-      return (
+      // No cards lie on a level's felt — the spread lives on the game table.
+      // Only the Hi-Lo primer deals its examples from a deck.
+      return inPrimer ? (
         <FlashTutorialDeck
-          beat={inPrimer ? tutorialStep : null}
+          beat={tutorialStep}
           gathered={gathered}
           width={width}
           letteringHeight={letteringHeight}
         />
-      );
+      ) : null;
     }
     switch (spec.mode) {
       case 'cardValue':
@@ -1187,9 +1189,8 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     paddingHorizontal: layout.screenPaddingH,
-    // The panel starts just above the house print, where the spread ribbon
-    // ends — the ribbon shows in full above it, as the cards do in play.
-    paddingTop: SPREAD_DECK_BOTTOM - spacing.xs,
+    // No ribbon above it any more: the brief takes the felt from the top.
+    paddingTop: spacing.sm,
   },
   /**
    * In play the question and its answers ride a little above the bottom edge —
