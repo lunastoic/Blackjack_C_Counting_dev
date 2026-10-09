@@ -11,7 +11,6 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
-  ZoomIn,
 } from 'react-native-reanimated';
 import { DECK_COVER_ART, REWARD_ART } from '../../assets/registry';
 import { CasinoMap } from '../../engine/betting/casino';
@@ -80,7 +79,6 @@ export function RewardRevealSheet({
   const haloStyle = useAnimatedStyle(() => ({
     shadowOpacity: 0.45 + halo.value * 0.45,
     shadowRadius: 16 + halo.value * 22,
-    transform: [{ scale: 1 + halo.value * 0.03 }],
   }));
 
   const rewards = mapRewards(map.id);
@@ -100,7 +98,7 @@ export function RewardRevealSheet({
         <Pressable style={StyleSheet.absoluteFill} accessibilityLabel="Close" onPress={onClose} />
         <Animated.View
           style={styles.sheet}
-          entering={reducedMotion ? undefined : ZoomIn.springify().damping(14)}
+          entering={reducedMotion ? undefined : FadeIn.duration(180)}
         >
           <ArcadePanel slab style={styles.panel}>
             <ArcadePlaque
