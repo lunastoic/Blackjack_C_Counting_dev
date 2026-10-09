@@ -1,21 +1,9 @@
 import { Image } from 'expo-image';
-import React, { useEffect } from 'react';
-import { Modal, Pressable, StyleSheet, Text } from 'react-native';
-import Animated, {
-  cancelAnimation,
-  Easing,
-  FadeIn,
-  FadeOut,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
+import React from 'react';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { DECK_COVER_ART, REWARD_ART } from '../../assets/registry';
 import { CasinoMap } from '../../engine/betting/casino';
 import { mapRewards, rewardChips, RewardSlot } from '../../engine/dojo';
-import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { colors, fonts, fontSizes, spacing } from '../../theme';
 import { ArcadeButton, ArcadePanel, ArcadePlaque } from '../arcade';
 import { formatChips } from '../../utils/format';
@@ -35,13 +23,11 @@ interface RewardRevealSheetProps {
   readonly onClose: () => void;
 }
 
-const HALO_MS = 1400;
-
 /**
  * A reward on the trail, opened. The gift holds the Ivory card back — Equip
  * deals it everywhere, OK just keeps it — and the money bag holds chips,
- * paid on Claim. Tapping a claimed reward shows what it gave. The halo
- * behind the art breathes while the reward is still to claim.
+ * paid on Claim. Tapping a claimed reward shows what it gave. A steady gold
+ * glow sits behind the art while the reward is still to claim.
  */
 export function RewardRevealSheet({
   visible,
@@ -53,34 +39,6 @@ export function RewardRevealSheet({
   onEquip,
   onClose,
 }: RewardRevealSheetProps) {
-  const reducedMotion = useReducedMotion();
-  const halo = useSharedValue(0);
-  const glowing = visible && !claimed;
-
-  useEffect(() => {
-    if (glowing && !reducedMotion) {
-      halo.set(
-        withRepeat(
-          withSequence(
-            withTiming(1, { duration: HALO_MS, easing: Easing.inOut(Easing.sin) }),
-            withTiming(0, { duration: HALO_MS, easing: Easing.inOut(Easing.sin) }),
-          ),
-          -1,
-          true,
-        ),
-      );
-    } else {
-      cancelAnimation(halo);
-      halo.set(glowing ? 0.6 : 0);
-    }
-    return () => cancelAnimation(halo);
-  }, [glowing, reducedMotion, halo]);
-
-  const haloStyle = useAnimatedStyle(() => ({
-    shadowOpacity: 0.45 + halo.value * 0.45,
-    shadowRadius: 16 + halo.value * 22,
-  }));
-
   const rewards = mapRewards(map.id);
   if (!rewards) {
     return null;
@@ -89,23 +47,17 @@ export function RewardRevealSheet({
   const chips = rewardChips(map.id);
 
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
-      <Animated.View
-        style={styles.root}
-        entering={reducedMotion ? undefined : FadeIn.duration(180)}
-        exiting={reducedMotion ? undefined : FadeOut.duration(160)}
-      >
+    // The system fade, nothing more: the pop-up appears in place — no zoom, no bounce.
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.root}>
         <Pressable style={StyleSheet.absoluteFill} accessibilityLabel="Close" onPress={onClose} />
-        <Animated.View
-          style={styles.sheet}
-          entering={reducedMotion ? undefined : FadeIn.duration(180)}
-        >
+        <View style={styles.sheet}>
           <ArcadePanel slab style={styles.panel}>
             <ArcadePlaque
               kicker={gift ? (claimed ? 'Gift · claimed' : 'Gift') : claimed ? 'Money bag · claimed' : 'Money bag'}
               title={map.name}
             />
-            <Animated.View style={[styles.artSlot, !claimed && styles.artGlow, haloStyle]}>
+            <View style={[styles.artSlot, !claimed && styles.artGlow]}>
               {gift ? (
                 <Image
                   source={DECK_COVER_ART[rewards.gift.cover][map.id]}
@@ -117,7 +69,7 @@ export function RewardRevealSheet({
               ) : (
                 <Image source={REWARD_ART.bag[map.id]} style={styles.art} contentFit="contain" transition={160} />
               )}
-            </Animated.View>
+            </View>
             {gift ? (
               <>
                 <Text style={styles.title}>{rewards.gift.name}</Text>
@@ -157,8 +109,8 @@ export function RewardRevealSheet({
               </>
             )}
           </ArcadePanel>
-        </Animated.View>
-      </Animated.View>
+        </View>
+      </View>
     </Modal>
   );
 }
@@ -189,8 +141,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     shadowColor: colors.arcadeGold,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
+    shadowOpacity: 0.7,
+    shadowRadius: 24,
   },
   /** Still to claim: a gold flare behind the prize. */
   artGlow: {

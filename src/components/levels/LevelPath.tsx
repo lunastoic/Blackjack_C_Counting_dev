@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useEffect, useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -650,36 +650,9 @@ function RewardNode({
   labelWidth,
   onPress,
 }: RewardNodeProps) {
-  const reducedMotion = useReducedMotion();
   const rewards = mapRewards(mapId);
   const ready = state === 'ready';
   const opened = state === 'opened';
-
-  // Ready rewards breathe like the START node, so the eye finds them.
-  const breath = useSharedValue(0);
-  useEffect(() => {
-    if (ready && !reducedMotion) {
-      breath.set(
-        withRepeat(
-          withSequence(
-            withTiming(1, { duration: MODERN_BREATH_MS, easing: Easing.inOut(Easing.sin) }),
-            withTiming(0, { duration: MODERN_BREATH_MS, easing: Easing.inOut(Easing.sin) }),
-          ),
-          -1,
-          true,
-        ),
-      );
-    } else {
-      cancelAnimation(breath);
-      breath.set(0);
-    }
-    return () => cancelAnimation(breath);
-  }, [ready, reducedMotion, breath]);
-  const breathStyle = useAnimatedStyle(() => ({
-    // The glow breathes; the reward itself holds still.
-    shadowOpacity: 0.35 + breath.value * 0.55,
-    shadowRadius: 5 + breath.value * 11,
-  }));
 
   if (!rewards) {
     return null;
@@ -699,7 +672,9 @@ function RewardNode({
           : { right: pathWidth - center.x - size / 2, flexDirection: 'row-reverse' },
       ]}
     >
-      <PressableScale
+      {/* A plain press: the reward holds still when tapped — no shrink, no bounce. */}
+      <Pressable
+        accessibilityRole="button"
         accessibilityLabel={
           opened
             ? `${what}, claimed`
@@ -715,18 +690,17 @@ function RewardNode({
         {ready ? (
           // The gold flare: a soft disc of light behind the wrap, so a reward
           // waiting to be claimed reads as something to tap.
-          <Animated.View
+          <View
             pointerEvents="none"
             style={[
               styles.rewardFlare,
-              breathStyle,
               { width: artSize * 1.3, height: artSize * 1.3, borderRadius: artSize },
             ]}
           >
             <View style={[styles.rewardFlareCore, { borderRadius: artSize }]} />
-          </Animated.View>
+          </View>
         ) : null}
-        <Animated.View style={[styles.rewardGlow, ready && breathStyle, { width: size, height: size }]}>
+        <View style={[styles.rewardGlow, ready && styles.rewardGlowReady, { width: size, height: size }]}>
           {/* The wrap as an ink silhouette with a rim: gold until it is claimed, grey after. */}
           <View style={[{ width: artSize, height: artSize }, opened && styles.rewardClaimed]}>
             <Image
@@ -757,11 +731,11 @@ function RewardNode({
               </Text>
             </View>
           </View>
-        </Animated.View>
+        </View>
         {state === 'locked' ? (
           <ArcadeBadge kind="lock" style={styles.rewardBadge} />
         ) : null}
-      </PressableScale>
+      </Pressable>
       <View
         style={[
           styles.rewardPill,
@@ -1133,7 +1107,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  /** The gold breath on a reward that is ready to open. */
   rewardGlow: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -1141,6 +1114,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0,
     shadowRadius: 0,
+  },
+  /** A steady gold glow on a reward that is ready to claim. */
+  rewardGlowReady: {
+    shadowOpacity: 0.7,
+    shadowRadius: 10,
   },
   rewardRimLocked: {
     opacity: 0.55,
