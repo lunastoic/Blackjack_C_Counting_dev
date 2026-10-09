@@ -583,6 +583,7 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
             showScale={spec.showDeckScale}
             // Zero Hero keeps its stop a secret: no card counter.
             showProgress={!asksDecks && !roundsSpec}
+            realPiles={roundsSpec !== null}
           />
         );
       case 'tableCount': {

@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { StreamFrame } from '../../engine/dojo';
 import { colors, fontWeights, spacing } from '../../theme';
 import { CARD_ASPECT, PlayingCard } from '../game/PlayingCard';
+import { CardPile } from './CardPile';
 import { DeckGauge } from './DeckGauge';
 
 interface CountStreamStageProps {
@@ -15,6 +16,11 @@ interface CountStreamStageProps {
   readonly showScale: boolean;
   /** "CARD 17 OF 52" — hidden when the level asks for deck estimates. */
   readonly showProgress: boolean;
+  /**
+   * Draw the shoe and discards as real face-down piles instead of the
+   * measuring gauges (the deck-estimation levels keep the gauges).
+   */
+  readonly realPiles?: boolean;
 }
 
 /**
@@ -28,6 +34,7 @@ export function CountStreamStage({
   speed,
   showScale,
   showProgress,
+  realPiles = false,
 }: CountStreamStageProps) {
   const drawn = frame?.cardsDrawn ?? 0;
   const remaining = frame?.cardsRemaining ?? totalCards;
@@ -37,13 +44,17 @@ export function CountStreamStage({
   return (
     <View style={styles.stage}>
       <View style={styles.row}>
-        <DeckGauge
-          variant="discard"
-          count={drawn}
-          totalCards={totalCards}
-          showScale={showScale}
-          label="DISCARDS"
-        />
+        {realPiles ? (
+          <CardPile variant="discard" count={drawn} totalCards={totalCards} label="DISCARDS" />
+        ) : (
+          <DeckGauge
+            variant="discard"
+            count={drawn}
+            totalCards={totalCards}
+            showScale={showScale}
+            label="DISCARDS"
+          />
+        )}
         <View style={[styles.cardSlot, { width: cardWidth + spacing.lg, height: cardHeight + spacing.lg }]}>
           {card ? (
             <PlayingCard
@@ -56,13 +67,17 @@ export function CountStreamStage({
             />
           ) : null}
         </View>
-        <DeckGauge
-          variant="shoe"
-          count={remaining}
-          totalCards={totalCards}
-          showScale={showScale}
-          label="SHOE"
-        />
+        {realPiles ? (
+          <CardPile variant="shoe" count={remaining} totalCards={totalCards} label="SHOE" />
+        ) : (
+          <DeckGauge
+            variant="shoe"
+            count={remaining}
+            totalCards={totalCards}
+            showScale={showScale}
+            label="SHOE"
+          />
+        )}
       </View>
       <Text style={styles.caption}>
         {showProgress && frame ? `CARD ${drawn} OF ${totalCards}` : ' '}
