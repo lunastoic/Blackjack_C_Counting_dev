@@ -24,7 +24,7 @@ import { PrimaryButton } from '../common/PrimaryButton';
 import { FlashPanel } from './FlashPanel';
 
 /**
- * Five-beat Hi-Lo primer, dealt from a real deck. While the table idles, all
+ * Three-beat Hi-Lo primer (−1, 0, +1), dealt from a real deck. While the table idles, all
  * 52 cards lie fanned in a ribbon across the felt. Begin sweeps them into one
  * pile at the dealer spot; each beat then pulls its cards out of the pile —
  * the value beats every card of their ranks, all four suits, laid out apart
@@ -32,7 +32,7 @@ import { FlashPanel } from './FlashPanel';
  * under it — lets them breathe their glow, and slides them back before the
  * next group comes out.
  */
-export const TUTORIAL_STEPS = 5;
+export const TUTORIAL_STEPS = 3;
 
 /** One half-breathe of the card glow. Calm, not a strobe. */
 const PULSE_HALF_MS = 750;
@@ -143,22 +143,6 @@ const BEATS: readonly TutorialBeat[] = [
     title: 'These count +1',
     body: 'Low cards. Green glow.',
     color: colors.trainingPlus,
-  },
-  {
-    // The low cards you counted out — they drove the count up to +7.
-    ranks: ['2', '3', '4', '5', '6'],
-    title: 'High count — bet big',
-    body: 'Small cards gone, tens and aces left. Blackjacks pay you — raise your bets.',
-    color: colors.success,
-    badge: '+7',
-  },
-  {
-    // The high cards already dealt — they dragged the count down to −7.
-    ranks: ['A', 'K', 'Q', 'J', '10'],
-    title: 'Low count — bet small',
-    body: 'High cards gone, small ones left. The house has the edge — bet the minimum.',
-    color: colors.error,
-    badge: '−7',
   },
 ];
 
