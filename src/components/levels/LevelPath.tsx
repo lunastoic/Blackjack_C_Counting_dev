@@ -676,9 +676,9 @@ function RewardNode({
     return () => cancelAnimation(breath);
   }, [ready, reducedMotion, breath]);
   const breathStyle = useAnimatedStyle(() => ({
+    // The glow breathes; the reward itself holds still.
     shadowOpacity: 0.35 + breath.value * 0.55,
     shadowRadius: 5 + breath.value * 11,
-    transform: [{ scale: 1 + breath.value * 0.06 }],
   }));
 
   if (!rewards) {
