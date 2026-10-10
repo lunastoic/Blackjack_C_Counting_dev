@@ -3,12 +3,12 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
+  FadeOut,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   withTiming,
-  ZoomOut,
 } from 'react-native-reanimated';
 import { CHIP_RUSH_STACKS } from '../../engine/dojo';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
@@ -48,13 +48,20 @@ function LaneCardView({ card, laneWidth, front }: LaneCardViewProps) {
   const style = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }));
 
   return (
+    // The exit fade sits on a still wrapper: a layout animation on the sliding view
+    // itself would fight its transform (Reanimated warns about exactly that).
     <Animated.View
-      exiting={reducedMotion ? undefined : ZoomOut.duration(160)}
-      style={[styles.card, front && styles.cardFront, style]}
-      accessibilityLabel={`True count ${formatCount(card.trueCount)}${front ? ', bet on this one' : ''}`}
+      exiting={reducedMotion ? undefined : FadeOut.duration(160)}
+      style={styles.cardTrack}
+      pointerEvents="none"
     >
-      <Text style={styles.cardKicker}>TRUE</Text>
-      <Text style={styles.cardValue}>{formatCount(card.trueCount)}</Text>
+      <Animated.View
+        style={[styles.card, front && styles.cardFront, style]}
+        accessibilityLabel={`True count ${formatCount(card.trueCount)}${front ? ', bet on this one' : ''}`}
+      >
+        <Text style={styles.cardKicker}>TRUE</Text>
+        <Text style={styles.cardValue}>{formatCount(card.trueCount)}</Text>
+      </Animated.View>
     </Animated.View>
   );
 }
@@ -187,6 +194,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: EDGE_WIDTH,
     backgroundColor: '#E0524D',
+  },
+  cardTrack: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
   },
   card: {
     position: 'absolute',

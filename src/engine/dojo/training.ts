@@ -611,21 +611,7 @@ export interface TrainingMapSpec {
   readonly levels: readonly TrainingLevelSpec[];
 }
 
-const ALL_CORRECT = (count: number): PassRule => ({
-  minCorrect: count,
-  maxRunningCountMisses: 0,
-});
-
 const RC: readonly QuestionKind[] = ['runningCount'];
-const RC_DECKS: readonly QuestionKind[] = ['runningCount', 'decksRemaining'];
-const RC_DECKS_TC: readonly QuestionKind[] = ['runningCount', 'decksRemaining', 'trueCount'];
-/** Every question a counter answers at the table, the bet included. */
-const RC_DECKS_TC_BET: readonly QuestionKind[] = [
-  'runningCount',
-  'decksRemaining',
-  'trueCount',
-  'betUnits',
-];
 
 /** Total question checkpoints in a level, including the final-count question. */
 export function totalCheckpoints(spec: CheckpointLevelSpec): number {

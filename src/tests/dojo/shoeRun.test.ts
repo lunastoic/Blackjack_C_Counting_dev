@@ -14,6 +14,7 @@ import {
   trainingLevelSpec,
 } from '../../engine/dojo';
 import { cardsRemaining } from '../../engine/shoe/shoe';
+import { recommendForHand } from '../../engine/strategy/recommend';
 import { cardsOf, riggedShoe, seededRng } from '../../engine/testing/fixtures';
 import { __resetPersistenceForTests } from '../../persistence/hydrate';
 import { createDefaultSave } from '../../persistence/defaults';
@@ -55,10 +56,10 @@ describe('beat the shoe — rules', () => {
   });
 
   it('stars: one for finishing, the clear at its accuracy, three at perfect; none when backed off', () => {
-    const spec = trainingLevelSpec(5, 6) as ShoeRunLevel;
+    const spec = trainingLevelSpec(6, 6) as ShoeRunLevel;
     expect(shoeRunStars(spec, 0.5, false)).toBe(1);
-    expect(shoeRunStars(spec, 0.8, false)).toBe(2);
-    expect(shoeRunStars(spec, 0.95, false)).toBe(3);
+    expect(shoeRunStars(spec, spec.clearAccuracy, false)).toBe(2);
+    expect(shoeRunStars(spec, spec.perfectAccuracy, false)).toBe(3);
     expect(shoeRunStars(spec, 1, true)).toBe(0);
     expect(scoreCalls([]).accuracy).toBe(1);
     expect(scoreCalls([{ kind: 'bet', right: true }, { kind: 'count', right: false }])).toMatchObject({
@@ -79,8 +80,8 @@ describe('beat the shoe — rules', () => {
 
 describe('beat the shoe — store', () => {
   it('every boss played perfectly earns three stars and records the run', () => {
-    // Luna Luxe's shoe is its table night at level 5; the rest end on one.
-    for (const [mapId, level] of [[1, 5], [2, 6], [3, 6], [4, 6], [5, 6], [6, 6]]) {
+    // Every played shoe: the table nights, Io's Play and Count, and the two played bosses.
+    for (const [mapId, level] of [[1, 5], [2, 4], [2, 5], [2, 6], [3, 5], [4, 5], [5, 5], [6, 5], [6, 6]]) {
       playBossPerfectly(mapId, level);
       expect(boss().backedOff).toBe(false);
       expect(boss().score?.accuracy).toBe(1);
@@ -150,7 +151,7 @@ describe('beat the shoe — store', () => {
   });
 
   it('a leap from one unit to eight gets the player backed off with no stars', () => {
-    boss().load(5, 6);
+    boss().load(6, 6);
     boss().begin();
     expect(boss().status).toBe('bet');
     boss().placeBet(1);
@@ -253,5 +254,68 @@ describe('beat the shoe — weak spots', () => {
     expect(spot.reasonCode).toBe('INDEX_PLAY');
     expect(spot.trueCount).toEqual(expect.any(Number));
     expect(boss().calls.some((call) => call.kind === 'play' && !call.right)).toBe(true);
+  });
+
+  it('graded tables mark every move against the book, and a third bad move ends the Clean Shoe', () => {
+    boss().load(2, 6);
+    boss().begin();
+    let guard = 0;
+    while (boss().status !== 'done' && guard++ < 500) {
+      const state = boss();
+      if (state.status === 'question') {
+        state.answer(state.question!.correct);
+      } else if (state.status === 'bet') {
+        state.placeBet(1);
+      } else if (state.status === 'insurance') {
+        state.decideInsurance(false);
+      } else if (state.status === 'play') {
+        const hand = activeHand(state.round!)!;
+        const book = recommendForHand(
+          hand,
+          state.round!.dealerHand.cards[1].rank,
+          { canDouble: state.canAct('double'), canSplit: state.canAct('split') },
+          2,
+        );
+        const preferred = state.canAct(book.preferredAction) ? book.preferredAction : (book.fallbackAction ?? 'hit');
+        // Always the wrong one of hit and stand.
+        state.act(preferred === 'stand' ? 'hit' : 'stand');
+      } else {
+        state.nextHand();
+      }
+    }
+    expect(boss().status).toBe('done');
+    const moveMisses = boss().calls.filter((call) => call.kind === 'play' && !call.right).length;
+    expect(moveMisses).toBe(3);
+    expect(boss().hands).toBeLessThan(40);
+    expect(boss().stars).toBeLessThan(2);
+  });
+
+  it('Play and Count asks the count every three to five hands', () => {
+    boss().load(2, 4);
+    boss().begin();
+    const askedAt: number[] = [];
+    let guard = 0;
+    while (boss().status !== 'done' && guard++ < 1000) {
+      const state = boss();
+      if (state.status === 'question') {
+        askedAt.push(state.hands);
+        state.answer(state.question!.correct);
+      } else if (state.status === 'bet') {
+        state.placeBet(1);
+      } else if (state.status === 'insurance') {
+        state.decideInsurance(false);
+      } else if (state.status === 'play') {
+        state.act('stand');
+      } else {
+        state.nextHand();
+      }
+    }
+    expect(askedAt.length).toBeGreaterThanOrEqual(3);
+    expect(askedAt[0]).toBeGreaterThanOrEqual(3);
+    expect(askedAt[0]).toBeLessThanOrEqual(5);
+    for (let i = 1; i < askedAt.length; i++) {
+      expect(askedAt[i] - askedAt[i - 1]).toBeGreaterThanOrEqual(3);
+      expect(askedAt[i] - askedAt[i - 1]).toBeLessThanOrEqual(5);
+    }
   });
 });

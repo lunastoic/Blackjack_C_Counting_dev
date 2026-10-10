@@ -186,7 +186,8 @@ const styles = StyleSheet.create({
     maxWidth: 300,
     paddingTop: spacing.md,
     paddingHorizontal: spacing.sm,
-    minHeight: 150,
+    // Kept low enough that three seats and a typed answer still fit on one screen.
+    minHeight: 120,
     flexShrink: 0,
   },
   dealerArea: {
@@ -210,7 +211,7 @@ const styles = StyleSheet.create({
   seat: {
     alignItems: 'center',
     gap: spacing.xs,
-    minHeight: 150,
+    minHeight: 110,
     justifyContent: 'flex-end',
   },
   hands: {

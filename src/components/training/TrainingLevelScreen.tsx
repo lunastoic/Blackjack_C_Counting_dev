@@ -1,13 +1,13 @@
-import { Image } from 'expo-image';
-import { Redirect, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MODERN_TABLE_FELTS, TABLE_FELTS } from '../../assets/registry';
-import { mapById } from '../../engine/betting/casino';
-import { hiLoValue } from '../../engine/cards/card';
-import { CARDS_PER_DECK } from '../../engine/cards/deck';
+import { Image } from "expo-image";
+import { Redirect, useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
+import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { MODERN_TABLE_FELTS, TABLE_FELTS } from "../../assets/registry";
+import { mapById } from "../../engine/betting/casino";
+import { hiLoValue } from "../../engine/cards/card";
+import { CARDS_PER_DECK } from "../../engine/cards/deck";
 import {
   CLEAR_STARS,
   decisionLabel,
@@ -34,52 +34,67 @@ import {
   trainingLevelSpec,
   trainingLevelsForMap,
   TrainingLevelSpec,
-} from '../../engine/dojo';
-import { BET_SPREAD_MAX } from '../../engine/betting/betRamp';
-import { useModernUi } from '../../hooks/useModernUi';
-import { playSound } from '../../services/audio';
-import { haptics } from '../../services/haptics';
-import { TrainingBest, useDojoStore } from '../../stores/dojoStore';
-import { FLASH_DEBUG_AVAILABLE, useFlashDebugStore } from '../../stores/flashDebugStore';
-import { StreakItem, TrainingQuestion, useTrainingStore } from '../../stores/trainingStore';
-import { colors, fontSizes, fontWeights, layout, spacing } from '../../theme';
-import { formatCount } from '../../utils/countCoach';
-import { formatChips } from '../../utils/format';
-import { ArcadeLevelBrief } from '../arcade/ArcadeLevelBrief';
-import { PrimaryButton } from '../common/PrimaryButton';
-import { SecondaryButton } from '../common/SecondaryButton';
-import { FlashCountReview } from '../flash/FlashCountReview';
-import { FlashLevelCompleteOverlay } from '../flash/FlashLevelCompleteOverlay';
-import { FlashPanel, FlashPanelChip, FlashPanelStarChip } from '../flash/FlashPanel';
+} from "../../engine/dojo";
+import { BET_SPREAD_MAX } from "../../engine/betting/betRamp";
+import { useModernUi } from "../../hooks/useModernUi";
+import { playSound } from "../../services/audio";
+import { haptics } from "../../services/haptics";
+import { TrainingBest, useDojoStore } from "../../stores/dojoStore";
+import {
+  FLASH_DEBUG_AVAILABLE,
+  useFlashDebugStore,
+} from "../../stores/flashDebugStore";
+import {
+  StreakItem,
+  TrainingQuestion,
+  useTrainingStore,
+} from "../../stores/trainingStore";
+import { colors, fontSizes, fontWeights, layout, spacing } from "../../theme";
+import { formatCount } from "../../utils/countCoach";
+import { formatChips } from "../../utils/format";
+import { ArcadeLevelBrief } from "../arcade/ArcadeLevelBrief";
+import { PrimaryButton } from "../common/PrimaryButton";
+import { SecondaryButton } from "../common/SecondaryButton";
+import { FlashCountReview } from "../flash/FlashCountReview";
+import { FlashLevelCompleteOverlay } from "../flash/FlashLevelCompleteOverlay";
+import {
+  FlashPanel,
+  FlashPanelChip,
+  FlashPanelStarChip,
+} from "../flash/FlashPanel";
 import {
   FlashTutorialDeck,
   FlashTutorialPanel,
   SPREAD_DECK_BOTTOM,
   TUTORIAL_STEPS,
   tutorialStageHeight,
-} from '../flash/FlashTutorial';
-import { FeltMarkings, feltLetteringHeight } from '../game/FeltMarkings';
-import { DEALT_CARD_WIDTH } from '../game/PlayingCard';
-import { GameSettingsSheet } from '../game/GameSettingsSheet';
-import { GameTableHud } from '../game/GameTableHud';
-import { TableCamera } from '../game/TableCamera';
-import { AccuracyRows, accuracyRows } from './AccuracyRows';
-import { BetSizeStage } from './BetSizeStage';
-import { ChoiceGrid, CountPad } from './AnswerPads';
-import { CardsStage } from './CardsStage';
-import { ComboCallout } from './ComboCallout';
-import { IndexPlayStage } from './IndexPlayStage';
-import { CountEntry } from './CountEntry';
-import { CountStreamStage } from './CountStreamStage';
-import { DeckEstimateStage } from './DeckEstimateStage';
-import { LevelTutorialPanel } from './LevelTutorialPanel';
-import { RainStage } from './RainStage';
-import { StrategyStage } from './StrategyStage';
-import { StarBankToast } from './StarBankToast';
-import { TableStage } from './TableStage';
-import { TRAINING_METER_HEIGHT, TrainingMeter } from './TrainingMeter';
-import { TrueCountStage } from './TrueCountStage';
-import { StatusCell, TRAINING_STRIP_HEIGHT, TrainingStatusStrip } from './TrainingStatusStrip';
+} from "../flash/FlashTutorial";
+import { FeltMarkings, feltLetteringHeight } from "../game/FeltMarkings";
+import { DEALT_CARD_WIDTH } from "../game/PlayingCard";
+import { GameSettingsSheet } from "../game/GameSettingsSheet";
+import { GameTableHud } from "../game/GameTableHud";
+import { TableCamera } from "../game/TableCamera";
+import { AccuracyRows, accuracyRows } from "./AccuracyRows";
+import { BetSizeStage } from "./BetSizeStage";
+import { ChoiceGrid, CountPad } from "./AnswerPads";
+import { CardsStage } from "./CardsStage";
+import { ComboCallout } from "./ComboCallout";
+import { IndexPlayStage } from "./IndexPlayStage";
+import { CountEntry } from "./CountEntry";
+import { CountStreamStage } from "./CountStreamStage";
+import { DeckEstimateStage } from "./DeckEstimateStage";
+import { LevelTutorialPanel } from "./LevelTutorialPanel";
+import { RainStage } from "./RainStage";
+import { StrategyStage } from "./StrategyStage";
+import { StarBankToast } from "./StarBankToast";
+import { TableStage } from "./TableStage";
+import { TRAINING_METER_HEIGHT, TrainingMeter } from "./TrainingMeter";
+import { TrueCountStage } from "./TrueCountStage";
+import {
+  StatusCell,
+  TRAINING_STRIP_HEIGHT,
+  TrainingStatusStrip,
+} from "./TrainingStatusStrip";
 import {
   deckLabel,
   formatAnswer,
@@ -92,7 +107,7 @@ import {
   starTargetsLine,
   stretchLine,
   stretchRulesLine,
-} from './copy';
+} from "./copy";
 
 interface TrainingLevelScreenProps {
   readonly mapId: number;
@@ -118,36 +133,41 @@ const ENTRY_BOUNDS: Record<QuestionKind, { min: number; max: number }> = {
   insurance: { min: 10, max: 11 },
 };
 
-function streakPrompt(spec: TrainingLevelSpec, item: StreakItem | null): string {
+function streakPrompt(
+  spec: TrainingLevelSpec,
+  item: StreakItem | null,
+): string {
   switch (spec.mode) {
-    case 'indexPlay':
-      return item?.kind === 'indexPlay' && item.item.question === 'insurance' ? 'INSURANCE?' : 'YOUR PLAY?';
-    case 'strategy':
-      return 'YOUR PLAY?';
-    case 'cardValue':
-      return 'CARD VALUE?';
-    case 'cardGroup':
-      return 'NET VALUE OF THE GROUP?';
-    case 'deckEstimate':
-      return 'HOW MANY DECKS REMAIN?';
-    case 'trueCount':
-      return 'WHAT’S THE TRUE COUNT?';
-    case 'betSize':
-      return 'WHAT’S YOUR BET?';
+    case "indexPlay":
+      return item?.kind === "indexPlay" && item.item.question === "insurance"
+        ? "INSURANCE?"
+        : "YOUR PLAY?";
+    case "strategy":
+      return "YOUR PLAY?";
+    case "cardValue":
+      return "CARD VALUE?";
+    case "cardGroup":
+      return "NET VALUE OF THE GROUP?";
+    case "deckEstimate":
+      return "HOW MANY DECKS REMAIN?";
+    case "trueCount":
+      return "WHAT’S THE TRUE COUNT?";
+    case "betSize":
+      return "WHAT’S YOUR BET?";
     default:
-      return '';
+      return "";
   }
 }
 
 /** The kind a streak item answers, for formatting. */
 function streakKind(item: StreakItem | null): QuestionKind {
   switch (item?.kind) {
-    case 'deckEstimate':
-      return 'decksRemaining';
-    case 'betSize':
-      return 'betUnits';
+    case "deckEstimate":
+      return "decksRemaining";
+    case "betSize":
+      return "betUnits";
     default:
-      return 'runningCount';
+      return "runningCount";
   }
 }
 
@@ -155,8 +175,13 @@ function streakKind(item: StreakItem | null): QuestionKind {
  * "3 CARDS" — or, on the first group of a new stage, "NOW 3 CARDS!" so the
  * step up is called out as it lands.
  */
-function groupCaption(stageLength: number | undefined, streak: number, size: number): string {
-  const stepUp = stageLength !== undefined && streak > 0 && streak % stageLength === 0;
+function groupCaption(
+  stageLength: number | undefined,
+  streak: number,
+  size: number,
+): string {
+  const stepUp =
+    stageLength !== undefined && streak > 0 && streak % stageLength === 0;
   return stepUp ? `NICE! NOW ${size} CARDS` : `${size} CARDS`;
 }
 
@@ -167,22 +192,30 @@ interface DealerLine {
 }
 
 const DEALER_LINES: readonly DealerLine[] = [
-  { question: 'Where you visiting from tonight?', answers: ['In town', 'Out of town'] },
-  { question: 'Can I get you a drink?', answers: ['Sure', 'I’m good'] },
-  { question: 'Playing the big game later?', answers: ['Maybe', 'Not tonight'] },
-  { question: 'Lucky shoe so far?', answers: ['Not bad', 'Could be better'] },
-  { question: 'First time at Kepler?', answers: ['Yes', 'No'] },
+  {
+    question: "Where you visiting from tonight?",
+    answers: ["In town", "Out of town"],
+  },
+  { question: "Can I get you a drink?", answers: ["Sure", "I’m good"] },
+  {
+    question: "Playing the big game later?",
+    answers: ["Maybe", "Not tonight"],
+  },
+  { question: "Lucky shoe so far?", answers: ["Not bad", "Could be better"] },
+  { question: "First time at Kepler?", answers: ["Yes", "No"] },
 ];
 
 /** The brief's personal-best pill: "Best 27 right · combo 12". */
 function bestLine(best: TrainingBest, checkpoints: boolean): string {
-  const run = `Best ${best.run} ${checkpoints ? 'checks' : 'right'}`;
+  const run = `Best ${best.run} ${checkpoints ? "checks" : "right"}`;
   return best.combo > 0 ? `${run} · combo ${best.combo}` : run;
 }
 
 /** A bet's nudge keys read ±1, not "±1 units". */
-function entryKeyFormat(kind: QuestionKind): ((value: number) => string) | undefined {
-  return kind === 'betUnits' ? formatCount : undefined;
+function entryKeyFormat(
+  kind: QuestionKind,
+): ((value: number) => string) | undefined {
+  return kind === "betUnits" ? formatCount : undefined;
 }
 
 /**
@@ -191,24 +224,33 @@ function entryKeyFormat(kind: QuestionKind): ((value: number) => string) | undef
  * question, and the feedback. The only clock is the answer meter under the
  * status strip.
  */
-export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreenProps) {
+export function TrainingLevelScreen({
+  mapId,
+  level,
+  drill,
+}: TrainingLevelScreenProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const map = mapById(mapId);
   // Clearing the ladder opens the next casino; this one's table was open all along.
   const nextMap = mapById(mapId + 1);
-  const valid = map !== undefined && (drill !== undefined || isFlashLevel(level));
+  const valid =
+    map !== undefined && (drill !== undefined || isFlashLevel(level));
 
   const load = useTrainingStore((state) => state.load);
   const loadPractice = useTrainingStore((state) => state.loadPractice);
   const reset = useTrainingStore((state) => state.reset);
   const begin = useTrainingStore((state) => state.begin);
   const answer = useTrainingStore((state) => state.answer);
-  const continueAfterMiss = useTrainingStore((state) => state.continueAfterMiss);
+  const continueAfterMiss = useTrainingStore(
+    (state) => state.continueAfterMiss,
+  );
   const keepGoing = useTrainingStore((state) => state.keepGoing);
   const stopRun = useTrainingStore((state) => state.stopRun);
-  const acknowledgeCountTip = useTrainingStore((state) => state.acknowledgeCountTip);
+  const acknowledgeCountTip = useTrainingStore(
+    (state) => state.acknowledgeCountTip,
+  );
   const loadedMapId = useTrainingStore((state) => state.mapId);
   const loadedLevel = useTrainingStore((state) => state.level);
   const storeStatus = useTrainingStore((state) => state.status);
@@ -239,18 +281,29 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
   const bestSerial = useTrainingStore((state) => state.bestSerial);
   const runIsBest = useTrainingStore((state) => state.runIsBest);
   const comboIsBest = useTrainingStore((state) => state.comboIsBest);
-  const levelBest = useDojoStore((state) => state.flashBests[flashLevelKey(mapId, level)]);
+  const levelBest = useDojoStore(
+    (state) => state.flashBests[flashLevelKey(mapId, level)],
+  );
   const tableOpen = useDojoStore((state) => state.isMapFlashComplete(mapId));
-  const cleared = useDojoStore((state) => isFlashLevelDone(state.flashLevels, mapId, level));
+  const cleared = useDojoStore((state) =>
+    isFlashLevelDone(state.flashLevels, mapId, level),
+  );
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   /** Distraction Stages, third star: the dealer's chit-chat, answered before the next check. */
-  const [chat, setChat] = useState<{ readonly hand: number; readonly line: DealerLine } | null>(null);
+  const [chat, setChat] = useState<{
+    readonly hand: number;
+    readonly line: DealerLine;
+  } | null>(null);
   const [chattedHand, setChattedHand] = useState(0);
   const modern = useModernUi();
-  const tutorialEveryLevel = useFlashDebugStore((state) => state.tutorialEveryLevel);
+  const tutorialEveryLevel = useFlashDebugStore(
+    (state) => state.tutorialEveryLevel,
+  );
   // Idle felt: the ribbon spread, the Hi-Lo primer beats, or the level's own slides.
-  const [idleStage, setIdleStage] = useState<'spread' | 'primer' | 'slides'>('spread');
+  const [idleStage, setIdleStage] = useState<"spread" | "primer" | "slides">(
+    "spread",
+  );
   const [tutorialStep, setTutorialStep] = useState(0);
   const [hasBegun, setHasBegun] = useState(false);
 
@@ -269,37 +322,39 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
   }, [valid, mapId, level, drill, load, loadPractice, reset]);
 
   // Until the store points at this level, the felt reads as idle.
-  const synced = drill !== undefined || (loadedMapId === mapId && loadedLevel === level);
-  const status = synced ? storeStatus : 'idle';
+  const synced =
+    drill !== undefined || (loadedMapId === mapId && loadedLevel === level);
+  const status = synced ? storeStatus : "idle";
 
   // Whenever the table returns to idle (fail, replay), the ribbon lies back out.
   const [prevStatus, setPrevStatus] = useState(status);
   if (prevStatus !== status) {
     setPrevStatus(status);
-    if (status === 'idle') {
-      setIdleStage('spread');
+    if (status === "idle") {
+      setIdleStage("spread");
       setTutorialStep(0);
     }
   }
 
   // A star banked in passing (the first): a pill over the felt. The second
   // pauses the run on its own panel and the third ends it, so neither needs one.
-  const passingBank = synced && starBank && !isClearingStars(starBank.stars) ? starBank : null;
+  const passingBank =
+    synced && starBank && !isClearingStars(starBank.stars) ? starBank : null;
   const lastStarChips = starBank?.chips ?? 0;
 
   // Casino distractions: the house calls the results out loud.
-  const settled = frame?.beat === 'settle' ? frame : null;
+  const settled = frame?.beat === "settle" ? frame : null;
   useEffect(() => {
     if (!settled) {
       return;
     }
     const results = settled.table.seats.flatMap((seat) => seat.results);
-    if (results.some((result) => result === 'win' || result === 'blackjack')) {
-      playSound('win');
-    } else if (results.some((result) => result === 'push')) {
-      playSound('push');
+    if (results.some((result) => result === "win" || result === "blackjack")) {
+      playSound("win");
+    } else if (results.some((result) => result === "push")) {
+      playSound("push");
     } else if (results.length > 0) {
-      playSound('loss');
+      playSound("loss");
     }
   }, [settled]);
 
@@ -307,43 +362,64 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
     return <Redirect href="/" />;
   }
 
-  const spec = drill ? previewDrillSpec(drill) : trainingLevelSpec(mapId, level);
+  const spec = drill
+    ? previewDrillSpec(drill)
+    : trainingLevelSpec(mapId, level);
   const speed = speedProfile(spec.speed);
   const checkpointSpec = isCheckpointLevel(spec) ? spec : null;
   const streakSpec = isStreakLevel(spec) ? spec : null;
-  const isExam = checkpointSpec?.mode === 'tableCount' && checkpointSpec.exam;
-  const rain = spec.mode === 'countStream' && spec.presentation === 'rain';
+  const isExam = checkpointSpec?.mode === "tableCount" && checkpointSpec.exam;
+  const rain = spec.mode === "countStream" && spec.presentation === "rain";
   /** Staged drills: the stage on now, and a call-out on its first question. */
   const stageLength = streakSpec?.stageLength;
   const stageNumber = stageLength ? stageIndexFor(spec, streak) + 1 : 0;
   const stageBanner =
-    stageLength && streak > 0 && streak % stageLength === 0 && streak < stageLength * 3
-      ? spec.mode === 'strategy'
-        ? `NICE! NOW ${['HARD', 'SOFT', 'PAIRS'][stageNumber - 1] ?? ''} HANDS`.replace('NOW PAIRS HANDS', 'NOW PAIRS')
+    stageLength &&
+    streak > 0 &&
+    streak % stageLength === 0 &&
+    streak < stageLength * 3
+      ? spec.mode === "strategy"
+        ? `NICE! NOW ${["HARD", "SOFT", "PAIRS"][stageNumber - 1] ?? ""} HANDS`.replace(
+            "NOW PAIRS HANDS",
+            "NOW PAIRS",
+          )
         : `NICE! STAGE ${stageNumber} OF 3`
       : null;
   const roundsSpec = isRoundsLevel(spec) ? spec : null;
   /** Zero Hero: the round on the felt (1-based). */
   const roundNumber = frame?.round ?? 1;
-  const perHand = spec.mode === 'tableCount' && spec.perHand === true;
-  const shoesSpec = spec.mode === 'countStream' && spec.shoes ? spec : null;
+  const perHand = spec.mode === "tableCount" && spec.perHand === true;
+  const shoesSpec = spec.mode === "countStream" && spec.shoes ? spec : null;
   // Distraction Stages: the casino noise from the second stage, the dealer's chatter in the third.
-  const staged = spec.mode === 'tableCount' && spec.stagedDistractions === true;
+  const staged = spec.mode === "tableCount" && spec.stagedDistractions === true;
   const noiseOn =
-    spec.mode === 'tableCount' &&
-    (spec.distractions || (staged && (stretch || mainAsked >= Math.ceil(spec.checkpoints / 2))));
+    spec.mode === "tableCount" &&
+    (spec.distractions ||
+      (staged && (stretch || mainAsked >= Math.ceil(spec.checkpoints / 2))));
   const chatterOn = staged && stretch;
-  if (chatterOn && frame?.beat === 'holeFlip' && frame.handNumber % 2 === 1 && frame.handNumber !== chattedHand) {
+  if (
+    chatterOn &&
+    frame?.beat === "holeFlip" &&
+    frame.handNumber % 2 === 1 &&
+    frame.handNumber !== chattedHand
+  ) {
     setChattedHand(frame.handNumber);
-    setChat({ hand: frame.handNumber, line: DEALER_LINES[frame.handNumber % DEALER_LINES.length] });
+    setChat({
+      hand: frame.handNumber,
+      line: DEALER_LINES[frame.handNumber % DEALER_LINES.length],
+    });
   }
   const chipSetKey = map.chipSetKey;
   const seatStake = map.chipDenominations[0];
   const nextSpec = drill
     ? null
-    : (trainingLevelsForMap(mapId).find((entry) => entry.level === level + 1) ?? null);
-  const asksDecks = checkpointSpec?.questions.includes('decksRemaining') ?? false;
-  const totalCards = checkpointSpec ? checkpointSpec.deckCount * CARDS_PER_DECK : 0;
+    : (trainingLevelsForMap(mapId).find((entry) => entry.level === level + 1) ??
+      null);
+  const asksDecks =
+    checkpointSpec?.questions.includes("decksRemaining") ?? false;
+  const totalCards = checkpointSpec
+    ? checkpointSpec.deckCount * CARDS_PER_DECK
+    : 0;
   // The tutorial is the Hi-Lo values primer — only before the very first level
   // of the game (or every level in dev) — followed by the level's own slides.
   // It plays itself on the first start of a level not yet cleared; the brief
@@ -352,13 +428,13 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
   const showPrimer = (mapId === 1 && level === 1) || forceEveryLevel;
   const slides = drill ? [] : levelTutorial(mapId, level);
   const autoTutorial = !cleared || forceEveryLevel;
-  const inPrimer = status === 'idle' && idleStage === 'primer';
-  const inSlides = status === 'idle' && idleStage === 'slides';
+  const inPrimer = status === "idle" && idleStage === "primer";
+  const inSlides = status === "idle" && idleStage === "slides";
   // The brief is up: the table behind it goes a shade darker until Start.
-  const briefUp = status === 'idle' && idleStage === 'spread';
+  const briefUp = status === "idle" && idleStage === "spread";
   // After the primer the deck stays gathered under the slides; without it the ribbon stays out.
   const gathered = inSlides && showPrimer;
-  const seated = status !== 'idle';
+  const seated = status !== "idle";
   // While the table idles the brief and the tutorial are cards on the felt,
   // not a keyboard: the stage keeps only the felt the deck asks for and the
   // card floats centred in the rest instead of hugging the bottom edge. The
@@ -372,16 +448,17 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
   // Sitting down pushes the felt under the meter — and, in Modern, under the
   // status strip the brief kept hidden. The print climbs by the same amount
   // so it never moves on screen.
-  const seatedDrop = TRAINING_METER_HEIGHT + (modern ? TRAINING_STRIP_HEIGHT : 0);
+  const seatedDrop =
+    TRAINING_METER_HEIGHT + (modern ? TRAINING_STRIP_HEIGHT : 0);
   const letteringInset = SPREAD_DECK_BOTTOM - (seated ? seatedDrop : 0);
 
   function startTutorial() {
     setTutorialStep(0);
     if (showPrimer) {
-      playSound('shuffle');
-      setIdleStage('primer');
+      playSound("shuffle");
+      setIdleStage("primer");
     } else if (slides.length > 0) {
-      setIdleStage('slides');
+      setIdleStage("slides");
     } else {
       finishTutorial();
     }
@@ -408,7 +485,7 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
       return;
     }
     setTutorialStep(0);
-    setIdleStage('slides');
+    setIdleStage("slides");
   }
 
   function handleAnswer(value: number) {
@@ -417,21 +494,21 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
     const after = useTrainingStore.getState();
     if (wasCorrect) {
       // The answer that banks a star rings the chime instead of the pop.
-      playSound(after.stars > before ? 'achievementUnlock' : 'answerRight');
+      playSound(after.stars > before ? "achievementUnlock" : "answerRight");
       void haptics.success();
-    } else if (after.status === 'failed' || after.status === 'levelComplete') {
+    } else if (after.status === "failed" || after.status === "levelComplete") {
       // The miss that ends the run: the whoosh instead of the error.
-      playSound('strikeOut');
+      playSound("strikeOut");
       void haptics.error();
     } else {
-      playSound('answerWrong');
+      playSound("answerWrong");
       void haptics.warning();
     }
   }
 
   function goToLevel(nextLevel: number) {
     router.replace({
-      pathname: '/flash/[mapId]/[level]',
+      pathname: "/flash/[mapId]/[level]",
       params: { mapId: String(mapId), level: String(nextLevel) },
     });
   }
@@ -440,12 +517,18 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
   // instead of stacking another copy (each keeps six posters decoded). From a
   // deep link there is none, and dismissTo swaps this screen for it.
   function openLevelMap() {
-    router.dismissTo({ pathname: '/levels/[mapId]', params: { mapId: String(mapId) } });
+    router.dismissTo({
+      pathname: "/levels/[mapId]",
+      params: { mapId: String(mapId) },
+    });
   }
 
   // Likewise the table: unwind to it if it's below, else take its place here.
   function sitAtTable() {
-    router.dismissTo({ pathname: '/game/[mapId]', params: { mapId: String(mapId) } });
+    router.dismissTo({
+      pathname: "/game/[mapId]",
+      params: { mapId: String(mapId) },
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -461,45 +544,48 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
     const misses = tally.asked - tally.correct;
     const allowed = missesAllowed(roundsSpec);
     cells.push({
-      label: 'ROUND',
+      label: "ROUND",
       value: `${Math.min(roundNumber, rounds)}`,
       dim: `/${rounds}`,
       accessibilityLabel: `Round ${Math.min(roundNumber, rounds)} of ${rounds}`,
     });
     cells.push({
-      label: 'RIGHT',
+      label: "RIGHT",
       value: `${tally.correct}`,
       dim: `/${nextTarget}`,
       stars: nextStars,
       accessibilityLabel: `${tally.correct} of ${nextTarget} rounds right toward ${nextStars.length} stars`,
     });
     cells.push({
-      label: 'MISSES',
+      label: "MISSES",
       value: `${misses}`,
       dim: `/${allowed}`,
-      tone: misses > 0 ? 'error' : 'gold',
+      tone: misses > 0 ? "error" : "gold",
       accessibilityLabel: `${misses} of ${allowed} misses allowed`,
     });
   } else if (checkpointSpec) {
     const allowed = missesAllowed(checkpointSpec);
     const misses = tally.asked - tally.correct;
     cells.push({
-      label: perHand ? 'HANDS' : 'CHECKS',
+      label: perHand ? "HANDS" : "CHECKS",
       value: `${perHand ? mainAsked : tally.asked}`,
       dim: `/${nextTarget}`,
       stars: nextStars,
       accessibilityLabel: `${tally.asked} of ${nextTarget} checks toward ${nextStars.length} stars`,
     });
     cells.push({
-      label: 'MISSES',
+      label: "MISSES",
       value: `${misses}`,
       dim: allowed > 0 ? `/${allowed}` : undefined,
-      tone: misses > 0 ? 'error' : 'gold',
-      accessibilityLabel: allowed > 0 ? `${misses} of ${allowed} misses allowed` : `${misses} misses`,
+      tone: misses > 0 ? "error" : "gold",
+      accessibilityLabel:
+        allowed > 0
+          ? `${misses} of ${allowed} misses allowed`
+          : `${misses} misses`,
     });
     if (!rain) {
       cells.push({
-        label: checkpointSpec.deckCount === 1 ? 'DECK' : 'DECKS',
+        label: checkpointSpec.deckCount === 1 ? "DECK" : "DECKS",
         value: `${checkpointSpec.deckCount}`,
         locked: true,
         accessibilityLabel: `${checkpointSpec.deckCount} deck, fixed`,
@@ -508,7 +594,7 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
   } else {
     const strikes = streakSpec?.strikes ?? 0;
     cells.push({
-      label: 'RIGHT',
+      label: "RIGHT",
       value: `${streak}`,
       dim: `/${nextTarget}`,
       stars: nextStars,
@@ -517,37 +603,44 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
     cells.push(
       strikes > 0
         ? {
-            label: 'STRIKES',
+            label: "STRIKES",
             // The miss that ends the run is one past the strikes: show them all used.
             value: `${Math.min(misses, strikes)}`,
             dim: `/${strikes}`,
-            tone: misses > 0 ? 'error' : 'gold',
+            tone: misses > 0 ? "error" : "gold",
             accessibilityLabel: `${Math.min(misses, strikes)} of ${strikes} strikes used`,
           }
         : {
-            label: 'STRIKES',
-            value: 'NONE',
+            label: "STRIKES",
+            value: "NONE",
             locked: true,
-            accessibilityLabel: 'No strikes: a miss ends the run',
+            accessibilityLabel: "No strikes: a miss ends the run",
           },
     );
-    if (spec.mode === 'cardGroup' && item?.kind === 'cards') {
-      cells.push({ label: 'CARDS', value: `${item.cards.length}` });
+    if (spec.mode === "cardGroup" && item?.kind === "cards") {
+      cells.push({ label: "CARDS", value: `${item.cards.length}` });
     } else if (stageNumber > 0) {
-      cells.push({ label: 'STAGE', value: `${stageNumber}`, dim: '/3' });
+      cells.push({ label: "STAGE", value: `${stageNumber}`, dim: "/3" });
     }
   }
-  cells.push({ label: 'PACE', value: speed.label, accessibilityLabel: `${speed.label} pace` });
+  cells.push({
+    label: "PACE",
+    value: speed.label,
+    accessibilityLabel: `${speed.label} pace`,
+  });
 
   // ---------------------------------------------------------------------------
   // Stage
   // ---------------------------------------------------------------------------
 
   const revealing =
-    status === 'feedback' || status === 'cleared' || status === 'failed' || status === 'levelComplete';
+    status === "feedback" ||
+    status === "cleared" ||
+    status === "failed" ||
+    status === "levelComplete";
 
   function renderStage() {
-    if (status === 'idle') {
+    if (status === "idle") {
       // No cards lie on a level's felt — the spread lives on the game table.
       // Only the Hi-Lo primer deals its examples from a deck.
       return inPrimer ? (
@@ -560,15 +653,18 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
       ) : null;
     }
     switch (spec.mode) {
-      case 'cardValue':
-      case 'cardGroup': {
-        const cards = item?.kind === 'cards' ? item.cards : [];
+      case "cardValue":
+      case "cardGroup": {
+        const cards = item?.kind === "cards" ? item.cards : [];
         const count = Math.max(1, cards.length);
         // Every group deals the single-card size; only a row too wide for the
         // screen shrinks, and then just enough to fit.
         const cardWidth = Math.min(
           SINGLE_CARD_WIDTH,
-          Math.floor((width - layout.screenPaddingH * 2 - spacing.sm * (count - 1)) / count),
+          Math.floor(
+            (width - layout.screenPaddingH * 2 - spacing.sm * (count - 1)) /
+              count,
+          ),
         );
         return (
           <CardsStage
@@ -577,13 +673,17 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
             speed={speed.animation}
             valueTags={revealing}
             serial={itemSerial}
-            caption={spec.mode === 'cardGroup' ? groupCaption(spec.stageLength, streak, cards.length) : undefined}
+            caption={
+              spec.mode === "cardGroup"
+                ? groupCaption(spec.stageLength, streak, cards.length)
+                : undefined
+            }
             missed={question?.wasCorrect === false}
           />
         );
       }
-      case 'deckEstimate':
-        return item?.kind === 'deckEstimate' ? (
+      case "deckEstimate":
+        return item?.kind === "deckEstimate" ? (
           <DeckEstimateStage
             item={item.item}
             showScale={spec.showDeckScale}
@@ -591,42 +691,51 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
             serial={itemSerial}
           />
         ) : null;
-      case 'trueCount':
-        return item?.kind === 'trueCount' ? (
-          <TrueCountStage item={item.item} reveal={revealing} serial={itemSerial} />
+      case "trueCount":
+        return item?.kind === "trueCount" ? (
+          <TrueCountStage
+            item={item.item}
+            reveal={revealing}
+            serial={itemSerial}
+          />
         ) : null;
-      case 'indexPlay':
-        return item?.kind === 'indexPlay' ? (
+      case "indexPlay":
+        return item?.kind === "indexPlay" ? (
           <IndexPlayStage
             item={item.item}
-            cardWidth={Math.round(SINGLE_CARD_WIDTH * 0.8)}
+            cardWidth={Math.round(SINGLE_CARD_WIDTH * 0.62)}
             speed={speed.animation}
             reveal={revealing}
             serial={itemSerial}
           />
         ) : null;
-      case 'betSize':
-        return item?.kind === 'betSize' ? (
+      case "betSize":
+        return item?.kind === "betSize" ? (
           <BetSizeStage
             item={item.item}
             // The ramp is a crutch some levels take away once the run is going.
-            showRamp={spec.showRamp && (spec.hideRampAfter === undefined || streak < spec.hideRampAfter)}
+            showRamp={
+              spec.showRamp &&
+              (spec.hideRampAfter === undefined || streak < spec.hideRampAfter)
+            }
             reveal={revealing}
             serial={itemSerial}
           />
         ) : null;
-      case 'strategy':
-        return item?.kind === 'strategy' ? (
-          <StrategyStage
-            item={item.item}
-            cardWidth={Math.round(SINGLE_CARD_WIDTH * 0.8)}
-            speed={speed.animation}
-            reveal={revealing}
-            serial={itemSerial}
-            banner={status === 'asking' ? stageBanner : null}
-          />
+      case "strategy":
+        return item?.kind === "strategy" ? (
+          <View style={styles.panelClear}>
+            <StrategyStage
+              item={item.item}
+              cardWidth={Math.round(SINGLE_CARD_WIDTH * 0.62)}
+              speed={speed.animation}
+              reveal={revealing}
+              serial={itemSerial}
+              banner={status === "asking" ? stageBanner : null}
+            />
+          </View>
         ) : null;
-      case 'countStream':
+      case "countStream":
         if (rain) {
           return (
             <RainStage
@@ -649,25 +758,31 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
             realPiles={roundsSpec !== null}
           />
         );
-      case 'tableCount': {
+      case "tableCount": {
         const perSeat = [70, 60, 49, 43][Math.min(spec.seats, 4) - 1];
-        const cardWidth = Math.max(40, Math.min(perSeat, Math.floor((width - 120) / spec.seats / 1.7)));
+        const cardWidth = Math.max(
+          40,
+          Math.min(perSeat, Math.floor((width - 120) / spec.seats / 1.7)),
+        );
         return (
-          <TableStage
-            table={frame?.table ?? EMPTY_TABLE}
-            seatCount={spec.seats}
-            cardWidth={cardWidth}
-            speed={speed.animation}
-            distractions={noiseOn}
-            chipSetKey={chipSetKey}
-            stake={seatStake}
-            piles={{
-              drawn: frame?.cardsDrawn ?? 0,
-              remaining: frame?.cardsRemaining ?? totalCards,
-              totalCards,
-              showScale: spec.showDeckScale,
-            }}
-          />
+          // The seated panel rides up over the felt's foot: keep the seats above it.
+          <View style={styles.panelClear}>
+            <TableStage
+              table={frame?.table ?? EMPTY_TABLE}
+              seatCount={spec.seats}
+              cardWidth={cardWidth}
+              speed={speed.animation}
+              distractions={noiseOn}
+              chipSetKey={chipSetKey}
+              stake={seatStake}
+              piles={{
+                drawn: frame?.cardsDrawn ?? 0,
+                remaining: frame?.cardsRemaining ?? totalCards,
+                totalCards,
+                showScale: spec.showDeckScale,
+              }}
+            />
+          </View>
         );
       }
     }
@@ -679,13 +794,13 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
 
   function renderInput(current: TrainingQuestion | null) {
     const selected = current?.selected ?? null;
-    const disabled = status !== 'asking';
+    const disabled = status !== "asking";
     if (!checkpointSpec) {
       if (!item) {
         return null;
       }
-      const correct = item.kind === 'cards' ? item.correct : item.item.correct;
-      if (item.kind === 'cards') {
+      const correct = item.kind === "cards" ? item.correct : item.item.correct;
+      if (item.kind === "cards") {
         return (
           <CountPad
             bound={item.cards.length}
@@ -697,7 +812,7 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
           />
         );
       }
-      if (item.kind === 'indexPlay' || item.kind === 'strategy') {
+      if (item.kind === "indexPlay" || item.kind === "strategy") {
         return (
           <ChoiceGrid
             choices={item.item.choices}
@@ -709,15 +824,19 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
           />
         );
       }
-      if ((spec.mode === 'trueCount' || spec.mode === 'betSize') && spec.answerInput === 'entry') {
-        const kind: QuestionKind = spec.mode === 'betSize' ? 'betUnits' : 'trueCount';
+      if (
+        (spec.mode === "trueCount" || spec.mode === "betSize") &&
+        spec.answerInput === "entry"
+      ) {
+        const kind: QuestionKind =
+          spec.mode === "betSize" ? "betUnits" : "trueCount";
         const bounds = ENTRY_BOUNDS[kind];
         return (
           <CountEntry
             step={1}
             min={bounds.min}
             max={bounds.max}
-            initial={kind === 'betUnits' ? 1 : 0}
+            initial={kind === "betUnits" ? 1 : 0}
             format={(value) => formatAnswer(kind, value)}
             keyFormat={entryKeyFormat(kind)}
             onSubmit={handleAnswer}
@@ -740,17 +859,24 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
       return null;
     }
     const format = (value: number) => formatAnswer(current.kind, value);
-    if (checkpointSpec.answerInput === 'entry' && current.kind !== 'insurance') {
+    if (
+      checkpointSpec.answerInput === "entry" &&
+      current.kind !== "insurance"
+    ) {
       const bounds = ENTRY_BOUNDS[current.kind];
       return (
         <CountEntry
-          step={current.kind === 'decksRemaining' ? 0.5 : 1}
+          step={current.kind === "decksRemaining" ? 0.5 : 1}
           min={bounds.min}
-          max={current.kind === 'decksRemaining' ? checkpointSpec.deckCount : bounds.max}
+          max={
+            current.kind === "decksRemaining"
+              ? checkpointSpec.deckCount
+              : bounds.max
+          }
           initial={
-            current.kind === 'decksRemaining'
+            current.kind === "decksRemaining"
               ? Math.max(0.5, checkpointSpec.deckCount / 2)
-              : current.kind === 'betUnits'
+              : current.kind === "betUnits"
                 ? 1
                 : 0
           }
@@ -779,34 +905,38 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
       return null;
     }
     switch (current.kind) {
-      case 'runningCount': {
+      case "runningCount": {
         const startCount =
-          current.correct - cardsSinceCheck.reduce((sum, card) => sum + hiLoValue(card.rank), 0);
+          current.correct -
+          cardsSinceCheck.reduce((sum, card) => sum + hiLoValue(card.rank), 0);
         return cardsSinceCheck.length > 0 ? (
           <FlashCountReview cards={cardsSinceCheck} startCount={startCount} />
         ) : null;
       }
-      case 'decksRemaining':
+      case "decksRemaining":
         return (
           <Text style={styles.reviewText}>
-            {frame.cardsRemaining} cards left ≈ {formatDecks(current.correct)} decks
+            {frame.cardsRemaining} cards left ≈ {formatDecks(current.correct)}{" "}
+            decks
           </Text>
         );
-      case 'trueCount': {
+      case "trueCount": {
         const decks = decksRemainingEstimate(frame.cardsRemaining);
         return (
           <Text style={styles.reviewText}>
-            {formatCount(frame.runningCount)} ÷ {formatDecks(decks)} decks = {formatCount(current.correct)}
+            {formatCount(frame.runningCount)} ÷ {formatDecks(decks)} decks ={" "}
+            {formatCount(current.correct)}
           </Text>
         );
       }
-      case 'betUnits': {
+      case "betUnits": {
         const decks = decksRemainingEstimate(frame.cardsRemaining);
         const trueCount = trueCountFromDecks(frame.runningCount, decks);
         return (
           <Text style={styles.reviewText}>
-            {formatCount(frame.runningCount)} ÷ {formatDecks(decks)} decks → TC {formatCount(trueCount)} →{' '}
-            {formatAnswer('betUnits', current.correct)}
+            {formatCount(frame.runningCount)} ÷ {formatDecks(decks)} decks → TC{" "}
+            {formatCount(trueCount)} →{" "}
+            {formatAnswer("betUnits", current.correct)}
           </Text>
         );
       }
@@ -816,18 +946,21 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
   function feedbackLine(current: TrainingQuestion): string {
     const kind = checkpointSpec ? current.kind : streakKind(item);
     const right =
-      !checkpointSpec && (item?.kind === 'indexPlay' || item?.kind === 'strategy')
+      !checkpointSpec &&
+      (item?.kind === "indexPlay" || item?.kind === "strategy")
         ? decisionLabel(current.correct)
         : formatAnswer(kind, current.correct);
     if (current.wasCorrect) {
       return `Correct — ${right}`;
     }
-    if (status === 'failed' || status === 'levelComplete') {
-      return checkpointSpec ? `Run over — it was ${right}.` : `Out of strikes — it was ${right}.`;
+    if (status === "failed" || status === "levelComplete") {
+      return checkpointSpec
+        ? `Run over — it was ${right}.`
+        : `Out of strikes — it was ${right}.`;
     }
     if (!checkpointSpec) {
       const left = (streakSpec?.strikes ?? 0) - misses;
-      const strikes = left === 1 ? 'Last strike.' : `${left} strikes left.`;
+      const strikes = left === 1 ? "Last strike." : `${left} strikes left.`;
       return `Not quite — it was ${right}. ${strikes}`;
     }
     return `Not quite — it was ${right}. Pick the count up from here.`;
@@ -838,9 +971,11 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
       return (
         <FlashTutorialPanel
           step={tutorialStep}
-          lastLabel={slides.length > 0 ? 'Next' : undefined}
+          lastLabel={slides.length > 0 ? "Next" : undefined}
           onNext={() =>
-            tutorialStep + 1 >= TUTORIAL_STEPS ? finishPrimer() : setTutorialStep((step) => step + 1)
+            tutorialStep + 1 >= TUTORIAL_STEPS
+              ? finishPrimer()
+              : setTutorialStep((step) => step + 1)
           }
           onSkip={finishTutorial}
         />
@@ -854,22 +989,32 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
           slides={slides}
           step={tutorialStep}
           onNext={() =>
-            tutorialStep + 1 >= slides.length ? finishTutorial() : setTutorialStep((step) => step + 1)
+            tutorialStep + 1 >= slides.length
+              ? finishTutorial()
+              : setTutorialStep((step) => step + 1)
           }
           onSkip={finishTutorial}
         />
       );
     }
 
-    if (status === 'idle') {
+    if (status === "idle") {
       // Modern: the brief is the arcade card over the felt (see below).
       if (modern) {
         return null;
       }
       return (
         <FlashPanel
-          kicker={drill ? 'PREVIEW DRILL' : hasBegun ? `LEVEL ${level}  ·  TRY AGAIN` : `LEVEL ${level}`}
-          kickerAside={<FlashPanelStarChip label={starTargetsLine(spec, targets)} />}
+          kicker={
+            drill
+              ? "PREVIEW DRILL"
+              : hasBegun
+                ? `LEVEL ${level}  ·  TRY AGAIN`
+                : `LEVEL ${level}`
+          }
+          kickerAside={
+            <FlashPanelStarChip label={starTargetsLine(spec, targets)} />
+          }
         >
           <Text style={styles.introTitle}>{spec.title.toUpperCase()}</Text>
           <Text style={styles.introBody}>{spec.brief}</Text>
@@ -880,10 +1025,18 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
             <FlashPanelChip label={`${speed.label} pace`} />
           </View>
           <View style={styles.introActions}>
-            <PrimaryButton label={hasBegun ? 'Start again' : 'Start training'} onPress={handleBegin} />
+            <PrimaryButton
+              label={hasBegun ? "Start again" : "Start training"}
+              onPress={handleBegin}
+            />
             {/* Start plays the tutorial itself on a first attempt; otherwise it is a tap away. */}
-            {(showPrimer || slides.length > 0) && (hasBegun || !autoTutorial) ? (
-              <Text style={styles.replayLink} onPress={startTutorial} accessibilityRole="button">
+            {(showPrimer || slides.length > 0) &&
+            (hasBegun || !autoTutorial) ? (
+              <Text
+                style={styles.replayLink}
+                onPress={startTutorial}
+                accessibilityRole="button"
+              >
                 How this level works
               </Text>
             ) : null}
@@ -893,7 +1046,7 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
     }
 
     // The dealer's chit-chat comes first; the count question waits behind it.
-    if (chat && (status === 'asking' || status === 'running')) {
+    if (chat && (status === "asking" || status === "running")) {
       return (
         <View style={styles.questionSection}>
           <View style={styles.chatBubble}>
@@ -902,39 +1055,49 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
           </View>
           <View style={styles.chatRow}>
             {chat.line.answers.map((answer) => (
-              <SecondaryButton key={answer} label={answer} onPress={() => setChat(null)} style={styles.chatButton} />
+              <SecondaryButton
+                key={answer}
+                label={answer}
+                onPress={() => setChat(null)}
+                style={styles.chatButton}
+              />
             ))}
           </View>
-          <Text style={styles.statusText}>Answer him — and keep the count going.</Text>
-        </View>
-      );
-    }
-
-    if (status === 'running') {
-      const fresh = stretch && frame === null;
-      return (
-        <View style={styles.statusSlot}>
           <Text style={styles.statusText}>
-            {fresh
-              ? 'New shoe — the count starts at 0.'
-              : roundsSpec
-                ? `Round ${roundNumber} of ${roundsSpec.rounds.count} — fresh deck, count from 0…`
-                : shoesSpec
-                  ? `Shoe ${roundNumber} of ${shoesSpec.shoes} — ${roundNumber > 1 ? 'new shoe, the count started over at 0' : 'keep counting'}…`
-                  : perHand
-                    ? 'Follow every card — the hands play themselves…'
-                : rain
-                  ? 'Keep counting — the rain stops every few cards…'
-                  : spec.mode === 'tableCount'
-                    ? 'Count every card on the table…'
-                    : 'Keep counting…'}
+            Answer him — and keep the count going.
           </Text>
         </View>
       );
     }
 
-    if (status === 'asking') {
-      const prompt = checkpointSpec && question ? questionPrompt(question.kind, question.isFinal) : streakPrompt(spec, item);
+    if (status === "running") {
+      const fresh = stretch && frame === null;
+      return (
+        <View style={styles.statusSlot}>
+          <Text style={styles.statusText}>
+            {fresh
+              ? "New shoe — the count starts at 0."
+              : roundsSpec
+                ? `Round ${roundNumber} of ${roundsSpec.rounds.count} — fresh deck, count from 0…`
+                : shoesSpec
+                  ? `Shoe ${roundNumber} of ${shoesSpec.shoes} — ${roundNumber > 1 ? "new shoe, the count started over at 0" : "keep counting"}…`
+                  : perHand
+                    ? "Follow every card — the hands play themselves…"
+                    : rain
+                      ? "Keep counting — the rain stops every few cards…"
+                      : spec.mode === "tableCount"
+                        ? "Count every card on the table…"
+                        : "Keep counting…"}
+          </Text>
+        </View>
+      );
+    }
+
+    if (status === "asking") {
+      const prompt =
+        checkpointSpec && question
+          ? questionPrompt(question.kind, question.isFinal)
+          : streakPrompt(spec, item);
       return (
         <View style={styles.questionSection}>
           {question && question.givens.length > 0 ? (
@@ -954,17 +1117,25 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
     }
 
     // The meter ran dry mid-question: no answer to correct, just the restart.
-    if (status === 'failed' && timedOut) {
+    if (status === "failed" && timedOut) {
       return (
         <View style={styles.questionSection}>
-          <Text style={[styles.feedback, { color: colors.error }]}>Out of time — the meter ran dry.</Text>
+          <Text style={[styles.feedback, { color: colors.error }]}>
+            Out of time — the meter ran dry.
+          </Text>
           <Text style={styles.statusText}>
             It drains while a question is open; every right answer tops it up.
           </Text>
-          {stars > 0 ? <Text style={styles.banked}>{starGlyphs(stars)} banked</Text> : null}
+          {stars > 0 ? (
+            <Text style={styles.banked}>{starGlyphs(stars)} banked</Text>
+          ) : null}
           <View style={styles.actionRow}>
             <PrimaryButton label="Try again" onPress={begin} />
-            <Text style={styles.replayLink} onPress={reset} accessibilityRole="button">
+            <Text
+              style={styles.replayLink}
+              onPress={reset}
+              accessibilityRole="button"
+            >
               Back to the brief
             </Text>
           </View>
@@ -977,17 +1148,27 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
     }
 
     // The second star: the level is cleared and the run pauses here.
-    if (status === 'cleared') {
+    if (status === "cleared") {
       return (
         <View style={styles.questionSection}>
-          <Text style={[styles.feedback, { color: question.wasCorrect ? colors.success : colors.error }]}>
+          <Text
+            style={[
+              styles.feedback,
+              { color: question.wasCorrect ? colors.success : colors.error },
+            ]}
+          >
             {feedbackLine(question)}
           </Text>
-          {checkpointSpec && question.wasCorrect === false ? renderReview(question) : null}
-          <Text style={styles.clearedTitle}>Level cleared — {starGlyphs(CLEAR_STARS)}</Text>
+          {checkpointSpec && question.wasCorrect === false
+            ? renderReview(question)
+            : null}
+          <Text style={styles.clearedTitle}>
+            Level cleared — {starGlyphs(CLEAR_STARS)}
+          </Text>
           <Text style={styles.statusText}>
-            {lastStarChips > 0 ? `+${formatChips(lastStarChips)} chips. ` : ''}
-            Keep going for {starGlyphs(STAR_COUNT)}? {stretchLine(spec, targets)} {stretchRulesLine(spec)}
+            {lastStarChips > 0 ? `+${formatChips(lastStarChips)} chips. ` : ""}
+            Keep going for {starGlyphs(STAR_COUNT)}?{" "}
+            {stretchLine(spec, targets)} {stretchRulesLine(spec)}
           </Text>
           <View style={styles.actionRow}>
             <PrimaryButton label="Keep going" onPress={keepGoing} />
@@ -998,19 +1179,25 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
     }
 
     // Zero Hero: each round's result, then the next round on a fresh deck.
-    if (roundsSpec && status === 'feedback') {
+    if (roundsSpec && status === "feedback") {
       const dealt = frame?.cardsDrawn ?? 0;
       const left = CARDS_PER_DECK - dealt;
       return (
         <View style={styles.questionSection}>
-          <Text style={[styles.feedback, { color: question.wasCorrect ? colors.success : colors.error }]}>
+          <Text
+            style={[
+              styles.feedback,
+              { color: question.wasCorrect ? colors.success : colors.error },
+            ]}
+          >
             {question.wasCorrect
               ? `Correct! The count was ${formatCount(question.correct)}.`
               : `Not quite — the count was ${formatCount(question.correct)}.`}
           </Text>
           <Text style={styles.reviewText}>{dealt} cards dealt.</Text>
           <Text style={styles.statusText}>
-            The {left} cards left would add up to {formatCount(-question.correct)}, bringing the deck back to 0.
+            The {left} cards left would add up to{" "}
+            {formatCount(-question.correct)}, bringing the deck back to 0.
           </Text>
           <View style={styles.actionRow}>
             <PrimaryButton label="Next round" onPress={continueAfterMiss} />
@@ -1020,17 +1207,23 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
     }
 
     // feedback / failed / levelComplete
-    const scorecard = isExam && status === 'failed' ? accuracyRows(tally) : null;
+    const scorecard =
+      isExam && status === "failed" ? accuracyRows(tally) : null;
     return (
       <View style={styles.questionSection}>
-        <Text style={[styles.feedback, { color: question.wasCorrect ? colors.success : colors.error }]}>
+        <Text
+          style={[
+            styles.feedback,
+            { color: question.wasCorrect ? colors.success : colors.error },
+          ]}
+        >
           {feedbackLine(question)}
         </Text>
         {checkpointSpec ? (
           <>
             {question.wasCorrect === false ? renderReview(question) : null}
             {scorecard ? <AccuracyRows rows={scorecard} /> : null}
-            {status === 'feedback' && question.wasCorrect === false ? (
+            {status === "feedback" && question.wasCorrect === false ? (
               <View style={styles.actionRow}>
                 <PrimaryButton label="Continue" onPress={continueAfterMiss} />
               </View>
@@ -1039,12 +1232,20 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
         ) : (
           renderInput(question)
         )}
-        {status === 'failed' ? (
+        {status === "failed" ? (
           <View style={styles.actionRow}>
-            {stars > 0 ? <Text style={styles.banked}>{starGlyphs(stars)} banked</Text> : null}
-            {runSummary ? <Text style={styles.banked}>{runSummary}</Text> : null}
+            {stars > 0 ? (
+              <Text style={styles.banked}>{starGlyphs(stars)} banked</Text>
+            ) : null}
+            {runSummary ? (
+              <Text style={styles.banked}>{runSummary}</Text>
+            ) : null}
             <PrimaryButton label="Try again" onPress={begin} />
-            <Text style={styles.replayLink} onPress={reset} accessibilityRole="button">
+            <Text
+              style={styles.replayLink}
+              onPress={reset}
+              accessibilityRole="button"
+            >
               Back to the brief
             </Text>
           </View>
@@ -1060,23 +1261,30 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
   const completeTitle = roundsSpec
     ? `${tally.correct} of ${tally.asked} rounds right.`
     : checkpointSpec
-    ? isExam
-      ? 'Certified card counter.'
-      : `${tally.correct} of ${tally.asked} checks.`
-    : misses === 0
-      ? `${streak} in a row.`
-      : `${streak} right, ${misses === 1 ? 'one strike' : `${misses} strikes`}.`;
-  const nextUp = nextSpec ? `Next up: ${nextSpec.title}.` : 'The table is already open.';
+      ? isExam
+        ? "Certified card counter."
+        : `${tally.correct} of ${tally.asked} checks.`
+      : misses === 0
+        ? `${streak} in a row.`
+        : `${streak} right, ${misses === 1 ? "one strike" : `${misses} strikes`}.`;
+  const nextUp = nextSpec
+    ? `Next up: ${nextSpec.title}.`
+    : "The table is already open.";
   /** "New best run · combo ×12 · +138 combo chips" — what the run's pace earned. */
   const runSummary = [
-    runIsBest ? 'New best run' : null,
-    comboBest >= 5 ? `best combo ${comboBest}${comboIsBest ? ' (new best)' : ''}` : null,
-    comboChipsEarned > 0 ? `+${formatChips(comboChipsEarned)} combo chips` : null,
+    runIsBest ? "New best run" : null,
+    comboBest >= 5
+      ? `best combo ${comboBest}${comboIsBest ? " (new best)" : ""}`
+      : null,
+    comboChipsEarned > 0
+      ? `+${formatChips(comboChipsEarned)} combo chips`
+      : null,
   ]
     .filter(Boolean)
-    .join(' · ');
+    .join(" · ");
   // Short of the third star, say what it takes; the level map shows the best.
-  const completeBody = stars < STAR_COUNT ? `${stretchLine(spec, targets)} ${nextUp}` : nextUp;
+  const completeBody =
+    stars < STAR_COUNT ? `${stretchLine(spec, targets)} ${nextUp}` : nextUp;
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -1085,7 +1293,7 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
         source={
           (modern ? MODERN_TABLE_FELTS[map.feltKey] : undefined) ??
           TABLE_FELTS[map.feltKey] ??
-          TABLE_FELTS['gray-suede']
+          TABLE_FELTS["gray-suede"]
         }
         style={styles.felt}
         contentFit="cover"
@@ -1096,7 +1304,11 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
 
       <GameTableHud
         mapName={map.name}
-        modeLabel={drill ? `Preview drill · ${spec.title}` : `Level ${level} · ${spec.title}`}
+        modeLabel={
+          drill
+            ? `Preview drill · ${spec.title}`
+            : `Level ${level} · ${spec.title}`
+        }
         leftIcon="map-outline"
         leftAccessibilityLabel="Level map"
         onOpenMaps={openLevelMap}
@@ -1106,8 +1318,12 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
 
       {/* The Modern brief carries the stars, strikes and pace itself, and needs
           the strip's height to stay one page. */}
-      {modern && status === 'idle' ? null : <TrainingStatusStrip cells={cells} />}
-      {seated && isMeteredLevel(spec) ? <TrainingMeter meter={meter} drainMs={meterDrainMs} /> : null}
+      {modern && status === "idle" ? null : (
+        <TrainingStatusStrip cells={cells} />
+      )}
+      {seated && isMeteredLevel(spec) ? (
+        <TrainingMeter meter={meter} drainMs={meterDrainMs} />
+      ) : null}
 
       {/* The felt and the panel share one box so the Modern brief can lie
           over both — the deck stays dealt underneath, ready for the primer. */}
@@ -1120,7 +1336,9 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
           seated
           // A fixed height, not a flex basis: Yoga kept the first basis it laid
           // out, so the felt never grew when the primer dealt.
-          style={status === 'idle' ? { flex: 0, height: idleStageHeight } : undefined}
+          style={
+            status === "idle" ? { flex: 0, height: idleStageHeight } : undefined
+          }
         >
           {/* The house print is part of the felt, like on the game table: it
               sits under the deck's band and never moves — the dealt cards
@@ -1150,41 +1368,58 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
         <View
           style={[
             styles.bottomPanel,
-            status === 'idle' ? styles.bottomPanelIdle : styles.bottomPanelSeated,
+            status === "idle"
+              ? styles.bottomPanelIdle
+              : styles.bottomPanelSeated,
             { paddingBottom: insets.bottom + spacing.md },
           ]}
         >
           <StarBankToast bank={passingBank} />
-          {status !== 'idle' ? (
-            <ComboCallout combo={combo} serial={comboSerial} bestSerial={bestSerial} />
+          {status !== "idle" ? (
+            <ComboCallout
+              combo={combo}
+              serial={comboSerial}
+              bestSerial={bestSerial}
+            />
           ) : null}
           {renderPanel()}
         </View>
 
         {modern && briefUp ? (
           <Animated.View
-            style={[styles.briefOverlay, { paddingBottom: insets.bottom + spacing.xs }]}
+            style={[
+              styles.briefOverlay,
+              { paddingBottom: insets.bottom + spacing.xs },
+            ]}
             entering={FadeIn.duration(200)}
             exiting={FadeOut.duration(200)}
           >
             <ArcadeLevelBrief
               fit
               kicker={
-                drill ? 'Preview drill' : hasBegun ? `Level ${level} · Try again` : `Level ${level}`
+                drill
+                  ? "Preview drill"
+                  : hasBegun
+                    ? `Level ${level} · Try again`
+                    : `Level ${level}`
               }
               title={spec.title}
               difficulty={speed.label}
               body={spec.brief}
               starTargets={targets}
-              starUnit={checkpointSpec ? 'checks' : 'right'}
+              starUnit={checkpointSpec ? "checks" : "right"}
               rules={[
                 ...requirementChips(spec, { starTargets: false }),
-                ...(levelBest ? [bestLine(levelBest, checkpointSpec !== null)] : []),
+                ...(levelBest
+                  ? [bestLine(levelBest, checkpointSpec !== null)]
+                  : []),
               ]}
-              startLabel={hasBegun ? 'Start again' : 'Start training'}
+              startLabel={hasBegun ? "Start again" : "Start training"}
               onStart={handleBegin}
               // Always a tap away, even when Start plays it itself on a first attempt.
-              onHow={showPrimer || slides.length > 0 ? startTutorial : undefined}
+              onHow={
+                showPrimer || slides.length > 0 ? startTutorial : undefined
+              }
             />
           </Animated.View>
         ) : null}
@@ -1195,15 +1430,18 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
           <FlashPanel kicker="KEEP COUNTING" style={styles.tipCard}>
             <Text style={styles.tipTitle}>The count carries on.</Text>
             <Text style={styles.tipBody}>
-              {checkpointSpec ? deckLabel(checkpointSpec.deckCount) : 'One deck'}, no reshuffle. Every
-              card you’ve seen still counts — keep adding from where you left off.
+              {checkpointSpec
+                ? deckLabel(checkpointSpec.deckCount)
+                : "One deck"}
+              , no reshuffle. Every card you’ve seen still counts — keep adding
+              from where you left off.
             </Text>
             <PrimaryButton label="Okay" onPress={acknowledgeCountTip} />
           </FlashPanel>
         </View>
       ) : null}
 
-      {status === 'levelComplete' ? (
+      {status === "levelComplete" ? (
         <FlashLevelCompleteOverlay
           mapName={map.name}
           level={level}
@@ -1216,13 +1454,18 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
           title={completeTitle}
           body={completeBody}
           scorecard={isExam ? accuracyRows(tally) : undefined}
-          tableUnlocked={(outcome?.tableUnlocked ?? false) && nextMap !== undefined}
+          tableUnlocked={
+            (outcome?.tableUnlocked ?? false) && nextMap !== undefined
+          }
           nextMapName={nextMap?.name}
           tableOpen={tableOpen}
           onNextLevel={() => goToLevel(level + 1)}
           onSitAtTable={sitAtTable}
           onQuiz={() =>
-            router.replace({ pathname: '/quiz/[mapId]', params: { mapId: String(mapId) } })
+            router.replace({
+              pathname: "/quiz/[mapId]",
+              params: { mapId: String(mapId) },
+            })
           }
           onLevelMap={openLevelMap}
           onReplay={reset}
@@ -1244,14 +1487,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   felt: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
   },
   feltTint: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -1265,11 +1508,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: layout.screenPaddingH,
     paddingTop: spacing.xs,
     minHeight: 200,
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
   },
   /** Modern: the brief lies over the felt and the panel slot together, one page. */
   briefOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -1282,45 +1525,50 @@ const styles = StyleSheet.create({
    * In play the question and its answers ride a little above the bottom edge —
    * lifted in place, so the felt and the cards above keep their layout.
    */
+  /** A stage's content kept clear of the seated panel's lift. */
+  panelClear: {
+    flex: 1,
+    paddingBottom: spacing.xxxl + spacing.xxl,
+  },
   bottomPanelSeated: {
     transform: [{ translateY: -(spacing.xxxl + spacing.xxl) }],
   },
   /** Idle: the brief / primer card floats centred in the felt the deck leaves. */
   briefScrim: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     right: 0,
     bottom: 0,
     left: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    backgroundColor: "rgba(0, 0, 0, 0.25)",
   },
   bottomPanelIdle: {
     flexGrow: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   introTitle: {
     color: colors.goldBright,
     fontSize: fontSizes.title,
     fontWeight: fontWeights.heavy,
     letterSpacing: 2,
-    textAlign: 'center',
+    textAlign: "center",
   },
   introBody: {
     color: colors.textPrimary,
     fontSize: fontSizes.body,
     fontWeight: fontWeights.semibold,
     lineHeight: 22,
-    textAlign: 'center',
+    textAlign: "center",
   },
   chipRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    justifyContent: "center",
+    flexWrap: "wrap",
     gap: spacing.sm,
   },
   // The brief's rules read one under the other: stars, then strikes, then pace.
   chipStack: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: spacing.xs,
   },
   introActions: {
@@ -1331,64 +1579,64 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: fontSizes.small,
     fontWeight: fontWeights.semibold,
-    textDecorationLine: 'underline',
-    textAlign: 'center',
+    textDecorationLine: "underline",
+    textAlign: "center",
     paddingVertical: spacing.xs,
   },
   statusSlot: {
     minHeight: 120,
-    justifyContent: 'center',
+    justifyContent: "center",
     gap: spacing.sm,
   },
   statusText: {
     color: colors.textSecondary,
     fontSize: fontSizes.body,
-    textAlign: 'center',
-    fontStyle: 'italic',
+    textAlign: "center",
+    fontStyle: "italic",
   },
   questionSection: {
     gap: spacing.sm,
-    alignItems: 'center',
+    alignItems: "center",
   },
   question: {
     color: colors.textPrimary,
     fontSize: fontSizes.subtitle,
     fontWeight: fontWeights.heavy,
     letterSpacing: 1,
-    textAlign: 'center',
+    textAlign: "center",
   },
   feedback: {
     fontSize: fontSizes.body,
     fontWeight: fontWeights.bold,
-    textAlign: 'center',
+    textAlign: "center",
   },
   clearedTitle: {
     color: colors.goldBright,
     fontSize: fontSizes.subtitle,
     fontWeight: fontWeights.heavy,
     letterSpacing: 1,
-    textAlign: 'center',
+    textAlign: "center",
   },
   banked: {
     color: colors.goldBright,
     fontSize: fontSizes.small,
     fontWeight: fontWeights.bold,
-    textAlign: 'center',
+    textAlign: "center",
   },
   reviewText: {
     color: colors.textPrimary,
     fontSize: fontSizes.body,
     fontWeight: fontWeights.bold,
-    fontVariant: ['tabular-nums'],
-    textAlign: 'center',
+    fontVariant: ["tabular-nums"],
+    textAlign: "center",
   },
   actionRow: {
-    alignSelf: 'stretch',
+    alignSelf: "stretch",
     paddingTop: spacing.xs,
     gap: spacing.xs,
   },
   chatBubble: {
-    alignSelf: 'stretch',
+    alignSelf: "stretch",
     padding: spacing.md,
     borderRadius: 16,
     backgroundColor: colors.arcadeCream,
@@ -1406,38 +1654,38 @@ const styles = StyleSheet.create({
     fontWeight: fontWeights.semibold,
   },
   chatRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: spacing.sm,
-    alignSelf: 'stretch',
+    alignSelf: "stretch",
   },
   chatButton: {
     flex: 1,
   },
   tipOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: colors.overlay,
     zIndex: 40,
   },
   tipCard: {
-    width: '86%',
+    width: "86%",
     maxWidth: 360,
   },
   tipTitle: {
     color: colors.textPrimary,
     fontSize: fontSizes.title,
     fontWeight: fontWeights.heavy,
-    textAlign: 'center',
+    textAlign: "center",
   },
   tipBody: {
     color: colors.textSecondary,
     fontSize: fontSizes.body,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 21,
   },
 });

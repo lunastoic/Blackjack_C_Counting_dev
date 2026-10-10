@@ -1,3 +1,5 @@
+import { recommendForHand } from '../../engine/strategy/recommend';
+import type { PlayerAction } from '../../engine/blackjack/rules';
 import { activeHand } from '../../engine/blackjack/round';
 import { expectedBet, expectedIndexPlay, expectedInsurance } from '../../engine/dojo';
 import { cardsRemaining } from '../../engine/shoe/shoe';
@@ -37,7 +39,20 @@ export function playBossPerfectly(mapId: number, level: number): void {
                 canSplit: state.canAct('split'),
               })
             : null;
-        state.act(index ?? 'stand');
+        // Graded tables want the book play; the rest only grade count plays.
+        let book: PlayerAction = 'stand';
+        if (spec.gradeMoves) {
+          const recommendation = recommendForHand(
+            hand,
+            round.dealerHand.cards[1].rank,
+            { canDouble: state.canAct('double'), canSplit: state.canAct('split') },
+            spec.deckCount,
+          );
+          book = state.canAct(recommendation.preferredAction)
+            ? recommendation.preferredAction
+            : (recommendation.fallbackAction ?? 'hit');
+        }
+        state.act(index ?? book);
         break;
       }
       case 'result':

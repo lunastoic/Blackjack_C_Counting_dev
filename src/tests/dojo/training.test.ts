@@ -21,6 +21,10 @@ import {
   groupSizeForStreak,
   hasPassed,
   isCheckpointLevel,
+  isMiniGame,
+  stagedSpec,
+  StreakLevelSpec,
+  TrainingLevelSpec,
   isStreakLevel,
   makeDeckEstimateItem,
   makeTrueCountItem,
@@ -64,18 +68,29 @@ describe('training ladder — configuration', () => {
         expect(spec.brief.length).toBeGreaterThan(0);
         expect(SPEED_PROFILES[spec.speed]).toBeDefined();
         expect(
-          isStreakLevel(spec) || isCheckpointLevel(spec) || spec.mode === 'shoeRun' || spec.mode === 'cancelGrid',
+          isStreakLevel(spec) ||
+            isCheckpointLevel(spec) ||
+            isMiniGame(spec) ||
+            spec.mode === 'shoeRun' ||
+            spec.mode === 'cancelGrid',
         ).toBe(true);
       }
-      // Every casino ends on its boss: a shoe the trainee plays — except Luna
-      // Luxe, whose boss is Zero Hero (its shoe is the table night before it).
-      if (map.mapId === 1) {
-        expect(map.levels[4].mode).toBe('shoeRun');
-        expect(map.levels[5]).toMatchObject({ mode: 'countStream', title: 'Zero Hero' });
-      } else {
-        expect(map.levels[5].mode).toBe('shoeRun');
-      }
+      // Every casino has a table night before its boss, and level 2 is its mini-game.
+      expect(map.levels[4]).toMatchObject({ mode: 'shoeRun', title: 'Table Night' });
+      expect(map.levels[1].mode === 'cancelGrid' || isMiniGame(map.levels[1])).toBe(true);
     }
+    // The bosses: Zero Hero, two played shoes, and three Count-Along tables in between.
+    expect(trainingLevelSpec(1, 6)).toMatchObject({ mode: 'countStream', title: 'Zero Hero' });
+    expect(trainingLevelSpec(2, 6)).toMatchObject({ mode: 'shoeRun', title: 'Clean Shoe', deckCount: 2 });
+    for (const [mapId, decks] of [[3, 4], [4, 6], [5, 8]] as const) {
+      expect(trainingLevelSpec(mapId, 6)).toMatchObject({
+        mode: 'tableCount',
+        title: 'Count-Along',
+        deckCount: decks,
+        perHand: true,
+      });
+    }
+    expect(trainingLevelSpec(6, 6)).toMatchObject({ mode: 'shoeRun', title: 'Beat the Casino' });
     expect(() => trainingLevelSpec(7, 1)).toThrow(RangeError);
     expect(() => trainingLevelSpec(1, 7)).toThrow(RangeError);
     expect(() => trainingLevelSpec(1, 0)).toThrow(RangeError);
@@ -148,26 +163,69 @@ describe('training ladder — configuration', () => {
     });
   });
 
-  it('Titan opens on bet sizing, and the late tables ask for the bet', () => {
-    expect(trainingLevelSpec(5, 1)).toMatchObject({ mode: 'betSize', title: 'Bet the Count' });
-    expect(trainingLevelSpec(5, 2)).toMatchObject({ mode: 'indexPlay', plays: 'insurance' });
-    for (const [mapId, level] of [[5, 3], [5, 4], [5, 5], [6, 3], [6, 4], [6, 5]]) {
-      const spec = trainingLevelSpec(mapId, level);
-      if (!isCheckpointLevel(spec)) {
-        throw new Error('expected a checkpoint level');
+  it('each map teaches one skill: strategy, true count, bets, play changes, then casino conditions', () => {
+    expect(trainingLevelsForMap(2).map((spec) => spec.mode)).toEqual([
+      'strategy',
+      'swipeStrategy',
+      'strategy',
+      'shoeRun',
+      'shoeRun',
+      'shoeRun',
+    ]);
+    expect(trainingLevelSpec(2, 3)).toMatchObject({ stageLength: 8, stages: [{ kinds: ['hard'] }, { kinds: ['soft'] }, { kinds: ['pairs'] }] });
+    expect(trainingLevelSpec(2, 4)).toMatchObject({ title: 'Play and Count', gradeMoves: true, checkGap: { min: 3, max: 5 } });
+    expect(trainingLevelsForMap(3).map((spec) => spec.mode)).toEqual([
+      'deckEstimate',
+      'divideMatch',
+      'trueCount',
+      'countStream',
+      'shoeRun',
+      'tableCount',
+    ]);
+    expect(trainingLevelSpec(4, 1)).toMatchObject({ mode: 'betSize', title: 'Bet the Count', hideRampAfter: 10 });
+    expect(trainingLevelSpec(4, 2).mode).toBe('chipRush');
+    expect(trainingLevelSpec(4, 4)).toMatchObject({ mode: 'countStream', deckCount: 4, questions: ['betUnits'] });
+    expect(trainingLevelSpec(5, 1)).toMatchObject({ mode: 'indexPlay', plays: 'insurance' });
+    expect(trainingLevelSpec(5, 2).mode).toBe('flipPoint');
+    expect(trainingLevelSpec(5, 4)).toMatchObject({ mode: 'indexPlay', plays: 'mixed' });
+    // The later Count-Alongs ask for the bet; Titan's adds insurance on a dealer Ace.
+    for (const mapId of [4, 5]) {
+      const boss = trainingLevelSpec(mapId, 6);
+      if (boss.mode !== 'tableCount') {
+        throw new Error('expected a Count-Along');
       }
-      expect(spec.questions).toContain('betUnits');
+      expect(boss.questions).toContain('betUnits');
+      expect(boss.play).toBe('strategy');
     }
-    // Titan's and Kepler's bosses put the bets in the trainee's hands, with the pit boss watching.
-    for (const mapId of [5, 6]) {
-      expect(trainingLevelSpec(mapId, 6)).toMatchObject({ mode: 'shoeRun', betting: true, heat: true, insurance: true });
-    }
-    expect(trainingLevelSpec(6, 1)).toMatchObject({ mode: 'indexPlay', plays: 'top', showTrueCount: true });
-    expect(trainingLevelSpec(6, 2)).toMatchObject({ mode: 'indexPlay', plays: 'all', showTrueCount: false });
+    expect(trainingLevelSpec(5, 6)).toMatchObject({ insuranceOnAce: true });
+    expect(trainingLevelSpec(6, 2).mode).toBe('busyTable');
+    expect(trainingLevelSpec(6, 3)).toMatchObject({ mode: 'tableCount', stagedDistractions: true });
+    expect(trainingLevelSpec(6, 4)).toMatchObject({ mode: 'countStream', shoes: 2, deckCount: 8 });
+  });
+
+  it('deck counts climb by map: 1, then 2, then 1→4, 2→6, and 4→8', () => {
+    const decksOf = (spec: TrainingLevelSpec): number[] => {
+      if (spec.mode === 'deckEstimate') {
+        return (spec.stages ?? [spec]).flatMap((stage) => stage.shoeSizes ?? spec.shoeSizes);
+      }
+      if (spec.mode === 'busyTable') {
+        return spec.stages.map((stage) => stage.deckCount);
+      }
+      return 'deckCount' in spec && typeof spec.deckCount === 'number' ? [spec.deckCount] : [];
+    };
+    const range = (mapId: number) => {
+      const decks = trainingLevelsForMap(mapId).flatMap(decksOf);
+      return [Math.min(...decks), Math.max(...decks)];
+    };
+    expect(range(2)).toEqual([2, 2]);
+    expect(range(3)).toEqual([1, 4]);
+    expect(range(4)).toEqual([4, 6]);
+    expect(range(5)).toEqual([8, 8]);
+    expect(range(6)).toEqual([4, 8]);
   });
 
   it('bet items size the bet from the true count rounded down, minus one, 1 to 8 units', () => {
-    const spec = trainingLevelSpec(5, 1);
+    const spec = trainingLevelSpec(4, 1);
     if (spec.mode !== 'betSize') {
       throw new Error('expected bet sizing');
     }
@@ -185,25 +243,27 @@ describe('training ladder — configuration', () => {
     expect(seen.size).toBeGreaterThanOrEqual(6);
   });
 
-  it('answers are picked on Luna Luxe and Io, typed from Europa on (deck estimates stay picked)', () => {
+  it('counts are always typed; quick drills and early table nights pick from choices', () => {
     for (const { map, spec } of allSpecs) {
-      // Luna Luxe's Card Rain and Zero Hero ask for the exact count.
-      if (spec.mode === 'countStream' && (spec.presentation === 'rain' || spec.rounds)) {
+      // Every count stream and table asks for the exact number.
+      if (isCheckpointLevel(spec)) {
         expect(answersByEntry(spec)).toBe(true);
-        continue;
-      }
-      if (
-        map.mapId <= 2 ||
+      } else if (
         spec.mode === 'deckEstimate' ||
         spec.mode === 'cardValue' ||
         spec.mode === 'cardGroup' ||
-        spec.mode === 'indexPlay'
+        spec.mode === 'indexPlay' ||
+        spec.mode === 'strategy' ||
+        isMiniGame(spec)
       ) {
         expect(answersByEntry(spec)).toBe(false);
-      } else {
+      } else if (spec.mode === 'shoeRun' && map.mapId >= 4) {
         expect(answersByEntry(spec)).toBe(true);
       }
     }
+    // The first bet drill picks; the staged one makes you work the number out.
+    expect(answersByEntry(trainingLevelSpec(4, 1))).toBe(false);
+    expect(answersByEntry(trainingLevelSpec(4, 3))).toBe(true);
   });
 
   it('pass rules are satisfiable and Map 6 is the exam', () => {
@@ -217,29 +277,34 @@ describe('training ladder — configuration', () => {
     }
   });
 
-  it('every streak drill is a run of 21, with strikes that taper by map: 3, 2, 1, then none', () => {
-    const strikesByMap: Record<number, number> = { 1: 3, 2: 2, 3: 1 };
+  it('streak drills run 21, or clear after two stages of eight; strikes go 3 easy, 2 medium, 1 hard', () => {
+    const strikesByMap: Record<number, number> = { 1: 3, 2: 3, 3: 3, 4: 2, 5: 2, 6: 1 };
     for (const { map, spec } of allSpecs) {
       if (isStreakLevel(spec)) {
-        // Luna's staged Card Groups clears after two stages of eight instead.
-        expect(spec.streakTarget).toBe(spec.mode === 'cardGroup' && spec.stageLength ? 16 : 21);
-        // Bet sizing, insurance and index plays are new skills, so each gets one strike back.
-        const newSkill = spec.mode === 'betSize' || spec.mode === 'indexPlay';
-        const strikes = newSkill ? 1 : (strikesByMap[map.mapId] ?? 0);
-        expect(spec.strikes).toBe(strikes);
+        if (spec.stageLength) {
+          expect(spec.streakTarget).toBe(spec.stageLength * 2);
+        } else if (spec.mode === 'indexPlay' && spec.plays === 'mixed') {
+          // Change or Not: a shorter, faster run.
+          expect(spec.streakTarget).toBe(14);
+        } else {
+          expect(spec.streakTarget).toBe(21);
+        }
+      }
+      if ('strikes' in spec) {
+        expect(spec.strikes).toBe(strikesByMap[map.mapId]);
       }
     }
     const final = trainingLevelSpec(6, 6);
     expect(final).toMatchObject({
       mode: 'shoeRun',
-      deckCount: 6,
+      deckCount: 8,
       betting: true,
       heat: true,
       insurance: true,
       indexPlays: true,
     });
     if (final.mode === 'shoeRun') {
-      expect(final.clearAccuracy).toBeGreaterThanOrEqual(0.85);
+      expect(final.clearAccuracy).toBeGreaterThanOrEqual(0.9);
     }
   });
 });
@@ -284,18 +349,19 @@ describe('training ladder — star stages', () => {
     expect(STAR_COUNT).toBe(3);
     for (const { spec } of allSpecs) {
       // Luna Luxe's staged levels star per grid, per group stage and per round instead.
-      if (
-        spec.mode === 'cancelGrid' ||
-        (spec.mode === 'cardGroup' && spec.stageLength) ||
-        (spec.mode === 'countStream' && spec.rounds)
-      ) {
+      if (spec.mode === 'cancelGrid' || isMiniGame(spec) || (spec.mode === 'countStream' && spec.rounds)) {
+        continue;
+      }
+      if (isStreakLevel(spec) && spec.stageLength) {
+        // Staged drills star per stage.
+        expect(starTargets(spec)).toEqual([spec.stageLength, spec.stageLength * 2, spec.stageLength * 3]);
         continue;
       }
       const base = isCheckpointLevel(spec)
         ? totalCheckpoints(spec)
         : spec.mode === 'shoeRun'
           ? spec.hands
-          : spec.streakTarget;
+          : (spec as StreakLevelSpec).streakTarget;
       const targets = starTargets(spec);
       expect(targets).toEqual([Math.round(base / 2), base, Math.round(base * 1.5)]);
       expect(targets[0]).toBeGreaterThan(0);
@@ -303,7 +369,8 @@ describe('training ladder — star stages', () => {
       expect(targets[1]).toBeLessThan(targets[2]);
     }
     expect(starTargets(trainingLevelSpec(1, 1))).toEqual([11, 21, 32]);
-    expect(starTargets(trainingLevelSpec(2, 1))).toEqual([5, 9, 14]);
+    expect(starTargets(trainingLevelSpec(2, 1))).toEqual([11, 21, 32]);
+    expect(starTargets(trainingLevelSpec(2, 2))).toEqual([1, 2, 3]);
   });
 
   it('counts the stars reached and names the next target', () => {
@@ -342,7 +409,8 @@ describe('training ladder — star stages', () => {
       expect(stretch.pass).toEqual(spec.pass);
       // The stretch must fit its checks — the script schedules every one.
       const script = buildTrainingScript(stretch, seededRng(map.mapId * 10 + spec.level), seededRng(3));
-      expect(script.checkpoints).toHaveLength(third - clear);
+      // Bonus insurance calls ride along without counting toward the stars.
+      expect(script.checkpoints.filter((checkpoint) => !checkpoint.bonus)).toHaveLength(third - clear);
       if (spec.mode === 'countStream' && stretch.mode === 'countStream' && spec.finalCountQuestion) {
         expect(stretch.cardCount).toBe(spec.cardCount);
         expect(script.checkpoints[script.checkpoints.length - 1].isFinal).toBe(true);
@@ -408,11 +476,14 @@ describe('training ladder — streak items', () => {
   });
 
   it('deck estimates match the cards remaining at the level precision', () => {
-    for (const level of [1, 2, 3]) {
-      const spec = trainingLevelSpec(3, level);
+    const staged = trainingLevelSpec(3, 1);
+    for (const streak of [0, 8, 16]) {
+      const spec = stagedSpec(staged, streak);
       if (spec.mode !== 'deckEstimate') {
         throw new Error('expected deck estimate');
       }
+      // Stages of one, two, then four decks.
+      expect(spec.shoeSizes).toEqual([[1], [2], [4]][streak / 8]);
       for (let seed = 1; seed <= 25; seed++) {
         const item = makeDeckEstimateItem(spec, seededRng(seed));
         expect(spec.shoeSizes).toContain(item.shoeSize);
@@ -427,10 +498,8 @@ describe('training ladder — streak items', () => {
   });
 
   it('true-count items round down to whole numbers', () => {
-    const clean = trainingLevelSpec(4, 1);
-    const halves = trainingLevelSpec(4, 2);
-    const mixed = trainingLevelSpec(4, 3);
-    for (const spec of [clean, halves, mixed]) {
+    const staged = trainingLevelSpec(3, 3);
+    for (const spec of [0, 8, 16].map((streak) => stagedSpec(staged, streak))) {
       if (spec.mode !== 'trueCount') {
         throw new Error('expected true count');
       }
@@ -462,7 +531,18 @@ describe('training ladder — streak items', () => {
 });
 
 describe('training ladder — count streams', () => {
-  const fullDeck = trainingLevelSpec(2, 1) as CountStreamLevel;
+  // A plain one-deck stream with a final count, built off Europa's live true count.
+  const fullDeck: CountStreamLevel = {
+    ...(trainingLevelSpec(3, 4) as CountStreamLevel),
+    deckCount: 1,
+    cardCount: 52,
+    checkpoints: 5,
+    questions: ['runningCount'],
+    questionOrder: 'alternate',
+    pass: { minCorrect: 5, maxRunningCountMisses: 1 },
+    finalCountQuestion: true,
+    checkGap: undefined,
+  };
 
   it('a full deck streams 52 unique cards and ends at running count 0', () => {
     for (let seed = 1; seed <= 10; seed++) {
@@ -482,7 +562,7 @@ describe('training ladder — count streams', () => {
   it('every frame’s running count is the Hi-Lo sum of the cards seen so far', () => {
     for (const { spec } of allSpecs) {
       // Card Rain and Zero Hero deal to their checks — covered below.
-      if (spec.mode !== 'countStream' || spec.checkGap || spec.rounds) {
+      if (spec.mode !== 'countStream' || spec.checkGap || spec.rounds || spec.shoes) {
         continue;
       }
       const script = buildCountStreamScript(spec, seededRng(spec.level * 7));
@@ -551,7 +631,7 @@ describe('training ladder — count streams', () => {
   });
 
   it('multi-deck streams come from a real shoe: exact per-deck composition', () => {
-    const spec = { ...(trainingLevelSpec(3, 5) as CountStreamLevel), cardCount: 208 };
+    const spec = { ...(trainingLevelSpec(4, 4) as CountStreamLevel), cardCount: 208, checkGap: undefined };
     const script = buildCountStreamScript(spec, seededRng(21));
     expect(script.frames).toHaveLength(208);
     const ids = visibleCardIds(script);
@@ -570,7 +650,8 @@ describe('training ladder — count streams', () => {
 
   it('checkpoints ask for the actual count at their frame, spread through the deal', () => {
     for (const { spec } of allSpecs) {
-      if (!isCheckpointLevel(spec)) {
+      // Count-Along asks between hands, with the felt cleared — covered under table scripts.
+      if (!isCheckpointLevel(spec) || (spec.mode === 'tableCount' && spec.perHand)) {
         continue;
       }
       const script = buildTrainingScript(spec, seededRng(spec.level * 11 + 1));
@@ -633,9 +714,16 @@ describe('training ladder — count streams', () => {
 });
 
 describe('training ladder — table scripts', () => {
-  // One seat autoplayed through one deck, built off Io's endurance table.
+  // Kepler's distraction table, stripped back to plain scheduled checks.
+  const baseTable: TableCountLevel = {
+    ...(trainingLevelSpec(6, 3) as TableCountLevel),
+    stagedDistractions: false,
+    distractions: false,
+  };
+  // One seat autoplayed through one deck.
   const blackjackTest: TableCountLevel = {
-    ...(trainingLevelSpec(2, 5) as TableCountLevel),
+    ...baseTable,
+    play: 'autoplay',
     deckCount: 1,
     seats: 1,
     cardBudget: 52,
@@ -675,7 +763,7 @@ describe('training ladder — table scripts', () => {
   });
 
   it('never deals a card the shoe does not have — multi-deck composition holds', () => {
-    const spec = trainingLevelSpec(2, 5) as TableCountLevel;
+    const spec: TableCountLevel = { ...baseTable, play: 'autoplay', deckCount: 2, cardBudget: 104, checkpoints: 8 };
     const script = buildTableScript(spec, seededRng(5));
     const ids = visibleCardIds(script);
     expect(new Set(ids).size).toBe(ids.length);
@@ -695,7 +783,7 @@ describe('training ladder — table scripts', () => {
   });
 
   it('deal-only tables show two cards per seat and both dealer cards', () => {
-    const spec = trainingLevelSpec(2, 4) as TableCountLevel;
+    const spec: TableCountLevel = { ...baseTable, play: 'dealOnly', deckCount: 2, cardBudget: 90, checkpoints: 6 };
     const script = buildTableScript(spec, seededRng(12));
     const openingFrames = script.frames.filter((frame) => frame.beat === 'card');
     expect(openingFrames.length % (2 * (spec.seats + 1))).toBe(0);
@@ -711,7 +799,7 @@ describe('training ladder — table scripts', () => {
   });
 
   it('strategy tables use the real engine: splits and doubles appear over many seeds', () => {
-    const spec = trainingLevelSpec(5, 3) as TableCountLevel;
+    const spec = trainingLevelSpec(4, 6) as TableCountLevel;
     let splits = 0;
     let doubles = 0;
     for (let seed = 1; seed <= 12; seed++) {
@@ -733,8 +821,58 @@ describe('training ladder — table scripts', () => {
     expect(doubles).toBeGreaterThan(0);
   });
 
+  it('Count-Along asks every question as each hand clears, and insures on a dealer Ace', () => {
+    for (const mapId of [3, 4, 5]) {
+      const spec = trainingLevelSpec(mapId, 6) as TableCountLevel;
+      for (let seed = 1; seed <= 6; seed++) {
+        const script = buildTableScript(spec, seededRng(seed * mapId));
+        const main = script.checkpoints.filter((checkpoint) => !checkpoint.bonus);
+        expect(main).toHaveLength(spec.checkpoints);
+        for (const checkpoint of main) {
+          const frame = script.frames[checkpoint.frameIndex];
+          expect(frame.beat).toBe('collect');
+          expect(checkpoint.parts.map((part) => part.kind)).toEqual(spec.questions);
+          expect(checkpoint.parts[0].kind === 'runningCount' ? checkpoint.parts[0].correct : frame.runningCount).toBe(
+            frame.runningCount,
+          );
+        }
+        for (const bonus of script.checkpoints.filter((checkpoint) => checkpoint.bonus)) {
+          expect(spec.insuranceOnAce).toBe(true);
+          expect(script.frames[bonus.frameIndex].card?.rank).toBe('A');
+          expect(bonus.parts.map((part) => part.kind)).toEqual(['insurance']);
+        }
+      }
+    }
+    // Over a few shoes, Titan's boss does meet a dealer Ace.
+    const titan = trainingLevelSpec(5, 6) as TableCountLevel;
+    const bonuses = [1, 2, 3, 4, 5, 6, 7, 8].reduce(
+      (sum, seed) => sum + buildTableScript(titan, seededRng(seed)).checkpoints.filter((c) => c.bonus).length,
+      0,
+    );
+    expect(bonuses).toBeGreaterThan(0);
+  });
+
+  it('Long Shift deals two full shoes, the count starting over with the second', () => {
+    const spec = trainingLevelSpec(6, 4) as CountStreamLevel;
+    const script = buildCountStreamScript(spec, seededRng(9), seededRng(10));
+    const second = script.frames.findIndex((frame) => frame.round === 2);
+    expect(second).toBeGreaterThan(0);
+    expect(script.frames[second].cardsDrawn).toBe(1);
+    expect(script.frames[second].runningCount).toBe(hiLoValue(script.frames[second].card!.rank));
+    expect(script.checkpoints).toHaveLength(spec.checkpoints);
+    let previous = -1;
+    for (const checkpoint of script.checkpoints) {
+      expect(checkpoint.frameIndex - previous).toBeGreaterThanOrEqual(12);
+      expect(checkpoint.frameIndex - previous).toBeLessThanOrEqual(18);
+      expect(checkpoint.parts).toEqual([
+        { kind: 'runningCount', correct: script.frames[checkpoint.frameIndex].runningCount },
+      ]);
+      previous = checkpoint.frameIndex;
+    }
+  });
+
   it('the endurance shoe runs to the cut card and no further', () => {
-    const exam = trainingLevelSpec(6, 5) as TableCountLevel;
+    const exam: TableCountLevel = { ...baseTable, cardBudget: 6 * 52 - 78 };
     const script = buildTableScript(exam, seededRng(77));
     const last = script.frames[script.frames.length - 1];
     expect(last.cardsDrawn).toBeGreaterThanOrEqual(exam.cardBudget);
@@ -746,7 +884,7 @@ describe('training ladder — table scripts', () => {
 describe('training ladder — checkpoint scoring', () => {
   // Fourteen checks, twelve to pass, at most one running-count miss.
   const spec: CheckpointLevelSpec = {
-    ...(trainingLevelSpec(3, 5) as CheckpointLevelSpec),
+    ...(trainingLevelSpec(3, 4) as CheckpointLevelSpec),
     checkpoints: 14,
     pass: { minCorrect: 12, maxRunningCountMisses: 1 },
   };

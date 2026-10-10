@@ -428,6 +428,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: layout.screenPaddingH,
+    // Room for the "↑ DOUBLE" and "↓ SPLIT" labels, clear of the dealer card and the hand.
+    paddingTop: 88,
+    paddingBottom: 48,
   },
   combo: {
     position: 'absolute',

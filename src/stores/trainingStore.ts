@@ -794,7 +794,10 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
     }
 
     const askedParts = checkpoint.parts.slice(0, partResults.length);
-    const tally = recordCheckpoint(state.tally, askedParts, partResults);
+    const recorded = recordCheckpoint(state.tally, askedParts, partResults);
+    // A bonus call (insurance on a dealer Ace) shows in the per-kind results but never
+    // moves the pass rule: the boss is passed or failed on its hands.
+    const tally = checkpoint.bonus ? { ...state.tally, byKind: recorded.byKind } : recorded;
     const isLast = state.checkpointIndex + 1 >= script.checkpoints.length;
     const mainAsked = state.mainAsked + (checkpoint.bonus ? 0 : 1);
     set({ question: answered, tally, mainAsked });
