@@ -26,9 +26,15 @@ export function BetSizeStage({ item, showRamp, reveal, serial }: BetSizeStagePro
   return (
     <View key={serial} style={styles.stage}>
       <View style={styles.row}>
-        <Figure label="RUNNING COUNT" value={formatCount(item.runningCount)} />
-        <Text style={styles.divide}>÷</Text>
-        <Figure label="DECKS LEFT" value={formatDecks(item.decksRemaining)} />
+        {item.trueCountShown ? (
+          <Figure label="TRUE COUNT" value={formatCount(item.trueCount)} />
+        ) : (
+          <>
+            <Figure label="RUNNING COUNT" value={formatCount(item.runningCount)} />
+            <Text style={styles.divide}>÷</Text>
+            <Figure label="DECKS LEFT" value={formatDecks(item.decksRemaining)} />
+          </>
+        )}
       </View>
       {showRamp ? (
         <View style={styles.ramp} accessibilityLabel="Bet ramp: true count minus one units, one to eight">
@@ -45,9 +51,11 @@ export function BetSizeStage({ item, showRamp, reveal, serial }: BetSizeStagePro
       ) : null}
       <Text style={styles.reveal}>
         {reveal
-          ? `${formatCount(item.runningCount)} ÷ ${formatDecks(item.decksRemaining)} → TC ${formatCount(
-              item.trueCount,
-            )} → ${formatUnits(item.correct)}`
+          ? item.trueCountShown
+            ? `TC ${formatCount(item.trueCount)} − 1 → ${formatUnits(item.correct)}`
+            : `${formatCount(item.runningCount)} ÷ ${formatDecks(item.decksRemaining)} → TC ${formatCount(
+                item.trueCount,
+              )} → ${formatUnits(item.correct)}`
           : 'TRUE COUNT, ROUNDED DOWN, MINUS ONE'}
       </Text>
     </View>

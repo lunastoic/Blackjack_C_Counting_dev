@@ -28,6 +28,9 @@ import {
   makeBetSizeItem,
   makeDeckEstimateItem,
   makeTrueCountItem,
+  makeStrategyItem,
+  stagedSpec,
+  StrategyItem,
   answersByEntry,
   ENTRY_METER_FACTOR,
   METER_TOP_UP,
@@ -104,7 +107,8 @@ export type StreakItem =
   | { readonly kind: 'deckEstimate'; readonly item: DeckEstimateItem }
   | { readonly kind: 'trueCount'; readonly item: TrueCountItem }
   | { readonly kind: 'betSize'; readonly item: BetSizeItem }
-  | { readonly kind: 'indexPlay'; readonly item: IndexPlayItem };
+  | { readonly kind: 'indexPlay'; readonly item: IndexPlayItem }
+  | { readonly kind: 'strategy'; readonly item: StrategyItem };
 
 export interface TrainingQuestion {
   readonly kind: QuestionKind;
@@ -165,6 +169,8 @@ export interface TrainingState {
   /** Index of the next checkpoint to reach. */
   readonly checkpointIndex: number;
   readonly tally: CheckpointTally;
+  /** Checks asked that count toward the stars (bonus insurance calls don't). */
+  readonly mainAsked: number;
   /** Cards shown since the last check — the review after a miss. */
   readonly cardsSinceCheck: readonly Card[];
   /** Running count at the last check (where the review starts). */
@@ -366,6 +372,7 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
       frame: null,
       checkpointIndex: 0,
       tally: EMPTY_TALLY,
+      mainAsked: 0,
       cardsSinceCheck: [] as Card[],
       countAtLastCheck: 0,
       question: null,
@@ -586,7 +593,9 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
   // -------------------------------------------------------------------------
 
   function nextStreakItem(): void {
-    const { spec, streak, itemSerial } = get();
+    const { spec: levelSpec, streak, itemSerial } = get();
+    // A staged drill asks with its current stage's settings.
+    const spec = stagedSpec(levelSpec, streak);
     let item: StreakItem;
     switch (spec.mode) {
       case 'cardValue': {
@@ -613,6 +622,9 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
         break;
       case 'indexPlay':
         item = { kind: 'indexPlay', item: makeIndexPlayItem(spec, random) };
+        break;
+      case 'strategy':
+        item = { kind: 'strategy', item: makeStrategyItem(spec.kinds, spec.deckCount, random) };
         break;
       default:
         return;
@@ -784,7 +796,8 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
     const askedParts = checkpoint.parts.slice(0, partResults.length);
     const tally = recordCheckpoint(state.tally, askedParts, partResults);
     const isLast = state.checkpointIndex + 1 >= script.checkpoints.length;
-    set({ question: answered, tally });
+    const mainAsked = state.mainAsked + (checkpoint.bonus ? 0 : 1);
+    set({ question: answered, tally, mainAsked });
     noteBest();
 
     // Zero Hero: a star per round called right, banked as it comes (no pause
@@ -807,7 +820,7 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
       endRun();
       return wasCorrect;
     }
-    const reached = starsReached(state.targets, tally.asked);
+    const reached = starsReached(state.targets, mainAsked);
     if (reached > state.stars && !reachStars(reached)) {
       return wasCorrect;
     }

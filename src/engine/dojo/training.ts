@@ -1713,7 +1713,8 @@ const TRUE_COUNT_RC_BOUND = 12;
 
 export function makeTrueCountItem(spec: TrueCountLevel, random: Rng = defaultRng): TrueCountItem {
   const deckOptions: number[] = [];
-  for (let decks = spec.halfDecks ? 0.5 : 1; decks <= 6; decks += spec.halfDecks ? 0.5 : 1) {
+  const maxDecks = spec.maxDecks ?? 6;
+  for (let decks = spec.halfDecks ? 0.5 : 1; decks <= maxDecks; decks += spec.halfDecks ? 0.5 : 1) {
     deckOptions.push(decks);
   }
   const decksRemaining = deckOptions[Math.floor(random() * deckOptions.length)];
@@ -1826,13 +1827,13 @@ function upRankFor(value: number, random: Rng): Rank {
 }
 
 /** A count on either side of the index, so both answers come up about as often. */
-function countAround(index: number, showTrueCount: boolean, random: Rng) {
+function countAround(index: number, showTrueCount: boolean, random: Rng, maxDecks = 6) {
   const offset = Math.floor(random() * 7) - 3; // −3 … +3
   const target = index + offset;
   if (showTrueCount) {
     return { runningCount: target, decksRemaining: 1, trueCount: target };
   }
-  const decksRemaining = 1 + Math.floor(random() * 11) / 2; // 1 … 6 in halves
+  const decksRemaining = 1 + Math.floor(random() * (2 * maxDecks - 1)) / 2; // 1 … maxDecks in halves
   const runningCount = Math.floor(target * decksRemaining + random() * decksRemaining * 0.9);
   return {
     runningCount,
@@ -1842,6 +1843,14 @@ function countAround(index: number, showTrueCount: boolean, random: Rng) {
 }
 
 export function makeIndexPlayItem(spec: IndexPlayLevel, random: Rng = defaultRng): IndexPlayItem {
+  // Mixed: about two hands in three are ordinary ones the chart still decides,
+  // so the trainee learns when NOT to change; the rest are the top plays.
+  if (spec.plays === 'mixed') {
+    if (random() < 2 / 3) {
+      return makeChartHandItem(spec, random);
+    }
+    return makeIndexPlayItem({ ...spec, plays: random() < 0.15 ? 'insurance' : 'all' }, random);
+  }
   const pool: readonly IndexPlay[] =
     spec.plays === 'top'
       ? INDEX_PLAYS.filter((play) => TOP_INDEX_PLAY_IDS.includes(play.id))
@@ -1857,7 +1866,7 @@ export function makeIndexPlayItem(spec: IndexPlayLevel, random: Rng = defaultRng
   };
 
   if (insurance) {
-    const count = countAround(INSURANCE_INDEX, spec.showTrueCount, random);
+    const count = countAround(INSURANCE_INDEX, spec.showTrueCount, random, spec.maxDecks);
     const [a, b] = pick(Object.values(HARD_HANDS).flat(), random);
     const correct = count.trueCount >= INSURANCE_INDEX ? DECISION.insure : DECISION.noInsurance;
     return {
@@ -1873,7 +1882,7 @@ export function makeIndexPlayItem(spec: IndexPlayLevel, random: Rng = defaultRng
   }
 
   const play = pick(pool, random);
-  const count = countAround(play.index, spec.showTrueCount, random);
+  const count = countAround(play.index, spec.showTrueCount, random, spec.maxDecks);
   const ranks: readonly Rank[] =
     play.hand === 'pair10' ? [pick(TENS, random), pick(TENS, random)] : pick(HARD_HANDS[play.hand], random);
   const action = indexAction(play, count.trueCount, { canDouble: true, canSplit: true });
@@ -1887,6 +1896,30 @@ export function makeIndexPlayItem(spec: IndexPlayLevel, random: Rng = defaultRng
     correct: PLAY_CODES[action],
     choices: [DECISION.hit, DECISION.stand, DECISION.double, DECISION.split],
   };
+}
+
+/**
+ * An ordinary hand with a count beside it: no index covers it, so the chart
+ * play stands whatever the count says.
+ */
+function makeChartHandItem(spec: IndexPlayLevel, random: Rng): IndexPlayItem {
+  for (;;) {
+    const hand = makeStrategyItem(['hard', 'soft', 'pairs'], 6, random);
+    if (indexPlayFor(hand.playerCards, hand.dealerUp.rank)) {
+      continue;
+    }
+    const count = countAround(Math.floor(random() * 7) - 2, spec.showTrueCount, random, spec.maxDecks);
+    return {
+      question: 'play',
+      playerCards: hand.playerCards,
+      dealerUp: hand.dealerUp,
+      ...count,
+      index: Number.NaN,
+      label: hand.label,
+      correct: hand.correct,
+      choices: hand.choices,
+    };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1997,6 +2030,8 @@ export function makeStrategyItem(
 }
 
 export interface BetSizeItem {
+  /** The true count is given outright; running count and decks are not shown. */
+  readonly trueCountShown?: boolean;
   readonly runningCount: number;
   readonly decksRemaining: number;
   /** The true count the bet is sized from (rounded down). */
@@ -2011,7 +2046,8 @@ const BET_TRUE_COUNT_RANGE = { min: -2, max: BET_SPREAD_MAX + 2 } as const;
 
 export function makeBetSizeItem(spec: BetSizeLevel, random: Rng = defaultRng): BetSizeItem {
   const deckOptions: number[] = [];
-  for (let decks = 1; decks <= 6; decks += spec.halfDecks ? 0.5 : 1) {
+  const maxDecks = spec.maxDecks ?? 6;
+  for (let decks = 1; decks <= maxDecks; decks += spec.halfDecks ? 0.5 : 1) {
     deckOptions.push(decks);
   }
   const decksRemaining = deckOptions[Math.floor(random() * deckOptions.length)];
@@ -2023,6 +2059,7 @@ export function makeBetSizeItem(spec: BetSizeLevel, random: Rng = defaultRng): B
   const trueCount = trueCountFromDecks(runningCount, decksRemaining);
   const correct = betUnitsForTrueCount(trueCount);
   return {
+    trueCountShown: spec.showTrueCount === true,
     runningCount,
     decksRemaining,
     trueCount,
@@ -2080,6 +2117,8 @@ export interface Checkpoint {
   readonly parts: readonly QuestionPart[];
   /** The "final count" question after the last card. */
   readonly isFinal: boolean;
+  /** An extra call (insurance on a dealer Ace) that does not count toward the stars. */
+  readonly bonus?: boolean;
 }
 
 export interface TrainingScript {
@@ -2263,6 +2302,33 @@ function buildGapScript(spec: CountStreamLevel, rng: Rng, random: Rng): Training
 }
 
 /**
+ * Long Shift: `shoes` shoes back to back, each dealt to its cut card with the
+ * count starting over, and a check every `checkGap` cards across the shift.
+ */
+function buildShoesScript(spec: CountStreamLevel, rng: Rng, random: Rng): TrainingScript {
+  const gap = spec.checkGap ?? { min: 12, max: 18 };
+  const frames: StreamFrame[] = [];
+  for (let shoeNumber = 1; shoeNumber <= (spec.shoes ?? 1); shoeNumber++) {
+    const dealt = dealStream(createShoe(spec.deckCount, rng), cutCardDealtCount(spec.deckCount), 0, shoeNumber);
+    frames.push(...dealt.frames);
+  }
+  const checkpoints: Checkpoint[] = [];
+  let at = -1;
+  while (checkpoints.length < spec.checkpoints) {
+    at += between(gap.min, gap.max, random);
+    if (at >= frames.length) {
+      break;
+    }
+    checkpoints.push({
+      frameIndex: at,
+      parts: [{ kind: 'runningCount', correct: frames[at].runningCount }],
+      isFinal: false,
+    });
+  }
+  return { deckCount: spec.deckCount, frames, checkpoints };
+}
+
+/**
  * Zero Hero: each round shuffles a fresh deck, deals it to a secret stop and
  * asks for the count there. Rounds sit end to end in one script; the count
  * starts over at 0 with every round.
@@ -2291,6 +2357,9 @@ export function buildCountStreamScript(
   rng: Rng = defaultRng,
   random: Rng = rng,
 ): TrainingScript {
+  if (spec.shoes) {
+    return buildShoesScript(spec, rng, random);
+  }
   if (spec.rounds) {
     return buildRoundsScript(spec, rng, random);
   }
@@ -2524,12 +2593,17 @@ export function buildTableScript(
   const frames: StreamFrame[] = [];
   const budget = Math.min(spec.cardBudget, totalCards(spec.deckCount));
   const minCards = minCardsForHand(spec);
+  // Staged distractions deal the results beat every hand; the felt decides when to show it.
+  const dealSpec = spec.stagedDistractions ? { ...spec, distractions: true } : spec;
   let runningCount = 0;
   let handNumber = 0;
 
-  while (shoe.drawnCount < budget && cardsRemaining(shoe) >= minCards) {
+  while (
+    (spec.perHand ? handNumber < spec.checkpoints : shoe.drawnCount < budget) &&
+    cardsRemaining(shoe) >= minCards
+  ) {
     handNumber += 1;
-    const deal = dealTableHand(spec, shoe, handNumber, runningCount, (frame) => frames.push(frame));
+    const deal = dealTableHand(dealSpec, shoe, handNumber, runningCount, (frame) => frames.push(frame));
     shoe = deal.shoe;
     runningCount = deal.runningCount;
     if (!deal.completed) {
@@ -2540,8 +2614,37 @@ export function buildTableScript(
   return {
     deckCount: spec.deckCount,
     frames,
-    checkpoints: scheduleCheckpoints(frames, spec, random),
+    checkpoints: spec.perHand ? perHandCheckpoints(frames, spec) : scheduleCheckpoints(frames, spec, random),
   };
+}
+
+/**
+ * Count-Along: a check as each hand is cleared away (so, before the next
+ * one), asking every kind in `questions` in order; with `insuranceOnAce`, a
+ * dealer Ace adds a bonus insurance call the moment it lands.
+ */
+export function perHandCheckpoints(frames: readonly StreamFrame[], spec: TableCountLevel): Checkpoint[] {
+  const checkpoints: Checkpoint[] = [];
+  frames.forEach((frame, index) => {
+    const dealer = frame.table.dealer;
+    const upcardLanded =
+      frame.beat === 'card' &&
+      frame.card !== null &&
+      dealer !== null &&
+      dealer.cards.length === 2 &&
+      dealer.cards[1].id === frame.card.id;
+    if (spec.insuranceOnAce && upcardLanded && frame.card?.rank === 'A') {
+      checkpoints.push({ frameIndex: index, parts: [questionPart('insurance', frame)], isFinal: false, bonus: true });
+    }
+    if (frame.beat === 'collect') {
+      checkpoints.push({
+        frameIndex: index,
+        parts: spec.questions.map((kind) => questionPart(kind, frame)),
+        isFinal: false,
+      });
+    }
+  });
+  return checkpoints;
 }
 
 export function buildTrainingScript(

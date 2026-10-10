@@ -57,7 +57,7 @@ const ACTIONS: readonly { readonly action: PlayerAction; readonly label: string 
   { action: 'split', label: 'Split' },
 ];
 
-const KIND_LABEL = { count: 'COUNTS', bet: 'BETS', insurance: 'INSURANCE', play: 'INDEX PLAYS' } as const;
+const KIND_LABEL = { count: 'COUNTS', bet: 'BETS', insurance: 'INSURANCE', play: 'PLAYS' } as const;
 
 function units(value: number): string {
   const rounded = Math.round(value * 10) / 10;
@@ -119,8 +119,10 @@ export function ShoeRunScreen({ mapId, level, daily = false, drill }: ShoeRunScr
       ? indexPlayFor(hand.cards, dealerUp.rank)
       : null;
   // The book play lights up — except on a graded index spot, where it would give the answer away.
+  // Graded tables show no hint: the book play is the test.
+  const hintsOn = spec.hints ?? !spec.gradeMoves;
   const hint =
-    status === 'play' && hand && dealerUp && !indexSpot
+    hintsOn && status === 'play' && hand && dealerUp && !indexSpot
       ? recommendForHand(
           hand,
           dealerUp.rank,

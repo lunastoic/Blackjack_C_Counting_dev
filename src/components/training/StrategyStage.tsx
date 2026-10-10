@@ -1,33 +1,25 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { decisionLabel, IndexPlayItem } from '../../engine/dojo';
+import { decisionLabel, StrategyItem } from '../../engine/dojo';
 import { colors, fontSizes, fontWeights, radii, spacing } from '../../theme';
-import { formatCount } from '../../utils/countCoach';
 import { PlayingCard } from '../game/PlayingCard';
-import { formatDecks } from './copy';
 
-interface IndexPlayStageProps {
-  readonly item: IndexPlayItem;
+interface StrategyStageProps {
+  readonly item: StrategyItem;
   readonly cardWidth: number;
   readonly speed: number;
-  /** Show the index and the call (after an answer). */
+  /** Show the book play and why (after an answer). */
   readonly reveal: boolean;
   readonly serial: number;
+  /** "NICE! NOW SOFT HANDS" on the first hand of a new stage. */
+  readonly banner?: string | null;
 }
 
-/** The dealer's card over the player's hand, and the count the call is made on. */
-export function IndexPlayStage({ item, cardWidth, speed, reveal, serial }: IndexPlayStageProps) {
-  const count = item.decksRemaining === 1 && item.runningCount === item.trueCount
-    ? `TRUE COUNT ${formatCount(item.trueCount)}`
-    : `${formatCount(item.runningCount)} ÷ ${formatDecks(item.decksRemaining)} DECKS`;
-  // A chart hand (no index covers it) plays the book whatever the count says.
-  const verdict = Number.isNaN(item.index)
-    ? `${item.label}: no count play here — the chart says ${decisionLabel(item.correct)}`
-    : `${item.label}: ${item.question === 'insurance' ? 'take it' : 'deviate'} at ${formatCount(
-        item.index,
-      )} or higher · TC ${formatCount(item.trueCount)} → ${decisionLabel(item.correct)}`;
+/** Basic strategy: the dealer's card over the player's two cards, and the book play once answered. */
+export function StrategyStage({ item, cardWidth, speed, reveal, serial, banner }: StrategyStageProps) {
   return (
     <View key={serial} style={styles.stage}>
+      {banner ? <Text style={styles.banner}>{banner}</Text> : null}
       <Text style={styles.label}>DEALER</Text>
       <PlayingCard card={item.dealerUp} skin="regular" width={cardWidth} underglow={false} speed={speed} />
       <View style={styles.hand}>
@@ -37,10 +29,12 @@ export function IndexPlayStage({ item, cardWidth, speed, reveal, serial }: Index
           </View>
         ))}
       </View>
-      <View style={styles.count}>
-        <Text style={styles.countText}>{count}</Text>
+      <View style={styles.tag}>
+        <Text style={styles.tagText}>{item.label.toUpperCase()}</Text>
       </View>
-      <Text style={styles.reveal}>{reveal ? verdict : ' '}</Text>
+      <Text style={styles.reveal}>
+        {reveal ? `${decisionLabel(item.correct)}. ${item.reason.replace(/^[A-Za-z]+ — /, '')}` : ' '}
+      </Text>
     </View>
   );
 }
@@ -51,6 +45,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
+  },
+  banner: {
+    color: colors.arcadeInk,
+    backgroundColor: colors.arcadeMint,
+    fontSize: fontSizes.body,
+    fontWeight: fontWeights.heavy,
+    letterSpacing: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.md,
+    overflow: 'hidden',
   },
   label: {
     color: colors.textMuted,
@@ -65,7 +70,7 @@ const styles = StyleSheet.create({
   overlap: {
     marginLeft: -spacing.lg,
   },
-  count: {
+  tag: {
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.lg,
     borderRadius: radii.md,
@@ -73,17 +78,17 @@ const styles = StyleSheet.create({
     borderColor: colors.borderGold,
     backgroundColor: colors.overlayLight,
   },
-  countText: {
+  tagText: {
     color: colors.goldBright,
     fontSize: fontSizes.heading,
     fontWeight: fontWeights.heavy,
-    fontVariant: ['tabular-nums'],
+    letterSpacing: 1,
   },
   reveal: {
     color: colors.textSecondary,
     fontSize: fontSizes.small,
     fontWeight: fontWeights.semibold,
     textAlign: 'center',
-    fontVariant: ['tabular-nums'],
+    paddingHorizontal: spacing.md,
   },
 });

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { recommendForHand } from '../engine/strategy/recommend';
 import { INSURANCE_INDEX } from '../engine/strategy/indexPlays';
 import { BET_SPREAD_MAX } from '../engine/betting/betRamp';
 import { resolveRound, RoundResolution } from '../engine/blackjack/resolve';
@@ -96,6 +97,10 @@ export interface ShoeRunState {
   readonly heat: number;
   readonly insured: boolean;
   readonly question: ShoeRunQuestion | null;
+  /** Checks asked so far this run (cycles through the level's check kinds). */
+  readonly checksAsked: number;
+  /** With a check gap: the hand count at which the next check is due. */
+  readonly nextCheckAt: number;
   /** When the open count check was asked (`Date.now()`), for its clock. Null between checks. */
   readonly questionAt: number | null;
   readonly calls: readonly ShoeRunCall[];
@@ -191,6 +196,8 @@ export const useShoeRunStore = create<ShoeRunState>()((set, get) => {
       heat: 0,
       insured: false,
       question: null,
+      checksAsked: 0,
+      nextCheckAt: 0,
       questionAt: null,
       calls: [],
       verdict: null,
@@ -253,9 +260,18 @@ export const useShoeRunStore = create<ShoeRunState>()((set, get) => {
       return;
     }
     set({ round: null, resolution: null, insured: false });
-    const due = spec.checks.length > 0 && hands > 0 && hands % spec.checkEvery === 0;
+    const { checksAsked, nextCheckAt } = get();
+    // A check gap spaces checks every few hands at random; otherwise every Nth hand.
+    const due =
+      spec.checks.length > 0 &&
+      hands > 0 &&
+      (spec.checkGap ? hands >= nextCheckAt : hands % spec.checkEvery === 0);
     if (due) {
-      const kind = spec.checks[Math.floor(hands / spec.checkEvery - 1) % spec.checks.length];
+      const kind = spec.checks[checksAsked % spec.checks.length];
+      set({
+        checksAsked: checksAsked + 1,
+        nextCheckAt: spec.checkGap ? hands + gapHands(spec.checkGap) : nextCheckAt,
+      });
       const correct = correctFor(kind);
       set({
         status: 'question',
@@ -272,6 +288,28 @@ export const useShoeRunStore = create<ShoeRunState>()((set, get) => {
     openBetting();
   }
 
+  /** Hands until the next check, `min`–`max` inclusive. */
+  function gapHands(gap: { readonly min: number; readonly max: number }): number {
+    return gap.min + Math.floor(rng() * (gap.max - gap.min + 1));
+  }
+
+  /** One more miss of a kind than the level allows ends the run. Returns whether it did. */
+  function overMissLimit(): boolean {
+    const { spec, calls } = get();
+    if (!spec) {
+      return false;
+    }
+    const missed = (kind: ShoeRunCall['kind']) => calls.filter((call) => call.kind === kind && !call.right).length;
+    const tooMany =
+      (spec.maxCountMisses !== undefined && missed('count') > spec.maxCountMisses) ||
+      (spec.maxMoveMisses !== undefined && missed('play') > spec.maxMoveMisses);
+    if (tooMany) {
+      stopCheckClock();
+      finish(false);
+    }
+    return tooMany;
+  }
+
   /** The check's clock ran out: a miss, and on to the bet. */
   function checkTimedOut(): void {
     checkClock = null;
@@ -281,6 +319,9 @@ export const useShoeRunStore = create<ShoeRunState>()((set, get) => {
     }
     record(false, 'count', `Too slow — count was ${formatSigned(question.correct)}`);
     set({ questionAt: null });
+    if (overMissLimit()) {
+      return;
+    }
     openBetting();
   }
 
@@ -441,7 +482,11 @@ export const useShoeRunStore = create<ShoeRunState>()((set, get) => {
       }
       // The daily shoe deals the same shuffle all day, every attempt.
       const shuffle = daily && day ? seededRng(dailyShoeSeed(day)) : rng;
-      set({ ...base, shoe: createShoe(base.spec.deckCount, shuffle) });
+      set({
+        ...base,
+        shoe: createShoe(base.spec.deckCount, shuffle),
+        nextCheckAt: base.spec.checkGap ? gapHands(base.spec.checkGap) : 0,
+      });
       toNextHand();
     },
 
@@ -454,6 +499,9 @@ export const useShoeRunStore = create<ShoeRunState>()((set, get) => {
       const right = value === question.correct;
       record(right, 'count', right ? 'Count right' : `Count was ${formatSigned(question.correct)}`);
       set({ questionAt: null });
+      if (overMissLimit()) {
+        return right;
+      }
       openBetting();
       return right;
     },
@@ -525,6 +573,7 @@ export const useShoeRunStore = create<ShoeRunState>()((set, get) => {
         return;
       }
       const hand = activeHand(round)!;
+      let graded = false;
       if (spec.indexPlays && hand.cards.length === 2 && round.playerHands.length === 1) {
         const expected = expectedIndexPlay(
           hand.cards,
@@ -534,6 +583,7 @@ export const useShoeRunStore = create<ShoeRunState>()((set, get) => {
           { canDouble: canDouble(hand), canSplit: canSplit(hand, round.splitUsed) },
         );
         if (expected) {
+          graded = true;
           const right = action === expected;
           record(right, 'play', right ? `Index play — ${ACTION_LABEL[action]}` : `Index play: ${ACTION_LABEL[expected]} here`);
           if (!right) {
@@ -550,6 +600,19 @@ export const useShoeRunStore = create<ShoeRunState>()((set, get) => {
             });
           }
         }
+      }
+      // Graded tables mark every other play against the book for this shoe.
+      if (!graded && spec.gradeMoves) {
+        const availability = { canDouble: canDouble(hand), canSplit: canSplit(hand, round.splitUsed) };
+        const recommendation = recommendForHand(hand, round.dealerHand.cards[1].rank, availability, spec.deckCount);
+        const book = get().canAct(recommendation.preferredAction)
+          ? recommendation.preferredAction
+          : (recommendation.fallbackAction ?? 'hit');
+        const right = action === book;
+        record(right, 'play', right ? `Book play — ${ACTION_LABEL[action]}` : `The book says ${ACTION_LABEL[book]} here`);
+      }
+      if (overMissLimit()) {
+        return;
       }
       const step = withShoe(round, (shoe) => applyPlayerAction(round, shoe, action));
       set({ shoe: step.shoe, round: step.round, runningCount: get().runningCount + countOf(step.events) });
