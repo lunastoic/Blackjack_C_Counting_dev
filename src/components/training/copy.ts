@@ -1,6 +1,8 @@
 import {
   CheckpointLevelSpec,
+  decisionLabel,
   isCheckpointLevel,
+  isMiniGame,
   isRoundsLevel,
   QuestionKind,
   ShoeRunLevel,
@@ -29,6 +31,8 @@ export function formatAnswer(kind: QuestionKind, value: number): string {
       return formatDecks(value);
     case 'betUnits':
       return formatUnits(value);
+    case 'insurance':
+      return decisionLabel(value);
     default:
       return formatCount(value);
   }
@@ -45,6 +49,8 @@ export function questionPrompt(kind: QuestionKind, isFinal: boolean): string {
       return 'WHAT’S THE TRUE COUNT?';
     case 'betUnits':
       return 'WHAT’S YOUR BET?';
+    case 'insurance':
+      return 'DEALER SHOWS AN ACE — INSURANCE?';
   }
 }
 
@@ -59,6 +65,8 @@ export function kindLabel(kind: QuestionKind): string {
       return 'True count';
     case 'betUnits':
       return 'Bet';
+    case 'insurance':
+      return 'Insurance';
   }
 }
 
@@ -74,8 +82,16 @@ export function starGlyphs(stars: number): string {
 
 /** What a streak level counts toward its stars. */
 function streakUnit(spec: TrainingLevelSpec): string {
-  if (spec.mode === 'cancelGrid') {
-    return 'grids';
+  switch (spec.mode) {
+    case 'cancelGrid':
+    case 'divideMatch':
+      return 'grids';
+    case 'swipeStrategy':
+    case 'chipRush':
+    case 'busyTable':
+      return spec.mode === 'busyTable' ? 'stages' : 'waves';
+    case 'flipPoint':
+      return 'sets';
   }
   if (isRoundsLevel(spec)) {
     return 'rounds right';
@@ -147,6 +163,8 @@ export function requirementChips(
     );
     if (spec.mode === 'cancelGrid') {
       chips.push('The meter drains while the grid is up');
+    } else if (isMiniGame(spec)) {
+      chips.push('The meter drains while you play');
     }
     return chips;
   }

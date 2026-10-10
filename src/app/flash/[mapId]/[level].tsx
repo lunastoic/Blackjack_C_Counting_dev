@@ -1,6 +1,11 @@
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import React from 'react';
+import { BusyTableScreen } from '../../../components/training/BusyTableScreen';
 import { CancelGridScreen } from '../../../components/training/CancelGridScreen';
+import { ChipRushScreen } from '../../../components/training/ChipRushScreen';
+import { DivideMatchScreen } from '../../../components/training/DivideMatchScreen';
+import { FlipPointScreen } from '../../../components/training/FlipPointScreen';
+import { SwipeStrategyScreen } from '../../../components/training/SwipeStrategyScreen';
 import { ShoeRunScreen } from '../../../components/training/ShoeRunScreen';
 import { TrainingLevelScreen } from '../../../components/training/TrainingLevelScreen';
 import { isFlashLevel, trainingLevelSpec } from '../../../engine/dojo';
@@ -35,6 +40,22 @@ export default function FlashLevelRoute() {
   // Luna Luxe's Cancel Out is a board of cards, not a question stream.
   if (mode === 'cancelGrid') {
     return <CancelGridScreen mapId={mapId} level={level} />;
+  }
+  // The other mini-games: each is a board of its own, not a question stream.
+  if (mode === 'swipeStrategy') {
+    return <SwipeStrategyScreen mapId={mapId} level={level} />;
+  }
+  if (mode === 'divideMatch') {
+    return <DivideMatchScreen mapId={mapId} level={level} />;
+  }
+  if (mode === 'chipRush') {
+    return <ChipRushScreen mapId={mapId} level={level} />;
+  }
+  if (mode === 'flipPoint') {
+    return <FlipPointScreen mapId={mapId} level={level} />;
+  }
+  if (mode === 'busyTable') {
+    return <BusyTableScreen mapId={mapId} level={level} />;
   }
   return <TrainingLevelScreen mapId={mapId} level={level} />;
 }

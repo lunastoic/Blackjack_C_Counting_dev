@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { INSURANCE_INDEX } from '../engine/strategy/indexPlays';
 import { BET_SPREAD_MAX } from '../engine/betting/betRamp';
 import { resolveRound, RoundResolution } from '../engine/blackjack/resolve';
 import {
@@ -16,6 +17,7 @@ import {
   dailyShoeSeed,
   dayKey,
   buildNumberChoices,
+  DECISION,
   decksRemainingEstimate,
   expectedBet,
   expectedBetUnits,
@@ -308,6 +310,8 @@ export const useShoeRunStore = create<ShoeRunState>()((set, get) => {
         return tableTrueCount(runningCount, remaining());
       case 'betUnits':
         return expectedBetUnits(runningCount, remaining());
+      case 'insurance':
+        return tableTrueCount(runningCount, remaining()) >= INSURANCE_INDEX ? DECISION.insure : DECISION.noInsurance;
     }
   }
 

@@ -9,13 +9,14 @@ import {
   INDEX_PLAYS,
   indexAction,
   IndexPlay,
+  indexPlayFor,
   INSURANCE_INDEX,
   TOP_INDEX_PLAY_IDS,
 } from '../strategy/indexPlays';
 import { evaluateCards, isNaturalBlackjack } from '../hand/evaluate';
 import { addCard, createDealerHand, createPlayerHand, DealerHand, PlayerHand } from '../hand/hand';
 import { defaultRng, fisherYatesShuffle, Rng } from '../shoe/rng';
-import { recommendForHand } from '../strategy/recommend';
+import { dealerUpValue, recommendAction, recommendForHand } from '../strategy/recommend';
 import {
   cardsRemaining,
   createShoe,
@@ -213,7 +214,7 @@ export function meterDrainMs(mapId: number, level: number): number {
 // Level specs
 // ---------------------------------------------------------------------------
 
-export type QuestionKind = 'runningCount' | 'decksRemaining' | 'trueCount' | 'betUnits';
+export type QuestionKind = 'runningCount' | 'decksRemaining' | 'trueCount' | 'betUnits' | 'insurance';
 
 /** How a count check is answered: four buttons, or an exact-entry stepper. */
 export type AnswerInput = 'choices' | 'entry';
@@ -252,6 +253,13 @@ interface StreakBase extends LevelBase {
   readonly streakTarget: number;
   /** Misses the run survives. 0 = the first miss ends it. */
   readonly strikes: number;
+  /**
+   * Staged drills: this many right answers per stage, a star at the end of
+   * each (stars at 1×, 2× and 3× the stage). With `stages`, each stage
+   * overrides some of the level's own settings — a bigger shoe, half decks,
+   * negative counts — so one level climbs through three versions of a skill.
+   */
+  readonly stageLength?: number;
 }
 
 export interface CardValueLevel extends StreakBase {
@@ -288,6 +296,7 @@ export interface CancelGridLevel extends LevelBase {
 
 export interface DeckEstimateLevel extends StreakBase {
   readonly mode: 'deckEstimate';
+  readonly stages?: readonly Partial<Pick<DeckEstimateLevel, 'shoeSizes' | 'precision' | 'anyPenetration' | 'showDeckScale'>>[];
   /** The shoe shown is one of these sizes. */
   readonly shoeSizes: readonly DeckCount[];
   /** Answer granularity in decks. */
@@ -308,6 +317,11 @@ export interface TrueCountLevel extends StreakBase {
   readonly cleanDivision: boolean;
   /** Typed from Ganymede on — no four choices to lean on. */
   readonly answerInput: AnswerInput;
+  /** The most decks left a question may use (default 6). */
+  readonly maxDecks?: number;
+  readonly stages?: readonly Partial<
+    Pick<TrueCountLevel, 'halfDecks' | 'negatives' | 'cleanDivision' | 'maxDecks'>
+  >[];
 }
 
 /**
@@ -322,9 +336,89 @@ export interface TrueCountLevel extends StreakBase {
 export interface IndexPlayLevel extends StreakBase {
   readonly mode: 'indexPlay';
   /** Which spots come up: insurance only, 16 vs 10 alone, the top six, or all of them. */
-  readonly plays: 'insurance' | 'sixteenVsTen' | 'top' | 'all';
+  readonly plays: 'insurance' | 'sixteenVsTen' | 'top' | 'all' | 'mixed';
   /** Give the true count outright; otherwise the running count and decks left. */
   readonly showTrueCount: boolean;
+  /** The most decks left a question may use (default 6). */
+  readonly maxDecks?: number;
+  readonly stages?: readonly Partial<Pick<IndexPlayLevel, 'plays' | 'showTrueCount' | 'maxDecks'>>[];
+}
+
+/**
+ * Basic strategy: a two-card hand against the dealer's card — hit, stand,
+ * double or split, by the book for the level's shoe. `kinds` picks the hands
+ * (hard totals, soft totals with an Ace, pairs); stages can narrow them.
+ */
+export type StrategyHandKind = 'hard' | 'soft' | 'pairs';
+
+export interface StrategyLevel extends StreakBase {
+  readonly mode: 'strategy';
+  readonly deckCount: DeckCount;
+  readonly kinds: readonly StrategyHandKind[];
+  readonly stages?: readonly Partial<Pick<StrategyLevel, 'kinds'>>[];
+}
+
+// ---------------------------------------------------------------------------
+// Mini-games — each has its own store and screen, a star per wave / grid /
+// set / stage (two clear the level), strikes and the draining meter.
+// ---------------------------------------------------------------------------
+
+/** Swipe Strategy: hands slide in; swipe ← hit, → stand, ↑ double, ↓ split. */
+export interface SwipeStrategyLevel extends LevelBase {
+  readonly mode: 'swipeStrategy';
+  readonly deckCount: DeckCount;
+  readonly waves: number;
+  readonly handsPerWave: number;
+  readonly strikes: number;
+}
+
+/** Divide and Match: drag a count tile onto a deck tile that divides to the target true count. */
+export interface DivideMatchLevel extends LevelBase {
+  readonly mode: 'divideMatch';
+  /** One grid per star. */
+  readonly grids: readonly { readonly rows: number; readonly cols: number }[];
+  /** Deck tiles run from ½ (or 1) up to this many decks. */
+  readonly maxDecks: number;
+  readonly halfDecks: boolean;
+  readonly strikes: number;
+}
+
+/** Chip Rush: true-count cards slide toward an edge; drop the right bet stack before they escape. */
+export interface ChipRushLevel extends LevelBase {
+  readonly mode: 'chipRush';
+  readonly waves: number;
+  readonly cardsPerWave: number;
+  /** Time a card takes to cross the lane on the first wave, and on the last (ms). */
+  readonly crossMsStart: number;
+  readonly crossMsEnd: number;
+  readonly strikes: number;
+}
+
+/** Flip Point: one hand, a count slider sweeping −5 → +5; stop where the best move changes. */
+export interface FlipPointLevel extends LevelBase {
+  readonly mode: 'flipPoint';
+  readonly sets: number;
+  readonly handsPerSet: number;
+  /** Which index plays come up. */
+  readonly plays: 'top' | 'all';
+  /** One sweep from −5 to +5 (ms). */
+  readonly sweepMs: number;
+  /** How far from the index a stop still counts (true-count points). */
+  readonly tolerance: number;
+  readonly strikes: number;
+}
+
+/** Busy Table: a whole table flashes, flips face down, and the player types its count. */
+export interface BusyTableLevel extends LevelBase {
+  readonly mode: 'busyTable';
+  /** One stage per star. */
+  readonly stages: readonly {
+    readonly deckCount: DeckCount;
+    readonly seats: number;
+    readonly flashMs: number;
+  }[];
+  readonly tablesPerStage: number;
+  readonly strikes: number;
 }
 
 /**
@@ -342,6 +436,16 @@ export interface ShoeRunLevel extends LevelBase {
    * table night's version of the answer meter. Omitted: checks wait.
    */
   readonly checkTimeMs?: number;
+  /** Every play is graded against the book (and the index plays when on). */
+  readonly gradeMoves?: boolean;
+  /** The book play glows on the buttons (default: on unless moves are graded). */
+  readonly hints?: boolean;
+  /** Checks come every `min`–`max` hands instead of every `checkEvery`. */
+  readonly checkGap?: { readonly min: number; readonly max: number };
+  /** One more bad play than this ends the run. */
+  readonly maxMoveMisses?: number;
+  /** One more wrong count than this ends the run. */
+  readonly maxCountMisses?: number;
   readonly deckCount: DeckCount;
   /** Hands in the run (the cut card can end it sooner). */
   readonly hands: number;
@@ -370,6 +474,13 @@ export interface BetSizeLevel extends StreakBase {
   /** Show the ramp (true count → units) beside the question. */
   readonly showRamp: boolean;
   readonly answerInput: AnswerInput;
+  /** Give the true count outright instead of the running count and decks left. */
+  readonly showTrueCount?: boolean;
+  /** The ramp hides once this many right answers are in. */
+  readonly hideRampAfter?: number;
+  /** The most decks left a question may use (default 6). */
+  readonly maxDecks?: number;
+  readonly stages?: readonly Partial<Pick<BetSizeLevel, 'halfDecks' | 'showTrueCount' | 'maxDecks'>>[];
 }
 
 export interface CountStreamLevel extends LevelBase {
@@ -400,6 +511,11 @@ export interface CountStreamLevel extends LevelBase {
    * over each round; a star per right call, two to clear.
    */
   readonly rounds?: { readonly count: number; readonly minCards: number; readonly maxCards: number };
+  /**
+   * Long Shift: this many shoes back to back, each dealt to its cut card;
+   * the count starts over with every new shoe. Checks come by `checkGap`.
+   */
+  readonly shoes?: number;
 }
 
 /**
@@ -428,12 +544,30 @@ export interface TableCountLevel extends LevelBase {
   readonly distractions: boolean;
   /** Final exam: results break accuracy down per question kind. */
   readonly exam: boolean;
+  /**
+   * Count-Along: one check before every hand (the `questions` asked in
+   * order), `checkpoints` hands in all — the hands play themselves.
+   * With `insuranceOnAce`, a dealer Ace adds an insurance call mid-hand.
+   */
+  readonly perHand?: boolean;
+  readonly insuranceOnAce?: boolean;
+  /**
+   * Distraction stages: the casino noise switches on after the first third
+   * of the checks, and the stretch adds the dealer's chit-chat.
+   */
+  readonly stagedDistractions?: boolean;
 }
 
 export type TrainingLevelSpec =
   | CardValueLevel
   | CardGroupLevel
   | CancelGridLevel
+  | StrategyLevel
+  | SwipeStrategyLevel
+  | DivideMatchLevel
+  | ChipRushLevel
+  | FlipPointLevel
+  | BusyTableLevel
   | DeckEstimateLevel
   | TrueCountLevel
   | BetSizeLevel
@@ -447,6 +581,7 @@ export type TrainingMode = TrainingLevelSpec['mode'];
 export type StreakLevelSpec =
   | CardValueLevel
   | CardGroupLevel
+  | StrategyLevel
   | DeckEstimateLevel
   | TrueCountLevel
   | BetSizeLevel
@@ -457,6 +592,7 @@ export function isStreakLevel(spec: TrainingLevelSpec): spec is StreakLevelSpec 
   return (
     spec.mode === 'cardValue' ||
     spec.mode === 'cardGroup' ||
+    spec.mode === 'strategy' ||
     spec.mode === 'deckEstimate' ||
     spec.mode === 'trueCount' ||
     spec.mode === 'betSize' ||
@@ -504,6 +640,39 @@ export function isRoundsLevel(spec: TrainingLevelSpec): spec is CountStreamLevel
   readonly rounds: NonNullable<CountStreamLevel['rounds']>;
 } {
   return spec.mode === 'countStream' && spec.rounds !== undefined;
+}
+
+/** The mini-games: each runs on its own store and screen. */
+export const MINI_GAME_MODES = [
+  'cancelGrid',
+  'swipeStrategy',
+  'divideMatch',
+  'chipRush',
+  'flipPoint',
+  'busyTable',
+] as const;
+export type MiniGameMode = (typeof MINI_GAME_MODES)[number];
+
+export function isMiniGame(spec: TrainingLevelSpec): boolean {
+  return (MINI_GAME_MODES as readonly string[]).includes(spec.mode);
+}
+
+/** The 0-based stage a staged drill is on after `streak` right answers. */
+export function stageIndexFor(spec: TrainingLevelSpec, streak: number): number {
+  if (!isStreakLevel(spec) || !spec.stageLength) {
+    return 0;
+  }
+  return Math.min(2, Math.floor(streak / spec.stageLength));
+}
+
+/** A staged drill's settings for the stage it is on: the level's own, with that stage's overrides. */
+export function stagedSpec<T extends TrainingLevelSpec>(spec: T, streak: number): T {
+  const stages = (spec as { stages?: readonly object[] }).stages;
+  if (!isStreakLevel(spec) || !spec.stageLength || !stages || stages.length === 0) {
+    return spec;
+  }
+  const index = Math.min(stages.length - 1, stageIndexFor(spec, streak));
+  return { ...spec, ...stages[index] } as T;
 }
 
 /** The meter races this level's questions (streak drills always; streams when timed). */
@@ -619,317 +788,244 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
       },
     ],
   },
+  // -------------------------------------------------------------------------
+  // Map 2 — Io Inferno: basic strategy (easy, 2 decks)
+  // -------------------------------------------------------------------------
   {
     mapId: 2,
-    theme: 'Table Speed',
+    theme: 'Basic Strategy',
     levels: [
       {
-        mode: 'countStream',
+        mode: 'strategy',
         level: 1,
-        title: 'Full Deck Count',
+        title: 'Hit or Stand?',
         brief:
-          'A whole shuffled deck at speed, count never shown. Eight checks plus the final count — a full deck always finishes at 0, so you know you kept it.',
-        speed: 'fast',
-        deckCount: 1,
-        cardCount: 52,
-        checkpoints: 8,
-        questions: RC,
-        questionOrder: 'alternate',
-        pass: ALL_CORRECT(9),
-        finalCountQuestion: true,
-        answerInput: 'choices',
-        showDeckScale: false,
-      },
-      {
-        mode: 'cardGroup',
-        level: 2,
-        title: 'Fast Cancellation',
-        brief:
-          'Pairs fly by. Spot the ones that cancel to 0 and the +2 / −2 pairs on sight. Twenty-one right, two strikes.',
-        speed: 'fast',
-        groupSizes: [2],
-        groupOrder: 'progressive',
-        emphasizeCancellation: true,
-        streakTarget: 21,
-        strikes: 2,
-      },
-      {
-        mode: 'cardGroup',
-        level: 3,
-        title: 'Fast Groups',
-        brief:
-          'Three to six cards at once. Pair off highs against lows first, then count what is left. Twenty-one right, two strikes.',
-        speed: 'fast',
-        groupSizes: [3, 4, 5, 6],
-        groupOrder: 'random',
-        emphasizeCancellation: false,
-        streakTarget: 21,
-        strikes: 2,
-      },
-      {
-        mode: 'tableCount',
-        level: 4,
-        title: 'Table Groups',
-        brief:
-          'Two players and the dealer get two cards each. Count each hand as a group and keep one running count for the table. Eight checks, all correct.',
-        speed: 'fast',
-        deckCount: 1,
-        seats: 2,
-        play: 'dealOnly',
-        cardBudget: 52,
-        checkpoints: 8,
-        questions: RC,
-        questionOrder: 'alternate',
-        pass: ALL_CORRECT(8),
-        answerInput: 'choices',
-        showDeckScale: false,
-        distractions: false,
-        exam: false,
-      },
-      {
-        mode: 'tableCount',
-        level: 5,
-        title: 'Two-Deck Endurance',
-        brief:
-          'Two decks, two players, hands playing out on their own — one continuous count. Ten checks, all correct.',
-        speed: 'fast',
+          'A hand and the dealer’s card. Tap the book play — hit, stand, double or split — before the meter empties. A miss shows the right move and why. Three strikes.',
+        speed: 'easy',
         deckCount: 2,
-        seats: 2,
-        play: 'autoplay',
-        cardBudget: 104,
-        checkpoints: 10,
-        questions: RC,
-        questionOrder: 'alternate',
-        pass: ALL_CORRECT(10),
-        answerInput: 'choices',
-        showDeckScale: false,
-        distractions: false,
-        exam: false,
+        kinds: ['hard', 'soft', 'pairs'],
+        streakTarget: 21,
+        strikes: 3,
+      },
+      {
+        mode: 'swipeStrategy',
+        level: 2,
+        title: 'Swipe Strategy',
+        brief:
+          'Hands slide in one at a time. Swipe ← to hit, → to stand, ↑ to double, ↓ to split. Fast right swipes build a combo; a wrong one is a strike. A star per wave of ten.',
+        speed: 'easy',
+        deckCount: 2,
+        waves: 3,
+        handsPerWave: 10,
+        strikes: 3,
+      },
+      {
+        mode: 'strategy',
+        level: 3,
+        title: 'Strategy Stages',
+        brief:
+          'Hard totals, then soft totals, then pairs — eight right in each earns a star. Three strikes for the whole run, and the meter keeps draining.',
+        speed: 'normal',
+        deckCount: 2,
+        kinds: ['hard'],
+        stageLength: 8,
+        stages: [{ kinds: ['hard'] }, { kinds: ['soft'] }, { kinds: ['pairs'] }],
+        streakTarget: 16,
+        strikes: 3,
       },
       {
         mode: 'shoeRun',
-        level: 6,
-        title: 'Beat the Two-Deck Shoe',
+        level: 4,
+        title: 'Play and Count',
         brief:
-          'Boss. Two decks, your hands, a count before every hand at table speed. Fourteen hands; 85% right clears it, every one for three stars.',
-        speed: 'fast',
+          'Hands come from a two-deck shoe and you play every one — by the book, no glowing hints. Every few hands the deal pauses: type the running count.',
+        speed: 'normal',
         deckCount: 2,
-        hands: 14,
+        hands: 20,
+        betting: false,
+        heat: false,
+        insurance: false,
+        indexPlays: false,
+        checks: RC,
+        checkEvery: 4,
+        checkGap: { min: 3, max: 5 },
+        answerInput: 'entry',
+        gradeMoves: true,
+        clearAccuracy: 0.8,
+        perfectAccuracy: 1,
+      },
+      {
+        mode: 'shoeRun',
+        level: 5,
+        title: 'Table Night',
+        brief:
+          'Twelve hands at the two-deck table. Every move is graded and nothing glows. Before each hand, call the running count with eight seconds on the clock.',
+        speed: 'normal',
+        deckCount: 2,
+        hands: 12,
         betting: false,
         heat: false,
         insurance: false,
         indexPlays: false,
         checks: RC,
         checkEvery: 1,
+        checkTimeMs: 8000,
         answerInput: 'choices',
-        clearAccuracy: 0.85,
+        gradeMoves: true,
+        clearAccuracy: 0.8,
         perfectAccuracy: 1,
-      },
-    ],
-  },
-  {
-    mapId: 3,
-    theme: 'Deck Estimation',
-    levels: [
-      {
-        mode: 'deckEstimate',
-        level: 1,
-        title: 'Whole Decks',
-        brief:
-          'Read the discard tray against the shoe. A deck is 52 cards — how many whole decks are still to come? Twenty-one right, one strike.',
-        speed: 'normal',
-        shoeSizes: [4, 6],
-        precision: 1,
-        anyPenetration: false,
-        showDeckScale: true,
-        streakTarget: 21,
-        strikes: 1,
-      },
-      {
-        mode: 'deckEstimate',
-        level: 2,
-        title: 'Half Decks',
-        brief: 'Now to the nearest half deck — 26 cards is half a deck. Twenty-one right, one strike.',
-        speed: 'normal',
-        shoeSizes: [2, 4, 6],
-        precision: 0.5,
-        anyPenetration: false,
-        showDeckScale: true,
-        streakTarget: 21,
-        strikes: 1,
-      },
-      {
-        mode: 'deckEstimate',
-        level: 3,
-        title: 'Six-Deck Shoe',
-        brief:
-          'A six-deck shoe cut anywhere. Estimate the decks left to the nearest half. Twenty-one right, one strike.',
-        speed: 'normal',
-        shoeSizes: [6],
-        precision: 0.5,
-        anyPenetration: true,
-        showDeckScale: true,
-        streakTarget: 21,
-        strikes: 1,
-      },
-      {
-        mode: 'countStream',
-        level: 4,
-        title: 'Count + Decks',
-        brief:
-          'Keep the running count while the tray fills. Checks alternate: running count, then decks remaining. Ten checks, all correct.',
-        speed: 'normal',
-        deckCount: 2,
-        cardCount: 92,
-        checkpoints: 10,
-        questions: RC_DECKS,
-        questionOrder: 'alternate',
-        pass: ALL_CORRECT(10),
-        finalCountQuestion: false,
-        answerInput: 'entry',
-        showDeckScale: true,
-      },
-      {
-        mode: 'countStream',
-        level: 5,
-        title: 'Four-Deck Tracking',
-        brief:
-          'Four decks, twelve questions in random order — running count or decks remaining. Ten right passes, but every running-count question must be correct.',
-        speed: 'fast',
-        deckCount: 4,
-        cardCount: 160,
-        checkpoints: 12,
-        questions: RC_DECKS,
-        questionOrder: 'random',
-        pass: { minCorrect: 10, maxRunningCountMisses: 0 },
-        finalCountQuestion: false,
-        answerInput: 'entry',
-        showDeckScale: true,
       },
       {
         mode: 'shoeRun',
         level: 6,
-        title: 'Beat the Six-Deck Shoe',
+        title: 'Clean Shoe',
         brief:
-          'Boss. A six-deck shoe you play. Before every hand, the running count or the decks left — typed. Sixteen hands; 85% clears it, every one for three stars.',
+          'Boss. A whole two-deck shoe, played by you with no hints, the count called before every hand. A third bad move or a third wrong count ends it. 85% right clears.',
         speed: 'normal',
-        deckCount: 6,
-        hands: 16,
+        deckCount: 2,
+        hands: 40,
         betting: false,
         heat: false,
         insurance: false,
         indexPlays: false,
-        checks: RC_DECKS,
+        checks: RC,
         checkEvery: 1,
         answerInput: 'entry',
+        gradeMoves: true,
+        maxMoveMisses: 2,
+        maxCountMisses: 2,
         clearAccuracy: 0.85,
         perfectAccuracy: 1,
       },
     ],
   },
+  // -------------------------------------------------------------------------
+  // Map 3 — Europa Ice: the true count (easy, 1 → 2 → 4 decks)
+  // -------------------------------------------------------------------------
   {
-    mapId: 4,
+    mapId: 3,
     theme: 'True Count',
     levels: [
       {
-        mode: 'trueCount',
+        mode: 'deckEstimate',
         level: 1,
-        title: 'Clean Division',
+        title: 'Decks Left',
         brief:
-          'True count = running count ÷ decks remaining. Whole decks and clean division: +8 with 2 decks left is +4. Twenty-one in a row — no strikes.',
+          'Read the discard tray against the shoe and tap how many decks are still to come. One-deck shoes first, then two, then four — a star for each.',
         speed: 'normal',
-        halfDecks: false,
-        negatives: false,
-        cleanDivision: true,
-        answerInput: 'entry',
-        streakTarget: 21,
-        strikes: 0,
+        shoeSizes: [1],
+        precision: 0.5,
+        anyPenetration: false,
+        showDeckScale: false,
+        stageLength: 8,
+        stages: [{ shoeSizes: [1] }, { shoeSizes: [2] }, { shoeSizes: [4] }],
+        streakTarget: 16,
+        strikes: 3,
       },
       {
-        mode: 'trueCount',
+        mode: 'divideMatch',
         level: 2,
-        title: 'Half-Deck Division',
+        title: 'Divide and Match',
         brief:
-          'Half decks now: +6 ÷ 1.5 = +4, +5 ÷ 2.5 = +2. Twenty-one in a row — no strikes.',
+          'A grid of count tiles and deck tiles, and a target true count on top. Drag a count onto a deck tile that divides to the target — both vanish. A wrong pair is a strike. A star per grid.',
         speed: 'normal',
+        grids: [
+          { rows: 4, cols: 5 },
+          { rows: 4, cols: 5 },
+          { rows: 4, cols: 5 },
+        ],
+        maxDecks: 4,
         halfDecks: true,
-        negatives: false,
-        cleanDivision: true,
-        answerInput: 'entry',
-        streakTarget: 21,
-        strikes: 0,
+        strikes: 3,
       },
       {
         mode: 'trueCount',
         level: 3,
-        title: 'Positive & Negative',
+        title: 'Division Stages',
         brief:
-          'Divisions stop coming out clean, and negatives join in. Always round down: +2.7 is +2, −1.2 is −2. Twenty-one in a row — no strikes.',
-        speed: 'fast',
-        halfDecks: true,
-        negatives: true,
-        cleanDivision: false,
-        answerInput: 'entry',
-        streakTarget: 21,
-        strikes: 0,
+          'True count = running count ÷ decks left, rounded down. Whole decks first, then half decks, then negative counts — eight right each for a star.',
+        speed: 'normal',
+        halfDecks: false,
+        negatives: false,
+        cleanDivision: true,
+        answerInput: 'choices',
+        maxDecks: 1,
+        stageLength: 8,
+        stages: [
+          { maxDecks: 1, halfDecks: false, negatives: false, cleanDivision: true },
+          { maxDecks: 2, halfDecks: true, negatives: false, cleanDivision: false },
+          { maxDecks: 4, halfDecks: true, negatives: true, cleanDivision: false },
+        ],
+        streakTarget: 16,
+        strikes: 3,
       },
       {
         mode: 'countStream',
         level: 4,
         title: 'Live True Count',
         brief:
-          'Cards keep coming. At each pause, estimate the decks remaining, then give the true count from the decks shown. Ten checks, nine right.',
+          'Cards stream from a two-deck shoe. At each pause, type the decks left, then the true count — both must be right. Eight checks, two misses allowed.',
         speed: 'normal',
         deckCount: 2,
         cardCount: 92,
-        checkpoints: 10,
+        checkpoints: 8,
         questions: ['decksRemaining', 'trueCount'],
         questionOrder: 'paired',
-        pass: { minCorrect: 9, maxRunningCountMisses: 0 },
+        pass: { minCorrect: 6, maxRunningCountMisses: 2 },
         finalCountQuestion: false,
         answerInput: 'entry',
-        showDeckScale: true,
-      },
-      {
-        mode: 'countStream',
-        level: 5,
-        title: 'Four-Deck Mix',
-        brief:
-          'Twelve random questions — running count, decks remaining or true count. Eleven right.',
-        speed: 'fast',
-        deckCount: 4,
-        cardCount: 160,
-        checkpoints: 12,
-        questions: RC_DECKS_TC,
-        questionOrder: 'random',
-        pass: { minCorrect: 11, maxRunningCountMisses: 1 },
-        finalCountQuestion: false,
-        answerInput: 'entry',
-        showDeckScale: true,
+        showDeckScale: false,
+        timed: true,
       },
       {
         mode: 'shoeRun',
-        level: 6,
-        title: 'Beat the Shoe: True Count',
+        level: 5,
+        title: 'Table Night',
         brief:
-          'Boss. Six decks, your hands, and before every hand the running count or the true count — typed. Sixteen hands; 85% clears it, every one for three stars.',
+          'Twelve hands at the four-deck table, your moves graded. Before each hand, call the TRUE count — ten seconds on the clock.',
         speed: 'normal',
-        deckCount: 6,
-        hands: 16,
+        deckCount: 4,
+        hands: 12,
         betting: false,
         heat: false,
         insurance: false,
         indexPlays: false,
-        checks: ['runningCount', 'trueCount'],
+        checks: ['trueCount'],
         checkEvery: 1,
-        answerInput: 'entry',
-        clearAccuracy: 0.85,
+        checkTimeMs: 10000,
+        answerInput: 'choices',
+        gradeMoves: true,
+        clearAccuracy: 0.8,
         perfectAccuracy: 1,
+      },
+      {
+        mode: 'tableCount',
+        level: 6,
+        title: 'Count-Along',
+        brief:
+          'Boss. Two players at a four-deck table and the hands play themselves — you just follow every card. Before each hand, call the running count, then the true count. 85% clears.',
+        speed: 'normal',
+        deckCount: 4,
+        seats: 2,
+        play: 'strategy',
+        cardBudget: 4 * 52,
+        checkpoints: 16,
+        questions: ['runningCount', 'trueCount'],
+        questionOrder: 'paired',
+        pass: { minCorrect: 14, maxRunningCountMisses: 2 },
+        answerInput: 'entry',
+        showDeckScale: false,
+        distractions: false,
+        exam: false,
+        perHand: true,
       },
     ],
   },
+  // -------------------------------------------------------------------------
+  // Map 4 — Ganymede: betting the count (medium, 2 → 4 → 6 decks)
+  // -------------------------------------------------------------------------
   {
-    mapId: 5,
+    mapId: 4,
     theme: 'Betting the Count',
     levels: [
       {
@@ -937,201 +1033,319 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         level: 1,
         title: 'Bet the Count',
         brief:
-          'The count is only worth something when it moves your bet. Work out the true count, round it down, take one off — that many units. One unit when the shoe is flat or cold, eight at the most. Twenty-one right, one strike.',
+          'A true count appears with the bet chart beside it: true count, minus one, from 1 to 8 units. Pick the bet. After ten right the chart hides. Two strikes.',
         speed: 'normal',
-        halfDecks: true,
+        halfDecks: false,
         showRamp: true,
-        answerInput: 'entry',
+        showTrueCount: true,
+        hideRampAfter: 10,
+        answerInput: 'choices',
         streakTarget: 21,
-        strikes: 1,
+        strikes: 2,
       },
       {
-        mode: 'indexPlay',
+        mode: 'chipRush',
         level: 2,
-        title: 'Insurance',
+        title: 'Chip Rush',
         brief:
-          'The dealer shows an Ace. Insurance only pays when the shoe is rich in tens — take it at a true count of +3 or higher, never below. Twenty-one right, one strike.',
+          'True-count cards slide toward the edge. Drag the right chip stack onto the bet circle before each one escapes. They speed up every wave. A star per wave.',
         speed: 'normal',
-        plays: 'insurance',
-        showTrueCount: false,
-        streakTarget: 21,
-        strikes: 1,
+        waves: 3,
+        cardsPerWave: 10,
+        crossMsStart: 6000,
+        crossMsEnd: 3500,
+        strikes: 2,
       },
       {
-        mode: 'tableCount',
+        mode: 'betSize',
         level: 3,
-        title: 'Four-Deck Table',
+        title: 'Ramp Stages',
         brief:
-          'Three players, four decks. Twelve random checks — running count, decks remaining, true count or your bet. Eleven right.',
-        speed: 'fast',
-        deckCount: 4,
-        seats: 3,
-        play: 'strategy',
-        cardBudget: 160,
-        checkpoints: 12,
-        questions: RC_DECKS_TC_BET,
-        questionOrder: 'random',
-        pass: { minCorrect: 11, maxRunningCountMisses: 1 },
+          'True count shown first; then the running count and decks left, so you work the bet out yourself; then half decks. Eight right per stage for a star.',
+        speed: 'normal',
+        halfDecks: false,
+        showRamp: true,
+        showTrueCount: true,
+        maxDecks: 2,
         answerInput: 'entry',
-        showDeckScale: true,
-        distractions: false,
-        exam: false,
+        stageLength: 8,
+        stages: [
+          { showTrueCount: true, maxDecks: 2, halfDecks: false },
+          { showTrueCount: false, maxDecks: 4, halfDecks: false },
+          { showTrueCount: false, maxDecks: 6, halfDecks: true },
+        ],
+        streakTarget: 16,
+        strikes: 2,
       },
       {
-        mode: 'tableCount',
+        mode: 'countStream',
         level: 4,
-        title: 'Six-Deck Pace',
+        title: 'Count, Then Bet',
         brief:
-          'A full table over six decks, dealt faster with fewer pauses. Fourteen checks, thirteen right.',
-        speed: 'veryFast',
-        deckCount: 6,
-        seats: 4,
-        play: 'strategy',
-        cardBudget: 200,
-        checkpoints: 14,
-        questions: RC_DECKS_TC_BET,
-        questionOrder: 'random',
-        pass: { minCorrect: 13, maxRunningCountMisses: 1 },
+          'Cards stream from a four-deck shoe and no count is shown. At each pause, type your bet. Ten checks, two misses allowed.',
+        speed: 'normal',
+        deckCount: 4,
+        cardCount: 180,
+        checkpoints: 10,
+        questions: ['betUnits'],
+        questionOrder: 'alternate',
+        pass: { minCorrect: 8, maxRunningCountMisses: 2 },
+        finalCountQuestion: false,
         answerInput: 'entry',
-        showDeckScale: true,
-        distractions: false,
-        exam: false,
-      },
-      {
-        mode: 'tableCount',
-        level: 5,
-        title: 'Full Shoe Test',
-        brief:
-          'Deep into a six-deck shoe with a full table. Sixteen questions of every kind, in no particular order — fifteen right, and your running count has to hold.',
-        speed: 'veryFast',
-        deckCount: 6,
-        seats: 3,
-        play: 'strategy',
-        cardBudget: cutCardDealtCount(6),
-        checkpoints: 16,
-        questions: RC_DECKS_TC_BET,
-        questionOrder: 'random',
-        pass: { minCorrect: 15, maxRunningCountMisses: 1 },
-        answerInput: 'entry',
-        showDeckScale: true,
-        distractions: false,
-        exam: false,
+        showDeckScale: false,
+        timed: true,
       },
       {
         mode: 'shoeRun',
-        level: 6,
-        title: 'Beat the Shoe: Bet It',
+        level: 5,
+        title: 'Table Night',
         brief:
-          'Boss. Six decks, and now the bets are yours: size every one off the count, call insurance on an Ace. Ramp too fast and the pit boss backs you off. Twenty hands; 80% clears, 95% for three stars.',
+          'Fifteen hands at the six-deck table. You size every bet, and every bet is graded — so are your moves, and a count call every third hand. 85% clears.',
         speed: 'normal',
         deckCount: 6,
-        hands: 20,
+        hands: 15,
         betting: true,
-        heat: true,
-        insurance: true,
+        heat: false,
+        insurance: false,
         indexPlays: false,
-        checks: ['trueCount'],
+        checks: RC,
         checkEvery: 3,
         answerInput: 'entry',
-        clearAccuracy: 0.8,
-        perfectAccuracy: 0.95,
+        gradeMoves: true,
+        clearAccuracy: 0.85,
+        perfectAccuracy: 1,
+      },
+      {
+        mode: 'tableCount',
+        level: 6,
+        title: 'Count-Along',
+        brief:
+          'Boss. Three players at a six-deck table, all on autoplay. Before each hand: the running count, the true count, then your bet. 85% clears.',
+        speed: 'fast',
+        deckCount: 6,
+        seats: 3,
+        play: 'strategy',
+        cardBudget: 6 * 52,
+        checkpoints: 18,
+        questions: ['runningCount', 'trueCount', 'betUnits'],
+        questionOrder: 'paired',
+        pass: { minCorrect: 16, maxRunningCountMisses: 2 },
+        answerInput: 'entry',
+        showDeckScale: false,
+        distractions: false,
+        exam: false,
+        perHand: true,
       },
     ],
   },
+  // -------------------------------------------------------------------------
+  // Map 5 — Titan: count-based plays (medium, 4 → 6 → 8 decks)
+  // -------------------------------------------------------------------------
   {
-    mapId: 6,
+    mapId: 5,
     theme: 'Playing the Count',
     levels: [
       {
         mode: 'indexPlay',
         level: 1,
-        title: 'Index Plays',
+        title: 'Insurance Call',
         brief:
-          'The true count changes a few plays. Six to learn first — 16 vs 10 stands at 0, 15 vs 10 at +4, tens split vs 5 at +5 and vs 6 at +4, 10 vs 10 doubles at +4, 12 vs 3 stands at +2. True count given. Twenty-one right, one strike.',
+          'The dealer shows an Ace and the true count is shown. Take insurance only at +3 or higher. Two strikes.',
         speed: 'normal',
-        plays: 'top',
+        plays: 'insurance',
         showTrueCount: true,
         streakTarget: 21,
-        strikes: 1,
+        strikes: 2,
+      },
+      {
+        mode: 'flipPoint',
+        level: 2,
+        title: 'Flip Point',
+        brief:
+          'One hand and a count slider sweeping from −5 to +5. Tap STOP where the best move changes. Within half a point is right. A star per set of five hands.',
+        speed: 'normal',
+        sets: 3,
+        handsPerSet: 5,
+        plays: 'top',
+        sweepMs: 6000,
+        tolerance: 0.5,
+        strikes: 2,
       },
       {
         mode: 'indexPlay',
-        level: 2,
-        title: 'All the Index Plays',
+        level: 3,
+        title: 'Play Change Stages',
         brief:
-          'All seventeen plays plus insurance, and now you work out the true count from the running count and decks left. Twenty-one right, one strike.',
+          'The top plays first, then all of them, then mixed in with normal hands — so you learn when NOT to change. Eight right per stage for a star.',
         speed: 'normal',
-        plays: 'all',
-        showTrueCount: false,
+        plays: 'top',
+        showTrueCount: true,
+        stageLength: 8,
+        stages: [{ plays: 'top' }, { plays: 'all' }, { plays: 'mixed' }],
+        streakTarget: 16,
+        strikes: 2,
+      },
+      {
+        mode: 'indexPlay',
+        level: 4,
+        title: 'Change or Not',
+        brief:
+          'A fast stream of hands, each with its count. About one in three is a special play; the rest follow the normal chart. Two strikes.',
+        speed: 'fast',
+        plays: 'mixed',
+        showTrueCount: true,
+        streakTarget: 14,
+        strikes: 2,
+      },
+      {
+        mode: 'shoeRun',
+        level: 5,
+        title: 'Table Night',
+        brief:
+          'Fifteen hands at the eight-deck table. Insurance, special plays, bets and your count are all graded. 85% clears.',
+        speed: 'normal',
+        deckCount: 8,
+        hands: 15,
+        betting: true,
+        heat: false,
+        insurance: true,
+        indexPlays: true,
+        checks: ['trueCount'],
+        checkEvery: 3,
+        answerInput: 'entry',
+        gradeMoves: true,
+        clearAccuracy: 0.85,
+        perfectAccuracy: 1,
+      },
+      {
+        mode: 'tableCount',
+        level: 6,
+        title: 'Count-Along',
+        brief:
+          'Boss. Three players at an eight-deck table on autoplay. Before each hand: the true count, then your bet. When the dealer shows an Ace, call insurance too. 85% clears.',
+        speed: 'fast',
+        deckCount: 8,
+        seats: 3,
+        play: 'strategy',
+        cardBudget: 8 * 52,
+        checkpoints: 20,
+        questions: ['trueCount', 'betUnits'],
+        questionOrder: 'paired',
+        pass: { minCorrect: 17, maxRunningCountMisses: 3 },
+        answerInput: 'entry',
+        showDeckScale: false,
+        distractions: false,
+        exam: false,
+        perHand: true,
+        insuranceOnAce: true,
+      },
+    ],
+  },
+  // -------------------------------------------------------------------------
+  // Map 6 — Kepler: the final exam (hard, 4 → 6 → 8 decks)
+  // -------------------------------------------------------------------------
+  {
+    mapId: 6,
+    theme: 'Final Exam',
+    levels: [
+      {
+        mode: 'cardGroup',
+        level: 1,
+        title: 'Casino Speed',
+        brief:
+          'Single cards and small groups at real dealer speed. Tap the value or total before the fast meter empties. One strike.',
+        speed: 'casino',
+        groupSizes: [1, 2, 3],
+        groupOrder: 'random',
+        emphasizeCancellation: false,
         streakTarget: 21,
         strikes: 1,
       },
       {
-        mode: 'countStream',
-        level: 3,
-        title: 'Six-Deck Mastery',
+        mode: 'busyTable',
+        level: 2,
+        title: 'Busy Table',
         brief:
-          'Casino speed through six decks. Running count, decks remaining, true count and your bet — fourteen questions, thirteen right, no count misses.',
-        speed: 'casino',
-        deckCount: 6,
-        cardCount: 200,
-        checkpoints: 14,
-        questions: RC_DECKS_TC_BET,
-        questionOrder: 'random',
-        pass: { minCorrect: 13, maxRunningCountMisses: 0 },
-        finalCountQuestion: false,
-        answerInput: 'entry',
-        showDeckScale: false,
-      },
-      {
-        mode: 'tableCount',
-        level: 4,
-        title: 'Casino Distractions',
-        brief:
-          'A full table with chips moving, wins and losses called — none of it yours. Ignore the noise and count. Fourteen checks, thirteen right.',
+          'A full table flashes for a moment, then flips face down. Type the count of every card you saw. Bigger shoes and shorter flashes each stage. One strike.',
         speed: 'fast',
-        deckCount: 6,
-        seats: 4,
-        play: 'strategy',
-        cardBudget: 200,
-        checkpoints: 14,
-        questions: RC_DECKS_TC_BET,
-        questionOrder: 'random',
-        pass: { minCorrect: 13, maxRunningCountMisses: 1 },
-        answerInput: 'entry',
-        showDeckScale: false,
-        distractions: true,
-        exam: false,
+        stages: [
+          { deckCount: 4, seats: 3, flashMs: 2500 },
+          { deckCount: 6, seats: 4, flashMs: 2000 },
+          { deckCount: 8, seats: 4, flashMs: 1500 },
+        ],
+        tablesPerStage: 5,
+        strikes: 1,
       },
       {
         mode: 'tableCount',
-        level: 5,
-        title: 'Endurance Shoe',
+        level: 3,
+        title: 'Distraction Stages',
         brief:
-          'A long six-deck shoe with very few interruptions. Twelve questions of every kind — eleven right.',
-        speed: 'veryFast',
+          'A six-deck table. A quiet start, then the chips, sounds and win/loss calls switch on — and for three stars the dealer starts asking you things. Answer, and keep the count.',
+        speed: 'fast',
         deckCount: 6,
         seats: 3,
         play: 'strategy',
-        cardBudget: cutCardDealtCount(6),
+        cardBudget: 6 * 52,
         checkpoints: 12,
-        questions: RC_DECKS_TC_BET,
-        questionOrder: 'random',
+        questions: RC,
+        questionOrder: 'alternate',
         pass: { minCorrect: 11, maxRunningCountMisses: 1 },
         answerInput: 'entry',
         showDeckScale: false,
         distractions: false,
         exam: false,
+        stagedDistractions: true,
+      },
+      {
+        mode: 'countStream',
+        level: 4,
+        title: 'Long Shift',
+        brief:
+          'Two eight-deck shoes back to back at casino speed, the count starting over with the second. Checks come at random about every fifteen cards. One miss ends the shift.',
+        speed: 'casino',
+        deckCount: 8,
+        cardCount: 2 * 8 * 52,
+        checkpoints: 36,
+        questions: RC,
+        questionOrder: 'alternate',
+        pass: { minCorrect: 36, maxRunningCountMisses: 0 },
+        finalCountQuestion: false,
+        answerInput: 'entry',
+        showDeckScale: false,
+        timed: true,
+        checkGap: { min: 12, max: 18 },
+        shoes: 2,
+      },
+      {
+        mode: 'shoeRun',
+        level: 5,
+        title: 'Table Night',
+        brief:
+          'A long night: 25 hands at the eight-deck table at casino speed. Counts, bets, moves, insurance and special plays all graded. 90% clears.',
+        speed: 'casino',
+        deckCount: 8,
+        hands: 25,
+        betting: true,
+        heat: false,
+        insurance: true,
+        indexPlays: true,
+        checks: ['runningCount', 'trueCount'],
+        checkEvery: 3,
+        answerInput: 'entry',
+        gradeMoves: true,
+        clearAccuracy: 0.9,
+        perfectAccuracy: 1,
       },
       {
         mode: 'shoeRun',
         level: 6,
-        title: 'Final Exam: Beat the Casino',
+        title: 'Beat the Casino',
         brief:
-          'The exam. Six decks, twenty-four hands: count checks, every bet, insurance and the index plays, with the pit boss watching. 85% right to graduate, 95% for three stars.',
-        speed: 'normal',
-        deckCount: 6,
-        hands: 24,
+          'Final boss. A whole eight-deck shoe at casino speed with the pit boss watching. Every count, bet, move, insurance call and special play is graded. 90% with no back-off makes you a card counter.',
+        speed: 'casino',
+        deckCount: 8,
+        hands: 60,
         betting: true,
         heat: true,
         insurance: true,
@@ -1139,8 +1353,9 @@ export const TRAINING_MAPS: readonly TrainingMapSpec[] = [
         checks: ['runningCount', 'trueCount'],
         checkEvery: 3,
         answerInput: 'entry',
-        clearAccuracy: 0.85,
-        perfectAccuracy: 0.95,
+        gradeMoves: true,
+        clearAccuracy: 0.9,
+        perfectAccuracy: 1,
       },
     ],
   },
@@ -1235,11 +1450,12 @@ export type StarTargets = readonly [number, number, number];
  * on a checkpoint level (its misses are the run's strikes). Halves round up.
  */
 export function starTargets(spec: TrainingLevelSpec): StarTargets {
-  // One star per grid, per stage of groups, or per Zero Hero round called right.
-  if (spec.mode === 'cancelGrid') {
+  // One star per grid / wave / set / stage, per stage of a staged drill, or
+  // per Zero Hero round called right.
+  if (isMiniGame(spec)) {
     return [1, 2, 3];
   }
-  if (spec.mode === 'cardGroup' && spec.stageLength) {
+  if (isStreakLevel(spec) && spec.stageLength) {
     const stage = spec.stageLength;
     return [stage, stage * 2, stage * 3];
   }
@@ -1251,7 +1467,7 @@ export function starTargets(spec: TrainingLevelSpec): StarTargets {
     ? totalCheckpoints(spec)
     : spec.mode === 'shoeRun'
       ? spec.hands
-      : spec.streakTarget;
+      : (spec as StreakLevelSpec).streakTarget;
   return [
     Math.round(base * STAR_STAGE_RATIOS[0]),
     Math.round(base * STAR_STAGE_RATIOS[1]),
@@ -1673,6 +1889,113 @@ export function makeIndexPlayItem(spec: IndexPlayLevel, random: Rng = defaultRng
   };
 }
 
+// ---------------------------------------------------------------------------
+// Streak drills: basic strategy
+// ---------------------------------------------------------------------------
+
+export interface StrategyItem {
+  readonly kind: StrategyHandKind;
+  readonly playerCards: readonly Card[];
+  readonly dealerUp: Card;
+  /** "Hard 12", "Soft 17", "Pair of 8s". */
+  readonly label: string;
+  /** DECISION code for the book play. */
+  readonly correct: number;
+  readonly choices: readonly number[];
+  /** One line on why the book play is right. */
+  readonly reason: string;
+}
+
+const NON_TEN_RANKS: readonly Rank[] = ['2', '3', '4', '5', '6', '7', '8', '9'];
+const UP_RANKS: readonly Rank[] = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+
+function rankWorth(rank: Rank): number {
+  return rank === 'A' ? 11 : TENS.includes(rank) ? 10 : Number(rank);
+}
+
+function strategyRanks(kind: StrategyHandKind, random: Rng): readonly [Rank, Rank] {
+  if (kind === 'soft') {
+    return ['A', pick(NON_TEN_RANKS, random)];
+  }
+  if (kind === 'pairs') {
+    const rank = pick([...NON_TEN_RANKS, 'A', pick(TENS, random)] as Rank[], random);
+    return [rank, rank];
+  }
+  // Hard: two different values from 2 to 10, totalling 5 to 17.
+  for (;;) {
+    const a = pick([...NON_TEN_RANKS, ...TENS] as Rank[], random);
+    const b = pick([...NON_TEN_RANKS, ...TENS] as Rank[], random);
+    const total = rankWorth(a) + rankWorth(b);
+    if (rankWorth(a) !== rankWorth(b) && total >= 5 && total <= 17) {
+      return [a, b];
+    }
+  }
+}
+
+/** One line on why the book play is right. */
+export function strategyReason(action: PlayerAction, kind: StrategyHandKind, upValue: number): string {
+  const weak = upValue >= 2 && upValue <= 6;
+  const up = upValue === 11 ? 'an Ace' : `a ${upValue}`;
+  switch (action) {
+    case 'split':
+      return `Split — two good hands beat one bad one against ${up}.`;
+    case 'double':
+      return weak
+        ? `Double — ${up} is a bust card, so get more money out.`
+        : 'Double — you are the favourite to win this hand.';
+    case 'stand':
+      return weak
+        ? `Stand — ${up} busts often; let the dealer take the risk.`
+        : kind === 'soft'
+          ? 'Stand — this soft total already beats what the dealer usually makes.'
+          : 'Stand — you are strong enough already.';
+    case 'hit':
+      return weak && kind === 'hard'
+        ? 'Hit — too low to stand, even against a weak card.'
+        : `Hit — ${up} usually makes 17 or more, so you need more.`;
+  }
+}
+
+/** A basic-strategy question: two cards against the dealer's card, the book play for the shoe. */
+export function makeStrategyItem(
+  kinds: readonly StrategyHandKind[],
+  deckCount: DeckCount,
+  random: Rng = defaultRng,
+): StrategyItem {
+  const kind = pick(kinds, random);
+  const [a, b] = strategyRanks(kind, random);
+  const upRank = pick(UP_RANKS, random);
+  let suitIndex = Math.floor(random() * 4);
+  const cardOf = (rank: Rank) => {
+    suitIndex += 1;
+    return makeCard(rank, SUITS_CYCLE[suitIndex % 4], { deckIndex: suitIndex, visibility: 'faceUp' });
+  };
+  const playerCards = [cardOf(a), cardOf(b)];
+  const dealerUp = cardOf(upRank);
+  const { preferredAction } = recommendAction(
+    { cards: playerCards, isFromSplit: false },
+    upRank,
+    { canDouble: true, canSplit: true },
+    deckCount,
+  );
+  const { total } = evaluateCards(playerCards);
+  const label =
+    kind === 'pairs'
+      ? `Pair of ${a === 'A' ? 'Aces' : TENS.includes(a) ? 'tens' : `${a}s`}`
+      : kind === 'soft'
+        ? `Soft ${total}`
+        : `Hard ${total}`;
+  return {
+    kind,
+    playerCards,
+    dealerUp,
+    label,
+    correct: PLAY_CODES[preferredAction],
+    choices: [DECISION.hit, DECISION.stand, DECISION.double, DECISION.split],
+    reason: strategyReason(preferredAction, kind, dealerUpValue(upRank)),
+  };
+}
+
 export interface BetSizeItem {
   readonly runningCount: number;
   readonly decksRemaining: number;
@@ -1793,6 +2116,15 @@ function questionPart(kind: QuestionKind, frame: StreamFrame): QuestionPart {
         correct: betUnitsForTrueCount(
           trueCountFromDecks(frame.runningCount, decksRemainingEstimate(frame.cardsRemaining)),
         ),
+      };
+    case 'insurance':
+      return {
+        kind,
+        correct:
+          trueCountFromDecks(frame.runningCount, decksRemainingEstimate(frame.cardsRemaining)) >=
+          INSURANCE_INDEX
+            ? DECISION.insure
+            : DECISION.noInsurance,
       };
   }
 }
@@ -2249,6 +2581,7 @@ export const EMPTY_TALLY: CheckpointTally = {
     decksRemaining: { asked: 0, correct: 0 },
     trueCount: { asked: 0, correct: 0 },
     betUnits: { asked: 0, correct: 0 },
+    insurance: { asked: 0, correct: 0 },
   },
 };
 

@@ -14,6 +14,7 @@ import {
   comboMultiplier,
   flashLevelKey,
   CheckpointTally,
+  DECISION,
   DeckEstimateItem,
   drawCardGroupItem,
   drawCardValueItem,
@@ -317,6 +318,10 @@ function delayAfter(frame: StreamFrame, spec: TrainingLevelSpec, speed: SpeedPro
 }
 
 function choicesFor(part: QuestionPart, spec: TrainingLevelSpec): number[] {
+  // Insurance is a take-or-decline call, typed level or not.
+  if (part.kind === 'insurance') {
+    return [DECISION.insure, DECISION.noInsurance];
+  }
   if (isCheckpointLevel(spec) && spec.answerInput === 'entry') {
     return [];
   }

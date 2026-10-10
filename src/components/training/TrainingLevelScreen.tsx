@@ -113,6 +113,7 @@ const ENTRY_BOUNDS: Record<QuestionKind, { min: number; max: number }> = {
   decksRemaining: { min: 0.5, max: 8 },
   trueCount: { min: -20, max: 20 },
   betUnits: { min: 1, max: BET_SPREAD_MAX },
+  insurance: { min: 10, max: 11 },
 };
 
 function streakPrompt(spec: TrainingLevelSpec, item: StreakItem | null): string {
@@ -677,7 +678,7 @@ export function TrainingLevelScreen({ mapId, level, drill }: TrainingLevelScreen
       return null;
     }
     const format = (value: number) => formatAnswer(current.kind, value);
-    if (checkpointSpec.answerInput === 'entry') {
+    if (checkpointSpec.answerInput === 'entry' && current.kind !== 'insurance') {
       const bounds = ENTRY_BOUNDS[current.kind];
       return (
         <CountEntry
