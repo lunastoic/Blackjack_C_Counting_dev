@@ -119,11 +119,10 @@ CSS = r"""
 .lb2-head{display:flex;align-items:baseline;gap:14px;margin:0 0 4px}
 .lb2-head h3{font-family:var(--jr);font-weight:400;font-size:28px;line-height:1;margin:0;color:var(--cream);letter-spacing:1px}
 .lb2-head span{font:12px var(--mono);color:var(--pageMuted)}
-.lb2-grid{display:flex;flex-wrap:wrap;gap:18px;justify-content:center;zoom:.9}
-.lb2-tile{width:385px;padding:12px;border-radius:22px;display:flex;flex-direction:column;gap:8px}
-.lb2-tile .lb-panel{align-self:stretch}
-.lb2-cap{font:11px/15px var(--mono);color:var(--aMuted);text-align:center;padding:0 10px}
-.lb2-cap b{color:var(--cream);font-weight:500}
+.lb2-grid{display:flex;flex-wrap:wrap;gap:28px 24px;justify-content:center;zoom:.9}
+.lb2-grid figure{width:393px}
+.phone.lb2-phone{height:auto;min-height:852px}
+.lb2-phone .lb-stage{padding-bottom:28px}
 """
 
 
@@ -185,17 +184,28 @@ def panel(mid, lvl, title, brief, pace, rules_html, best=None, vignette=True):
             + '<div class="lb-how"><span class="q">?</span>How this level works</div></div>')
 
 
-def phone_head(saved, subtitle):
-    """The Luna Luxe phone chrome (status bar + HUD) from the Slab figure, retitled."""
+def phone_heads(saved):
+    """Each casino's phone chrome (status bar + HUD) from the six Slab figures, in map order."""
+    heads = {}
     i = saved.index('<h3 id="brief-slab">')
-    j = saved.index('<div class="phone suede">', i)
-    k = saved.index('<div class="stage lb-stage">', j)
-    return saved[j:k].replace('Level 1 · Fast card values', subtitle) + '<div class="stage lb-stage">'
+    for mid in range(1, 7):
+        j = saved.index('<div class="phone suede', i)
+        k = saved.index('<div class="stage lb-stage">', j)
+        heads[mid] = saved[j:k]
+        i = k
+    return heads
+
+
+def phone(saved, mid, lvl, title, inner, extra_cls=''):
+    """A full phone: the casino's own header reading "Level N · Title", then the brief on the stage."""
+    head = phone_heads(saved)[mid].replace('Level 1 · Fast card values', f'Level {lvl} · {esc(title)}')
+    if extra_cls:
+        head = head.replace('<div class="phone suede', f'<div class="phone {extra_cls} suede', 1)
+    return head + '<div class="stage lb-stage">' + inner + '</div></div>'
 
 
 def options_section(saved, levels):
     title, brief, pace = levels[1][3]
-    head = phone_head(saved, 'Level 4 · Card Rain')
     today_rules = '<div class="lb-rules">' + ''.join(f'<span class="pill">{esc(p)}</span>' for p in CARD_RAIN_PILLS) + '</div>'
     a_rules = ledger_block(*LEDGER[(1, 4)])
     b_rules = '<div class="lb-facts"><b>2</b> misses allowed · a check every <b>5–10</b> cards · timed answer · exact entry</div>'
@@ -211,23 +221,22 @@ def options_section(saved, levels):
            '<p class="note">The brief’s rules come as pills today, one per fact, and they wrap to three or four rows on most levels. Three ways to say the same things in a quarter of the height. The three new ones also carry the Card Rain vignette in place of the three example cards.</p>',
            '<div class="row">']
     for name, rules, best, cap, vig in figs:
-        out.append(f'<figure><div class="phone suede">{head}'
-                   + panel(1, 4, title, brief, pace, rules, best=best, vignette=vig)
-                   + f'</div></div><figcaption><b>{name}</b>{cap}</figcaption></figure>')
+        out.append('<figure>' + phone(saved, 1, 4, title, panel(1, 4, title, brief, pace, rules, best=best, vignette=vig))
+                   + f'<figcaption><b>{name}</b>{cap}</figcaption></figure>')
     out.append('</div>')
     return '\n'.join(out)
 
 
-def sheet_section(levels):
+def sheet_section(saved, levels):
     out = ['<h3 class="sub" id="brief-levels">Every level, every casino</h3>',
-           '<p class="note">Thirty-six briefs, each on its casino’s slab. The picture under the plaque is the level itself — its cards, its pads, its pauses, what it asks you to type — so a player knows what is coming before Start. Title, pace and copy are the app’s own; the rules are stat tiles (A). Star goals keep each level’s unit: right answers, grids, waves, sets, stages, rounds, hands or checks.</p>']
+           '<p class="note">Thirty-six briefs, each in its casino’s phone — the casino’s header with the level in the marquee, the brief on its slab below. The picture under the plaque is the level itself — its cards, its pads, its pauses, what it asks you to type — so a player knows what is coming before Start. Title, pace and copy are the app’s own; the rules are stat tiles (A). Star goals keep each level’s unit: right answers, grids, waves, sets, stages, rounds, hands or checks.</p>']
     for mid in range(1, 7):
         name, theme, cls, _ = CASINOS[mid]
         out.append(f'<div class="lb2-map"><div class="lb2-head"><h3>Map {mid} · {esc(name)}</h3><span>{esc(theme)}</span></div><div class="lb2-grid">')
         for lvl in range(1, 7):
             title, brief, pace = levels[mid][lvl - 1]
             tiles, fine = LEDGER[(mid, lvl)]
-            out.append(f'<div class="lb2-tile suede {cls}">' + panel(mid, lvl, title, brief, pace, ledger_block(tiles, fine)) + '</div>')
+            out.append('<figure>' + phone(saved, mid, lvl, title, panel(mid, lvl, title, brief, pace, ledger_block(tiles, fine)), 'lb2-phone') + '</figure>')
         out.append('</div></div>')
     return '\n'.join(out)
 
@@ -235,7 +244,7 @@ def sheet_section(levels):
 def build_section(saved, levels):
     return ('<section id="briefs-all">\n<h2>Level brief · every level</h2>\n'
             '<p class="note">Two fixes to the brief. The three example cards (−1 · 0 · +1) are right for Card Values and wrong for everything after it — Card Rain, Chip Rush and the Count-Along bosses all showed the same three cards. Each level now gets a small scene of what it actually does. And the rules under the star goals, one pill per fact, took four rows; they become one row of stat tiles.</p>\n'
-            f'<style>{CSS}</style>\n' + options_section(saved, levels) + '\n' + sheet_section(levels) + '\n</section>\n')
+            f'<style>{CSS}</style>\n' + options_section(saved, levels) + '\n' + sheet_section(saved, levels) + '\n</section>\n')
 
 
 def main():
@@ -273,7 +282,7 @@ def main():
             part = [f'<section><div class="lb2-map"><div class="lb2-head"><h3>Map {mid} · {esc(name)}</h3><span>{esc(theme)}</span></div><div class="lb2-grid">']
             for lvl in range(1, 7):
                 title, brief, pace = levels[mid][lvl - 1]
-                part.append(f'<div class="lb2-tile suede {cls}">' + panel(mid, lvl, title, brief, pace, ledger_block(*LEDGER[(mid, lvl)])) + '</div>')
+                part.append('<figure>' + phone(saved, mid, lvl, title, panel(mid, lvl, title, brief, pace, ledger_block(*LEDGER[(mid, lvl)])), 'lb2-phone') + '</figure>')
             part.append('</div></div></section>')
             open(os.path.join(preview, f'map{mid}.html'), 'w').write(base + ''.join(part) + '</div></body></html>')
         print('previews in', preview)
