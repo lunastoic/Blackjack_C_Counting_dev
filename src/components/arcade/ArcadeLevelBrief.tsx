@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import React, { useCallback, useState } from 'react';
 import {
   LayoutChangeEvent,
@@ -12,8 +13,13 @@ import {
 import { colors, fonts, fontSizes, spacing } from '../../theme';
 import { ArcadeButton } from './ArcadeButton';
 import { ArcadeInfoBox, ArcadePanel, ArcadePill, ArcadePlaque } from './ArcadePanel';
+import { RuleTile } from '../training/copy';
 import { ExampleCards } from './ExampleCards';
+import { RuleTiles } from './RuleTiles';
 import { StarGoals } from './StarGoals';
+
+/** The scenes are drawn 260×104 (scripts/level-art/briefs.py) and shown at the panel's width. */
+const SCENE_ASPECT = 260 / 104;
 
 export interface ArcadeLevelBriefProps {
   /** "LEVEL 1", "LEVEL 3 · TRY AGAIN", "COUNT SPRINT"… */
@@ -25,7 +31,20 @@ export interface ArcadeLevelBriefProps {
   /** Three-star targets and their unit; omitted for intros without stars. */
   readonly starTargets?: readonly [number, number, number];
   readonly starUnit?: string;
-  /** The run's rules — "3 strikes, then out", "6-deck shoe". */
+  /** Each star tile's goal in full, when "target unit" does not say it — a shoe run's accuracy marks. */
+  readonly starLabels?: readonly [string, string, string];
+  /** The player's best run, "27 right · combo 12", shown under the star goals. */
+  readonly best?: string;
+  /**
+   * The level's picture — what it deals and what it asks for — in place of
+   * the three example cards (BRIEF_SCENES in the asset registry).
+   */
+  readonly scene?: number;
+  /** The run's rules as stat tiles — "2 / misses allowed", a stopwatch for a timed answer. */
+  readonly ruleTiles?: readonly RuleTile[];
+  /** Fine print under the tiles — what a shoe run grades. */
+  readonly ruleNote?: string;
+  /** The run's rules as pills — "3 strikes, then out", "6-deck shoe" — for intros without tiles. */
   readonly rules?: readonly string[];
   readonly startLabel: string;
   readonly onStart: () => void;
@@ -42,9 +61,10 @@ export interface ArcadeLevelBriefProps {
 }
 
 /**
- * The Modern look's level intro: felt panel, burgundy plaque, the three
- * example cards, the description, the star goals, the rules and the big
- * gold Start — the mock-up, built from the app's own pieces.
+ * The Modern look's level intro: felt panel, burgundy plaque, the level's
+ * scene (or the three example cards), the description, the star goals, the
+ * rules as stat tiles and the big gold Start — the mock-up, built from the
+ * app's own pieces.
  */
 export function ArcadeLevelBrief({
   kicker,
@@ -53,6 +73,11 @@ export function ArcadeLevelBrief({
   body,
   starTargets,
   starUnit = 'right',
+  starLabels,
+  best,
+  scene,
+  ruleTiles,
+  ruleNote,
   rules = [],
   startLabel,
   onStart,
@@ -98,9 +123,21 @@ export function ArcadeLevelBrief({
         title={title}
         footer={difficulty ? <ArcadePill label={difficulty} tone="mint" /> : undefined}
       />
-      {showCards ? <ExampleCards cardWidth={54} /> : <View style={styles.cardsGap} />}
+      {scene ? (
+        <Image
+          source={scene}
+          style={styles.scene}
+          contentFit="contain"
+          accessibilityIgnoresInvertColors
+        />
+      ) : showCards ? (
+        <ExampleCards cardWidth={54} />
+      ) : (
+        <View style={styles.cardsGap} />
+      )}
       <ArcadeInfoBox>{body}</ArcadeInfoBox>
-      {starTargets ? <StarGoals targets={starTargets} unit={starUnit} /> : null}
+      {starTargets ? <StarGoals targets={starTargets} unit={starUnit} labels={starLabels} best={best} /> : null}
+      {ruleTiles || ruleNote ? <RuleTiles tiles={ruleTiles ?? []} note={ruleNote} /> : null}
       {rules.length > 0 ? (
         <View style={styles.rules}>
           {rules.map((rule) => (
@@ -154,6 +191,12 @@ const styles = StyleSheet.create({
   },
   cardsGap: {
     height: spacing.xs,
+  },
+  scene: {
+    alignSelf: 'stretch',
+    aspectRatio: SCENE_ASPECT,
+    marginHorizontal: spacing.xs + spacing.xxs,
+    marginTop: spacing.xxs,
   },
   rules: {
     flexDirection: 'row',

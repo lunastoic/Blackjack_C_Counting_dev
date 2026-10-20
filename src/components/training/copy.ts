@@ -80,6 +80,14 @@ export function starGlyphs(stars: number): string {
   return '★'.repeat(Math.max(0, Math.min(STAR_COUNT, stars)));
 }
 
+/** What a level counts toward its stars, as a star tile says it: "grids", "rounds", "checks", "right". */
+export function starUnit(spec: TrainingLevelSpec): string {
+  if (isRoundsLevel(spec)) {
+    return 'rounds';
+  }
+  return spec.mode === 'shoeRun' ? 'hands' : streakUnit(spec);
+}
+
 /** What a streak level counts toward its stars. */
 function streakUnit(spec: TrainingLevelSpec): string {
   switch (spec.mode) {
@@ -209,4 +217,131 @@ export function requirementChips(
 /** Misses the pass rule still tolerates overall. */
 export function missesAllowed(spec: CheckpointLevelSpec): number {
   return Math.max(0, totalCheckpoints(spec) - spec.pass.minCorrect);
+}
+
+// ---------------------------------------------------------------------------
+// The brief's rules as stat tiles
+// ---------------------------------------------------------------------------
+
+export type RuleIcon = 'timer' | 'keypad' | 'players' | 'flame';
+
+/** One stat tile: a big value (or an icon) over a small label — "2 / MISSES ALLOWED". */
+export interface RuleTile {
+  readonly value: string;
+  readonly icon?: RuleIcon;
+  readonly label: string;
+}
+
+export interface RuleTiles {
+  readonly tiles: readonly RuleTile[];
+  /** Fine print under the row — what is graded, the odd extra rule. */
+  readonly note?: string;
+}
+
+const TIMED_TILE: RuleTile = { value: '', icon: 'timer', label: 'timed answer' };
+const ENTRY_TILE: RuleTile = { value: '', icon: 'keypad', label: 'exact entry' };
+
+function deckTile(deckCount: number): RuleTile {
+  return { value: `${deckCount}`, label: deckCount === 1 ? 'deck' : 'decks' };
+}
+
+/** The shoe run's rules: its length and shoe, the clock, the boss's strikes and heat; what is graded as the note. */
+export function shoeRunTiles(spec: ShoeRunLevel): RuleTiles {
+  const tiles: RuleTile[] = [{ value: `${spec.hands}`, label: 'hands' }, deckTile(spec.deckCount)];
+  if (spec.checkTimeMs) {
+    tiles.push({ value: `${Math.round(spec.checkTimeMs / 1000)}s`, label: 'per count call' });
+  }
+  if (spec.maxMoveMisses != null && spec.maxCountMisses != null) {
+    tiles.push({ value: `${spec.maxMoveMisses + 1}+${spec.maxCountMisses + 1}`, label: 'move / count strikes' });
+  }
+  if (spec.heat) {
+    tiles.push({ value: '', icon: 'flame', label: 'pit boss watches' });
+  }
+  const graded = [
+    spec.checks.length > 0 ? 'counts' : null,
+    spec.betting ? 'bets' : null,
+    spec.insurance ? 'insurance' : null,
+    spec.indexPlays ? 'index plays' : null,
+  ].filter(Boolean);
+  const notes = [`Graded: ${graded.join(', ')}`];
+  if (spec.heat) {
+    notes.push('ramp too fast and the pit boss backs you off');
+  }
+  return { tiles, note: notes.join(' · ') };
+}
+
+/** The shoe run's star tiles: one for seeing it through, two at the pass mark, three at the perfect mark. */
+export function shoeRunStarLabels(spec: ShoeRunLevel): readonly [string, string, string] {
+  return [
+    'finish',
+    `${Math.round(spec.clearAccuracy * 100)}% right`,
+    `${Math.round(spec.perfectAccuracy * 100)}% right`,
+  ];
+}
+
+/**
+ * The level brief's rules as one row of stat tiles — the same facts as
+ * `requirementChips` (minus the star line, which the star goals carry) in a
+ * quarter of the height. Numbers go big, words go small, the timer and keypad
+ * become icons.
+ */
+export function requirementTiles(spec: TrainingLevelSpec): RuleTiles {
+  if (spec.mode === 'shoeRun') {
+    return shoeRunTiles(spec);
+  }
+  if (!isCheckpointLevel(spec)) {
+    const tiles: RuleTile[] = [
+      spec.strikes === 0
+        ? { value: '0', label: 'misses allowed' }
+        : { value: `${spec.strikes}`, label: spec.strikes === 1 ? 'strike' : 'strikes' },
+    ];
+    if (spec.mode === 'cancelGrid') {
+      tiles.push({ value: '', icon: 'timer', label: 'meter runs with the grid up' });
+    } else if (isMiniGame(spec)) {
+      tiles.push({ value: '', icon: 'timer', label: 'meter runs while you play' });
+    }
+    return { tiles };
+  }
+  if (isRoundsLevel(spec)) {
+    const rounds = spec.rounds;
+    return {
+      tiles: [
+        { value: `${spec.pass.minCorrect} / ${rounds.count}`, label: 'rounds to clear' },
+        { value: `${rounds.minCards}–${rounds.maxCards}`, label: 'stops at card' },
+        TIMED_TILE,
+        ENTRY_TILE,
+      ],
+      note: 'A fresh deck each round',
+    };
+  }
+  const total = totalCheckpoints(spec);
+  const allowed = missesAllowed(spec);
+  const tiles: RuleTile[] = [{ value: `${allowed}`, label: allowed === 1 ? 'miss allowed' : 'misses allowed' }];
+  const notes: string[] = [];
+  if (allowed > 0 && spec.pass.maxRunningCountMisses < total - spec.pass.minCorrect) {
+    notes.push(
+      spec.pass.maxRunningCountMisses === 0
+        ? 'No running-count misses'
+        : `At most ${spec.pass.maxRunningCountMisses} running-count miss${spec.pass.maxRunningCountMisses === 1 ? '' : 'es'}`,
+    );
+  }
+  if (spec.mode === 'countStream' && spec.presentation === 'rain') {
+    tiles.push({ value: `${spec.checkGap?.min ?? 5}–${spec.checkGap?.max ?? 10}`, label: 'cards a check' });
+  } else {
+    tiles.push(deckTile(spec.deckCount));
+  }
+  if (spec.mode === 'tableCount') {
+    tiles.push({
+      value: '',
+      icon: 'players',
+      label: spec.seats === 1 ? 'you vs. the dealer' : `${spec.seats} players + dealer`,
+    });
+  }
+  if (spec.mode === 'countStream' && spec.timed) {
+    tiles.push(TIMED_TILE);
+  }
+  if (spec.answerInput === 'entry') {
+    tiles.push(ENTRY_TILE);
+  }
+  return { tiles, note: notes.length > 0 ? notes.join(' · ') : undefined };
 }

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MODERN_TABLE_FELTS, TABLE_FELTS } from '../../assets/registry';
+import { BRIEF_SCENES, MODERN_TABLE_FELTS, TABLE_FELTS } from '../../assets/registry';
 import { mapById } from '../../engine/betting/casino';
 import {
   ChipRushLevel,
@@ -14,6 +14,7 @@ import {
   isFlashLevelDone,
   levelTutorial,
   nextStarTarget,
+  speedProfile,
   STAR_COUNT,
   trainingLevelsForMap,
 } from '../../engine/dojo';
@@ -33,7 +34,7 @@ import { FlashPanel, FlashPanelChip, FlashPanelStarChip } from '../flash/FlashPa
 import { GameSettingsSheet } from '../game/GameSettingsSheet';
 import { GameTableHud } from '../game/GameTableHud';
 import { ChipRushLane, ChipRushTray } from './ChipRushLane';
-import { requirementChips, starGlyphs, starTargetsLine } from './copy';
+import { requirementChips, requirementTiles, starGlyphs, starTargetsLine } from './copy';
 import { LevelTutorialPanel } from './LevelTutorialPanel';
 import { StarBankToast } from './StarBankToast';
 import { StatusCell, TrainingStatusStrip } from './TrainingStatusStrip';
@@ -96,6 +97,7 @@ export function ChipRushScreen({ mapId, level }: ChipRushScreenProps) {
   }
   // Narrowed once, for the closures below.
   const levelSpec: ChipRushLevel = spec;
+  const briefRules = requirementTiles(levelSpec);
 
   const slides = levelTutorial(mapId, level);
   const seated = status !== 'idle';
@@ -193,14 +195,14 @@ export function ChipRushScreen({ mapId, level }: ChipRushScreenProps) {
             fit
             kicker={hasBegun ? `Level ${level} · Try again` : `Level ${level}`}
             title={levelSpec.title}
-            difficulty="Medium"
+            difficulty={speedProfile(levelSpec.speed).label}
             body={levelSpec.brief}
             starTargets={targets}
             starUnit="waves"
-            rules={[
-              ...requirementChips(levelSpec, { starTargets: false }),
-              ...(best ? [`Best ${best.run} waves · combo ${best.combo}`] : []),
-            ]}
+            best={best && best.run > 0 ? `${best.run} waves · combo ${best.combo}` : undefined}
+            scene={BRIEF_SCENES[mapId]?.[level]}
+            ruleTiles={briefRules.tiles}
+            ruleNote={briefRules.note}
             startLabel={hasBegun ? 'Start again' : 'Start training'}
             onStart={start}
             onHow={slides.length > 0 ? () => setSlidesStep(0) : undefined}

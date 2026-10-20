@@ -35,14 +35,15 @@ CASINOS = {
 }
 SPEED_LABEL = {'beginner': 'Beginner', 'easy': 'Easy', 'normal': 'Normal', 'fast': 'Fast', 'veryFast': 'Very fast', 'casino': 'Casino'}
 
-# star targets + their unit, as starTargets()/streakUnit() give them (dumped 2026-10-19)
+# star targets + their unit, as starTargets()/streakUnit() give them (dumped 2026-10-19);
+# a shoe run's stars come from its accuracy (finish / pass mark / perfect), so its tiles say that
 STARS = {
-    (1, 1): ([11, 21, 32], 'right'), (1, 2): ([1, 2, 3], 'grids'), (1, 3): ([8, 16, 24], 'right'), (1, 4): ([4, 8, 12], 'checks'), (1, 5): ([5, 10, 15], 'hands'), (1, 6): ([1, 2, 3], 'rounds'),
-    (2, 1): ([11, 21, 32], 'right'), (2, 2): ([1, 2, 3], 'waves'), (2, 3): ([8, 16, 24], 'right'), (2, 4): ([10, 20, 30], 'hands'), (2, 5): ([6, 12, 18], 'hands'), (2, 6): ([20, 40, 60], 'hands'),
-    (3, 1): ([8, 16, 24], 'right'), (3, 2): ([1, 2, 3], 'grids'), (3, 3): ([8, 16, 24], 'right'), (3, 4): ([4, 8, 12], 'checks'), (3, 5): ([6, 12, 18], 'hands'), (3, 6): ([8, 16, 24], 'checks'),
-    (4, 1): ([11, 21, 32], 'right'), (4, 2): ([1, 2, 3], 'waves'), (4, 3): ([8, 16, 24], 'right'), (4, 4): ([5, 10, 15], 'checks'), (4, 5): ([8, 15, 23], 'hands'), (4, 6): ([9, 18, 27], 'checks'),
-    (5, 1): ([11, 21, 32], 'right'), (5, 2): ([1, 2, 3], 'sets'), (5, 3): ([8, 16, 24], 'right'), (5, 4): ([7, 14, 21], 'right'), (5, 5): ([8, 15, 23], 'hands'), (5, 6): ([10, 20, 30], 'checks'),
-    (6, 1): ([11, 21, 32], 'right'), (6, 2): ([1, 2, 3], 'stages'), (6, 3): ([6, 12, 18], 'checks'), (6, 4): ([18, 36, 54], 'checks'), (6, 5): ([13, 25, 38], 'hands'), (6, 6): ([30, 60, 90], 'hands'),
+    (1, 1): ([11, 21, 32], 'right'), (1, 2): ([1, 2, 3], 'grids'), (1, 3): ([8, 16, 24], 'right'), (1, 4): ([4, 8, 12], 'checks'), (1, 5): (['finish', '80% right', '100% right'], None), (1, 6): ([1, 2, 3], 'rounds'),
+    (2, 1): ([11, 21, 32], 'right'), (2, 2): ([1, 2, 3], 'waves'), (2, 3): ([8, 16, 24], 'right'), (2, 4): (['finish', '80% right', '100% right'], None), (2, 5): (['finish', '80% right', '100% right'], None), (2, 6): (['finish', '85% right', '100% right'], None),
+    (3, 1): ([8, 16, 24], 'right'), (3, 2): ([1, 2, 3], 'grids'), (3, 3): ([8, 16, 24], 'right'), (3, 4): ([4, 8, 12], 'checks'), (3, 5): (['finish', '80% right', '100% right'], None), (3, 6): ([8, 16, 24], 'checks'),
+    (4, 1): ([11, 21, 32], 'right'), (4, 2): ([1, 2, 3], 'waves'), (4, 3): ([8, 16, 24], 'right'), (4, 4): ([5, 10, 15], 'checks'), (4, 5): (['finish', '85% right', '100% right'], None), (4, 6): ([9, 18, 27], 'checks'),
+    (5, 1): ([11, 21, 32], 'right'), (5, 2): ([1, 2, 3], 'sets'), (5, 3): ([8, 16, 24], 'right'), (5, 4): ([7, 14, 21], 'right'), (5, 5): (['finish', '85% right', '100% right'], None), (5, 6): ([10, 20, 30], 'checks'),
+    (6, 1): ([11, 21, 32], 'right'), (6, 2): ([1, 2, 3], 'stages'), (6, 3): ([6, 12, 18], 'checks'), (6, 4): ([18, 36, 54], 'checks'), (6, 5): (['finish', '90% right', '100% right'], None), (6, 6): (['finish', '90% right', '100% right'], None),
 }
 
 # icon values for the stat tiles
@@ -60,38 +61,38 @@ LEDGER = {
     (1, 2): ([('3', 'strikes'), ('i:timer', 'meter runs with the grid up')], ''),
     (1, 3): ([('3', 'strikes')], ''),
     (1, 4): ([('2', 'misses allowed'), ('5–10', 'cards a check'), ('i:timer', 'timed answer'), ('i:keypad', 'exact entry')], ''),
-    (1, 5): ([('10', 'hands'), ('1', 'deck'), ('8s', 'per count call')], 'Graded: counts · 80% clears, 100% for ★★★'),
+    (1, 5): ([('10', 'hands'), ('1', 'deck'), ('8s', 'per count call')], 'Graded: counts'),
     (1, 6): ([('2 / 3', 'rounds to clear'), ('39–48', 'stops at card'), ('i:timer', 'timed answer'), ('i:keypad', 'exact entry')], 'A fresh deck each round'),
     (2, 1): ([('3', 'strikes')], ''),
     (2, 2): ([('3', 'strikes'), ('i:timer', 'meter runs while you play')], ''),
     (2, 3): ([('3', 'strikes')], ''),
-    (2, 4): ([('20', 'hands'), ('2', 'decks')], 'Graded: counts · 80% clears, 100% for ★★★'),
-    (2, 5): ([('12', 'hands'), ('2', 'decks'), ('8s', 'per count call')], 'Graded: counts · 80% clears, 100% for ★★★'),
-    (2, 6): ([('40', 'hands'), ('2', 'decks'), ('3+3', 'move / count strikes')], 'Graded: counts · 85% clears, 100% for ★★★'),
+    (2, 4): ([('20', 'hands'), ('2', 'decks')], 'Graded: counts'),
+    (2, 5): ([('12', 'hands'), ('2', 'decks'), ('8s', 'per count call')], 'Graded: counts'),
+    (2, 6): ([('40', 'hands'), ('2', 'decks'), ('3+3', 'move / count strikes')], 'Graded: counts'),
     (3, 1): ([('3', 'strikes')], ''),
     (3, 2): ([('3', 'strikes'), ('i:timer', 'meter runs while you play')], ''),
     (3, 3): ([('3', 'strikes')], ''),
     (3, 4): ([('2', 'misses allowed'), ('2', 'decks'), ('i:timer', 'timed answer'), ('i:keypad', 'exact entry')], ''),
-    (3, 5): ([('12', 'hands'), ('4', 'decks'), ('10s', 'per count call')], 'Graded: counts · 80% clears, 100% for ★★★'),
+    (3, 5): ([('12', 'hands'), ('4', 'decks'), ('10s', 'per count call')], 'Graded: counts'),
     (3, 6): ([('2', 'misses allowed'), ('4', 'decks'), ('i:players', '2 players + dealer'), ('i:keypad', 'exact entry')], ''),
     (4, 1): ([('2', 'strikes')], ''),
     (4, 2): ([('2', 'strikes'), ('i:timer', 'meter runs while you play')], ''),
     (4, 3): ([('2', 'strikes')], ''),
     (4, 4): ([('2', 'misses allowed'), ('4', 'decks'), ('i:timer', 'timed answer'), ('i:keypad', 'exact entry')], ''),
-    (4, 5): ([('15', 'hands'), ('6', 'decks')], 'Graded: counts, bets · 85% clears, 100% for ★★★'),
+    (4, 5): ([('15', 'hands'), ('6', 'decks')], 'Graded: counts, bets'),
     (4, 6): ([('2', 'misses allowed'), ('6', 'decks'), ('i:players', '3 players + dealer'), ('i:keypad', 'exact entry')], ''),
     (5, 1): ([('2', 'strikes')], ''),
     (5, 2): ([('2', 'strikes'), ('i:timer', 'meter runs while you play')], ''),
     (5, 3): ([('2', 'strikes')], ''),
     (5, 4): ([('2', 'strikes')], ''),
-    (5, 5): ([('15', 'hands'), ('8', 'decks')], 'Graded: counts, bets, insurance, index plays · 85% clears, 100% for ★★★'),
+    (5, 5): ([('15', 'hands'), ('8', 'decks')], 'Graded: counts, bets, insurance, index plays'),
     (5, 6): ([('3', 'misses allowed'), ('8', 'decks'), ('i:players', '3 players + dealer'), ('i:keypad', 'exact entry')], ''),
     (6, 1): ([('1', 'strike')], ''),
     (6, 2): ([('1', 'strike'), ('i:timer', 'meter runs while you play')], ''),
     (6, 3): ([('1', 'miss allowed'), ('6', 'decks'), ('i:players', '3 players + dealer'), ('i:keypad', 'exact entry')], ''),
     (6, 4): ([('0', 'misses allowed'), ('8', 'decks'), ('i:timer', 'timed answer'), ('i:keypad', 'exact entry')], ''),
-    (6, 5): ([('25', 'hands'), ('8', 'decks')], 'Graded: counts, bets, insurance, index plays · 90% clears, 100% for ★★★'),
-    (6, 6): ([('60', 'hands'), ('8', 'decks'), ('i:flame', 'pit boss watches')], 'Graded: counts, bets, insurance, index plays · 90% clears, 100% for ★★★ · ramp too fast and the pit boss backs you off'),
+    (6, 5): ([('25', 'hands'), ('8', 'decks')], 'Graded: counts, bets, insurance, index plays'),
+    (6, 6): ([('60', 'hands'), ('8', 'decks'), ('i:flame', 'pit boss watches')], 'Graded: counts, bets, insurance, index plays · ramp too fast and the pit boss backs you off'),
 }
 
 CARD_RAIN_PILLS = ['2 misses, then out', 'A check every 5–10 cards', 'The meter drains while you answer', 'Exact entry', 'Best 6 checks']
@@ -144,7 +145,7 @@ def esc(s):
 
 
 def stars_block(targets, unit, best=None):
-    tiles = ''.join(f'<div class="lb-tile"><span class="lb-st">{"★" * (i + 1)}</span><span class="lb-tg">{n} {unit}</span></div>' for i, n in enumerate(targets))
+    tiles = ''.join(f'<div class="lb-tile"><span class="lb-st">{"★" * (i + 1)}</span><span class="lb-tg">{n if unit is None else f"{n} {unit}"}</span></div>' for i, n in enumerate(targets))
     cap = f'Best run so far: <span class="best">{best} {unit}</span>' if best is not None else 'Your best run determines your stars.'
     return f'<div class="lb-sg"><div class="lb-tab">Star goals</div><div class="lb-inset"><div class="lb-tiles">{tiles}</div><div class="lb-cap">{cap}</div></div></div>'
 
@@ -229,7 +230,7 @@ def options_section(saved, levels):
 
 def sheet_section(saved, levels):
     out = ['<h3 class="sub" id="brief-levels">Every level, every casino</h3>',
-           '<p class="note">Thirty-six briefs, each in its casino’s phone — the casino’s header with the level in the marquee, the brief on its slab below. The picture under the plaque is the level itself — its cards, its pads, its pauses, what it asks you to type — so a player knows what is coming before Start. Title, pace and copy are the app’s own; the rules are stat tiles (A). Star goals keep each level’s unit: right answers, grids, waves, sets, stages, rounds, hands or checks.</p>']
+           '<p class="note">Thirty-six briefs, each in its casino’s phone — the casino’s header with the level in the marquee, the brief on its slab below. The picture under the plaque is the level itself — its cards, its pads, its pauses, what it asks you to type — so a player knows what is coming before Start. Title, pace and copy are the app’s own; the rules are stat tiles (A). Star goals keep each level’s unit: right answers, grids, waves, sets, stages, rounds or checks — and a table night’s stars come from its accuracy, so its tiles read finish / pass mark / 100%.</p>']
     for mid in range(1, 7):
         name, theme, cls, _ = CASINOS[mid]
         out.append(f'<div class="lb2-map"><div class="lb2-head"><h3>Map {mid} · {esc(name)}</h3><span>{esc(theme)}</span></div><div class="lb2-grid">')

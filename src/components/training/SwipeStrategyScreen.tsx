@@ -4,17 +4,18 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MODERN_TABLE_FELTS, TABLE_FELTS } from '../../assets/registry';
+import { BRIEF_SCENES, MODERN_TABLE_FELTS, TABLE_FELTS } from '../../assets/registry';
 import { mapById } from '../../engine/betting/casino';
 import {
   CLEAR_STARS,
-  decisionLabel,
   DECISION,
+  decisionLabel,
   DOJO_XP,
   flashLevelKey,
   isFlashLevelDone,
   levelTutorial,
   nextStarTarget,
+  speedProfile,
   STAR_COUNT,
   swipeComboMultiplier,
   SwipeDirection,
@@ -35,7 +36,7 @@ import { FlashPanel, FlashPanelChip, FlashPanelStarChip } from '../flash/FlashPa
 import { GameSettingsSheet } from '../game/GameSettingsSheet';
 import { GameTableHud } from '../game/GameTableHud';
 import { ChoiceGrid } from './AnswerPads';
-import { requirementChips, starGlyphs, starTargetsLine } from './copy';
+import { requirementChips, requirementTiles, starGlyphs, starTargetsLine } from './copy';
 import { LevelTutorialPanel } from './LevelTutorialPanel';
 import { StarBankToast } from './StarBankToast';
 import { SwipeStrategyHand } from './SwipeStrategyHand';
@@ -100,6 +101,7 @@ export function SwipeStrategyScreen({ mapId, level }: SwipeStrategyScreenProps) 
   }
   // Narrowed once, for the closures below.
   const levelSpec = spec;
+  const briefRules = requirementTiles(levelSpec);
 
   const slides = levelTutorial(mapId, level);
   const seated = status !== 'idle';
@@ -198,14 +200,14 @@ export function SwipeStrategyScreen({ mapId, level }: SwipeStrategyScreenProps) 
             fit
             kicker={hasBegun ? `Level ${level} · Try again` : `Level ${level}`}
             title={levelSpec.title}
-            difficulty="Easy"
+            difficulty={speedProfile(levelSpec.speed).label}
             body={levelSpec.brief}
             starTargets={targets}
             starUnit="waves"
-            rules={[
-              ...requirementChips(levelSpec, { starTargets: false }),
-              ...(best ? [`Best ${best.run} right · combo ${best.combo}`] : []),
-            ]}
+            best={best && best.run > 0 ? `${best.run} waves · combo ${best.combo}` : undefined}
+            scene={BRIEF_SCENES[mapId]?.[level]}
+            ruleTiles={briefRules.tiles}
+            ruleNote={briefRules.note}
             startLabel={hasBegun ? 'Start again' : 'Start training'}
             onStart={start}
             onHow={slides.length > 0 ? () => setSlidesStep(0) : undefined}

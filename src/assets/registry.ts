@@ -288,3 +288,59 @@ export const appAssets = {
 
 export { CARD_FACES, CARD_BACK } from './cards.generated';
 export type { CardSkin } from './cards.generated';
+
+/**
+ * The level brief's picture of each level — what it deals, what it asks you to
+ * tap or type — keyed by map then level. Drawn as SVG in scripts/level-art/briefs.py
+ * and rendered at 3× by render_briefs.py, so the app shows the mock-up's own art.
+ */
+export const BRIEF_SCENES: Record<number, Record<number, number>> = {
+  1: {
+    1: require('../../assets/briefs/map1/level-1.png'),
+    2: require('../../assets/briefs/map1/level-2.png'),
+    3: require('../../assets/briefs/map1/level-3.png'),
+    4: require('../../assets/briefs/map1/level-4.png'),
+    5: require('../../assets/briefs/map1/level-5.png'),
+    6: require('../../assets/briefs/map1/level-6.png'),
+  },
+  2: {
+    1: require('../../assets/briefs/map2/level-1.png'),
+    2: require('../../assets/briefs/map2/level-2.png'),
+    3: require('../../assets/briefs/map2/level-3.png'),
+    4: require('../../assets/briefs/map2/level-4.png'),
+    5: require('../../assets/briefs/map2/level-5.png'),
+    6: require('../../assets/briefs/map2/level-6.png'),
+  },
+  3: {
+    1: require('../../assets/briefs/map3/level-1.png'),
+    2: require('../../assets/briefs/map3/level-2.png'),
+    3: require('../../assets/briefs/map3/level-3.png'),
+    4: require('../../assets/briefs/map3/level-4.png'),
+    5: require('../../assets/briefs/map3/level-5.png'),
+    6: require('../../assets/briefs/map3/level-6.png'),
+  },
+  4: {
+    1: require('../../assets/briefs/map4/level-1.png'),
+    2: require('../../assets/briefs/map4/level-2.png'),
+    3: require('../../assets/briefs/map4/level-3.png'),
+    4: require('../../assets/briefs/map4/level-4.png'),
+    5: require('../../assets/briefs/map4/level-5.png'),
+    6: require('../../assets/briefs/map4/level-6.png'),
+  },
+  5: {
+    1: require('../../assets/briefs/map5/level-1.png'),
+    2: require('../../assets/briefs/map5/level-2.png'),
+    3: require('../../assets/briefs/map5/level-3.png'),
+    4: require('../../assets/briefs/map5/level-4.png'),
+    5: require('../../assets/briefs/map5/level-5.png'),
+    6: require('../../assets/briefs/map5/level-6.png'),
+  },
+  6: {
+    1: require('../../assets/briefs/map6/level-1.png'),
+    2: require('../../assets/briefs/map6/level-2.png'),
+    3: require('../../assets/briefs/map6/level-3.png'),
+    4: require('../../assets/briefs/map6/level-4.png'),
+    5: require('../../assets/briefs/map6/level-5.png'),
+    6: require('../../assets/briefs/map6/level-6.png'),
+  },
+};

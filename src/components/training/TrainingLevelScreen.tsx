@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { MODERN_TABLE_FELTS, TABLE_FELTS } from "../../assets/registry";
+import { BRIEF_SCENES, MODERN_TABLE_FELTS, TABLE_FELTS } from "../../assets/registry";
 import { mapById } from "../../engine/betting/casino";
 import { hiLoValue } from "../../engine/cards/card";
 import { CARDS_PER_DECK } from "../../engine/cards/deck";
@@ -103,8 +103,10 @@ import {
   kindLabel,
   missesAllowed,
   requirementChips,
+  requirementTiles,
   starGlyphs,
   starTargetsLine,
+  starUnit,
   stretchLine,
   stretchRulesLine,
 } from "./copy";
@@ -205,9 +207,9 @@ const DEALER_LINES: readonly DealerLine[] = [
   { question: "First time at Kepler?", answers: ["Yes", "No"] },
 ];
 
-/** The brief's personal-best pill: "Best 27 right · combo 12". */
-function bestLine(best: TrainingBest, checkpoints: boolean): string {
-  const run = `Best ${best.run} ${checkpoints ? "checks" : "right"}`;
+/** The brief's personal best, under the star goals: "27 right · combo 12". */
+function bestLine(best: TrainingBest, unit: string): string {
+  const run = `${best.run} ${unit}`;
   return best.combo > 0 ? `${run} · combo ${best.combo}` : run;
 }
 
@@ -366,6 +368,8 @@ export function TrainingLevelScreen({
     ? previewDrillSpec(drill)
     : trainingLevelSpec(mapId, level);
   const speed = speedProfile(spec.speed);
+  const briefRules = requirementTiles(spec);
+  const briefUnit = starUnit(spec);
   const checkpointSpec = isCheckpointLevel(spec) ? spec : null;
   const streakSpec = isStreakLevel(spec) ? spec : null;
   const isExam = checkpointSpec?.mode === "tableCount" && checkpointSpec.exam;
@@ -1407,13 +1411,12 @@ export function TrainingLevelScreen({
               difficulty={speed.label}
               body={spec.brief}
               starTargets={targets}
-              starUnit={checkpointSpec ? "checks" : "right"}
-              rules={[
-                ...requirementChips(spec, { starTargets: false }),
-                ...(levelBest
-                  ? [bestLine(levelBest, checkpointSpec !== null)]
-                  : []),
-              ]}
+              starUnit={briefUnit}
+              // A best of zero is no best yet.
+              best={levelBest && levelBest.run > 0 ? bestLine(levelBest, briefUnit) : undefined}
+              scene={drill ? undefined : BRIEF_SCENES[mapId]?.[level]}
+              ruleTiles={briefRules.tiles}
+              ruleNote={briefRules.note}
               startLabel={hasBegun ? "Start again" : "Start training"}
               onStart={handleBegin}
               // Always a tap away, even when Start plays it itself on a first attempt.

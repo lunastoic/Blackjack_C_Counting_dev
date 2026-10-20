@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MODERN_TABLE_FELTS, TABLE_FELTS } from '../../assets/registry';
+import { BRIEF_SCENES, MODERN_TABLE_FELTS, TABLE_FELTS } from '../../assets/registry';
 import { BET_SPREAD_MAX } from '../../engine/betting/betRamp';
 import { mapById } from '../../engine/betting/casino';
 import { activeHand } from '../../engine/blackjack/round';
@@ -13,8 +13,9 @@ import { CARDS_PER_DECK } from '../../engine/cards/deck';
 import {
   DOJO_XP,
   HEAT_LIMIT,
-  previewShoeRunSpec,
   PreviewDrillId,
+  previewShoeRunSpec,
+  speedProfile,
   STAR_COUNT,
   trainingLevelsForMap,
 } from '../../engine/dojo';
@@ -35,7 +36,7 @@ import { GameTableHud } from '../game/GameTableHud';
 import { TableCamera } from '../game/TableCamera';
 import { AccuracyRow } from './AccuracyRows';
 import { ChoiceGrid } from './AnswerPads';
-import { formatAnswer, formatUnits, questionPrompt, shoeRunChips, starGlyphs } from './copy';
+import { formatAnswer, formatUnits, questionPrompt, shoeRunChips, shoeRunStarLabels, shoeRunTiles, starGlyphs } from './copy';
 import { CountEntry } from './CountEntry';
 import { TableStage } from './TableStage';
 import { TrainingMeter } from './TrainingMeter';
@@ -433,9 +434,16 @@ export function ShoeRunScreen({ mapId, level, daily = false, drill }: ShoeRunScr
           <Animated.View entering={FadeIn.duration(200)} style={[styles.briefOverlay, { paddingBottom: insets.bottom + spacing.xs }]}>
             <ArcadeLevelBrief
               fit
-              kicker={drill ? 'Preview drill' : daily ? (state.dayKey ?? 'Today') : `Level ${level} · Boss`}
+              kicker={drill ? 'Preview drill' : daily ? (state.dayKey ?? 'Today') : level === 6 ? `Level ${level} · Boss` : `Level ${level}`}
               title={spec.title}
+              difficulty={daily || drill ? undefined : speedProfile(spec.speed).label}
               body={spec.brief}
+              scene={daily || drill ? undefined : BRIEF_SCENES[mapId]?.[level]}
+              // A level's stars come from its accuracy: one for finishing, two at the pass mark, three at the perfect mark.
+              starTargets={daily || drill ? undefined : [1, 2, 3]}
+              starLabels={daily || drill ? undefined : shoeRunStarLabels(spec)}
+              ruleTiles={daily || drill ? undefined : shoeRunTiles(spec).tiles}
+              ruleNote={daily || drill ? undefined : shoeRunTiles(spec).note}
               rules={
                 daily || drill
                   ? [
@@ -449,7 +457,7 @@ export function ShoeRunScreen({ mapId, level, daily = false, drill }: ShoeRunScr
                               : 'First run seen through today pays 500 chips',
                           ]),
                     ]
-                  : shoeRunChips(spec)
+                  : []
               }
               startLabel="Take a seat"
               onStart={() => {

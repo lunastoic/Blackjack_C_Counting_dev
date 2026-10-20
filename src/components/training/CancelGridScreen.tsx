@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MODERN_TABLE_FELTS, TABLE_FELTS } from '../../assets/registry';
+import { BRIEF_SCENES, MODERN_TABLE_FELTS, TABLE_FELTS } from '../../assets/registry';
 import { mapById } from '../../engine/betting/casino';
 import {
   CLEAR_STARS,
@@ -14,6 +14,7 @@ import {
   levelTutorial,
   nextStarTarget,
   remaining,
+  speedProfile,
   STAR_COUNT,
   trainingLevelsForMap,
 } from '../../engine/dojo';
@@ -34,7 +35,7 @@ import { GameSettingsSheet } from '../game/GameSettingsSheet';
 import { GameTableHud } from '../game/GameTableHud';
 import { CountPad } from './AnswerPads';
 import { CancelGridBoard, gridCardWidth } from './CancelGridBoard';
-import { requirementChips, starGlyphs, starTargetsLine } from './copy';
+import { requirementChips, requirementTiles, starGlyphs, starTargetsLine } from './copy';
 import { LevelTutorialPanel } from './LevelTutorialPanel';
 import { StarBankToast } from './StarBankToast';
 import { TrainingMeter } from './TrainingMeter';
@@ -85,6 +86,7 @@ export function CancelGridScreen({ mapId, level }: CancelGridScreenProps) {
   }
   // Narrowed once, for the closures below.
   const levelSpec = spec;
+  const briefRules = requirementTiles(levelSpec);
 
   const slides = levelTutorial(mapId, level);
   const seated = status !== 'idle';
@@ -198,14 +200,14 @@ export function CancelGridScreen({ mapId, level }: CancelGridScreenProps) {
             fit
             kicker={hasBegun ? `Level ${level} · Try again` : `Level ${level}`}
             title={levelSpec.title}
-            difficulty="Easy"
+            difficulty={speedProfile(levelSpec.speed).label}
             body={levelSpec.brief}
             starTargets={targets}
             starUnit="grids"
-            rules={[
-              ...requirementChips(levelSpec, { starTargets: false }),
-              ...(best ? [`Best ${best.run} grids`] : []),
-            ]}
+            best={best && best.run > 0 ? `${best.run} grids` : undefined}
+            scene={BRIEF_SCENES[mapId]?.[level]}
+            ruleTiles={briefRules.tiles}
+            ruleNote={briefRules.note}
             startLabel={hasBegun ? 'Start again' : 'Start training'}
             onStart={start}
             onHow={slides.length > 0 ? () => setSlidesStep(0) : undefined}

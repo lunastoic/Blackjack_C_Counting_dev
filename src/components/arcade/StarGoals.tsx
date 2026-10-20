@@ -9,11 +9,15 @@ interface StarGoalsProps {
   readonly targets: readonly [number, number, number];
   /** "right" for streak levels, "checks" for checkpoints. */
   readonly unit: string;
+  /** Says each tile's goal in full instead of "target unit" — a shoe run's "finish / 80% right / 100% right". */
+  readonly labels?: readonly [string, string, string];
+  /** The player's best run, "27 right · combo 12" — goes in the caption, next to the goals it is measured against. */
+  readonly best?: string;
   readonly style?: StyleProp<ViewStyle>;
 }
 
 /** "STAR GOALS" tab over three tiles — ★ 11 right / ★★ 21 right / ★★★ 32 right. */
-export function StarGoals({ targets, unit, style }: StarGoalsProps) {
+export function StarGoals({ targets, unit, labels, best, style }: StarGoalsProps) {
   const edge = useArcadePanelEdge();
   return (
     <View style={[styles.slot, style]}>
@@ -34,12 +38,18 @@ export function StarGoals({ targets, unit, style }: StarGoalsProps) {
                 ))}
               </View>
               <Text style={styles.target}>
-                {target} {unit}
+                {labels ? labels[index] : `${target} ${unit}`}
               </Text>
             </View>
           ))}
         </View>
-        <Text style={arcadeText.caption}>Your best run determines your stars.</Text>
+        {best ? (
+          <Text style={arcadeText.caption}>
+            Best run so far: <Text style={styles.best}>{best}</Text>
+          </Text>
+        ) : (
+          <Text style={arcadeText.caption}>Your best run determines your stars.</Text>
+        )}
       </ArcadeInset>
     </View>
   );
@@ -88,6 +98,9 @@ const styles = StyleSheet.create({
     textShadowColor: colors.chipShadow,
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 0,
+  },
+  best: {
+    color: colors.arcadeGold,
   },
   target: {
     fontFamily: fonts.monoMedium,
