@@ -124,11 +124,14 @@ export const useSwipeStrategyStore = create<SwipeStrategyState>()((set, get) => 
   let runSettled = false;
   /** When the hand in play was dealt (null between hands). */
   let dealtAt: number | null = null;
+  /** False until the first swipe: that hand is read at leisure, the next is on the clock. */
+  let armed = false;
 
   function idle(mapId: number, level: number) {
     const spec = specFor(mapId, level);
     runSettled = false;
     dealtAt = null;
+    armed = false;
     return {
       mapId,
       level,
@@ -169,6 +172,9 @@ export const useSwipeStrategyStore = create<SwipeStrategyState>()((set, get) => 
   function drain(): void {
     const { meter, meterDrainMs: drainMs } = get();
     cancelMeterTimer();
+    if (!armed) {
+      return;
+    }
     const now = Date.now();
     const fill = meterFillAt(meter, drainMs, now);
     set({ meter: { fill, at: now, draining: true } });
@@ -273,7 +279,9 @@ export const useSwipeStrategyStore = create<SwipeStrategyState>()((set, get) => 
     if (status !== 'playing' || !item || !spec) {
       return false;
     }
-    const openFor = dealtAt !== null ? Date.now() - dealtAt : Number.POSITIVE_INFINITY;
+    // The first hand is off the clock and counts as a fast answer.
+    const openFor = !armed ? 0 : dealtAt !== null ? Date.now() - dealtAt : Number.POSITIVE_INFINITY;
+    armed = true;
     dealtAt = null;
     hold();
     const wasCorrect = code === item.correct;

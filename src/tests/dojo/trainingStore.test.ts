@@ -195,9 +195,10 @@ describe('training store — streak drills', () => {
     expect(store().status).toBe('cleared');
     store().stopRun();
     expect(store().status).toBe('levelComplete');
-    expect(store().pace).toBe(60);
+    // The first card is off the clock: 21 right over the 20 clocked seconds.
+    expect(store().pace).toBe(63);
     expect(store().paceIsBest).toBe(true);
-    expect(useDojoStore.getState().flashPace[flashLevelKey(1, 1)]).toBe(60);
+    expect(useDojoStore.getState().flashPace[flashLevelKey(1, 1)]).toBe(63);
 
     // A slower run keeps the best on the ladder and says so.
     store().reset();
@@ -208,9 +209,9 @@ describe('training store — streak drills', () => {
       answerCorrectly();
     }
     store().stopRun();
-    expect(store().pace).toBe(30);
+    expect(store().pace).toBe(32);
     expect(store().paceIsBest).toBe(false);
-    expect(useDojoStore.getState().flashPace[flashLevelKey(1, 1)]).toBe(60);
+    expect(useDojoStore.getState().flashPace[flashLevelKey(1, 1)]).toBe(63);
   });
 
   it('a failed run records no pace', () => {
@@ -522,8 +523,15 @@ describe('training store — answer meter', () => {
     jest.useRealTimers();
   });
 
-  it('starts full on Start and drains while the card waits for an answer', () => {
+  it('starts full and still on Start; the first answer starts the clock for the cards after it', () => {
     store().begin();
+    expect(store().meter).toMatchObject({ fill: 1, draining: false });
+    expect(store().meterArmed).toBe(false);
+    jest.advanceTimersByTime(30_000);
+    expect(store().status).toBe('asking');
+    expect(meterFill()).toBe(1);
+    answerCorrectly();
+    expect(store().meterArmed).toBe(true);
     expect(store().meter).toMatchObject({ fill: 1, draining: true });
     jest.advanceTimersByTime(3_000);
     expect(meterFill()).toBeCloseTo(0.75);
@@ -548,11 +556,12 @@ describe('training store — answer meter', () => {
     expect(store().status).toBe('asking');
     expect(store().timedOut).toBe(false);
     expect(store().streak).toBe(0);
-    expect(store().meter).toMatchObject({ fill: 1, draining: true });
+    expect(store().meter).toMatchObject({ fill: 1, draining: false });
   });
 
   it('every right answer tops it up by a quarter, never past full', () => {
     store().begin();
+    answerCorrectly(); // the unclocked first card
     jest.advanceTimersByTime(6_000);
     expect(meterFill()).toBeCloseTo(0.5);
     answerCorrectly();
@@ -570,6 +579,7 @@ describe('training store — answer meter', () => {
 
   it('a miss neither tops it up nor drains it while the correction shows', () => {
     store().begin();
+    answerCorrectly(); // the unclocked first card
     jest.advanceTimersByTime(3_000);
     answerWrongly();
     expect(store().status).toBe('feedback');
@@ -600,11 +610,13 @@ describe('training store — answer meter', () => {
     store().load(1, 4);
     store().begin();
     advanceUntil('asking');
-    expect(store().meter.draining).toBe(true);
+    // The first check is off the clock; the ones after it race the meter.
+    expect(store().meter.draining).toBe(false);
     expect(store().question?.choices).toEqual([]);
     answerCorrectly();
     expect(store().meter.draining).toBe(false);
     advanceUntil('asking');
+    expect(store().meter.draining).toBe(true);
     jest.advanceTimersByTime(store().meterDrainMs);
     expect(store().status).toBe('failed');
     expect(store().timedOut).toBe(true);
@@ -752,7 +764,7 @@ describe('training store — count streams', () => {
     store().begin();
     expect(store().targets).toEqual([1, 2, 3]);
     advanceUntil('asking');
-    expect(store().meter.draining).toBe(true);
+    expect(store().meter.draining).toBe(false); // the first round's stop is off the clock
     expect(store().question?.isFinal).toBe(true);
     const firstStop = store().frame!.cardsDrawn;
     expect(firstStop).toBeGreaterThanOrEqual(39);
@@ -923,9 +935,11 @@ describe('training store — live tables', () => {
     for (let level = 1; level < FLASH_LEVELS_PER_MAP; level++) {
       expect(dojo.completeTrainingLevel(1, level, 3).tableUnlocked).toBe(false);
     }
-    // Luna Luxe's table is open from the start; the ladder opens Io Inferno.
+    // Luna Luxe's table is open from the start, and so is Io Inferno — but the
+    // ladder has not recorded Io as earned until the boss falls.
     expect(useProgressionStore.getState().licenseForMap(1)).toBe('licensed');
-    expect(useProgressionStore.getState().isMapUnlocked(2)).toBe(false);
+    expect(useProgressionStore.getState().isMapUnlocked(2)).toBe(true);
+    expect(useProgressionStore.getState().unlockedMapIds).not.toContain(2);
 
     // Zero Hero, every round right.
     store().load(1, 6);
@@ -942,6 +956,7 @@ describe('training store — live tables', () => {
     expect(useDojoStore.getState().isMapFlashComplete(1)).toBe(true);
     expect(useDojoStore.getState().nextFlashLevel(1)).toBeNull();
     expect(useProgressionStore.getState().isMapUnlocked(2)).toBe(true);
+    expect(useProgressionStore.getState().unlockedMapIds).toContain(2);
     expect(useProgressionStore.getState().licenseForMap(2)).toBe('licensed');
   });
 

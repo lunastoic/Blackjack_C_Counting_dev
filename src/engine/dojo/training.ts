@@ -1682,7 +1682,10 @@ export function makeDeckEstimateItem(
     shoeSize,
     cardsRemaining: remaining,
     correct,
-    choices: buildNumberChoices(correct, spec.precision, spec.precision, shoeSize, random),
+    // Smallest on the left, biggest on the right: decks are read off a tray, not guessed.
+    choices: buildNumberChoices(correct, spec.precision, spec.precision, shoeSize, random).sort(
+      (a, b) => a - b,
+    ),
   };
 }
 

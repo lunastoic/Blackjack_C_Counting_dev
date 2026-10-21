@@ -102,6 +102,13 @@ describe('busy table — the level', () => {
     expect(store().status).toBe('flashing');
     jest.advanceTimersByTime(1);
     expect(store().status).toBe('asking');
+    // The first table is read at leisure; the count called on it starts the clock.
+    expect(store().meter.draining).toBe(false);
+    jest.advanceTimersByTime(30_000);
+    expect(store().status).toBe('asking');
+    expect(store().answer(store().deal!.count)).toBe(true);
+    jest.advanceTimersByTime(BUSY_TABLE_RIGHT_MS);
+    waitForQuestion();
     expect(store().meter.draining).toBe(true);
   });
 

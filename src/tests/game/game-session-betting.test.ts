@@ -114,20 +114,22 @@ describe('betting', () => {
   });
 
   it('caps permit holders at a tenth of the table max until fully licensed', () => {
+    // Luna Luxe and Io Inferno are always fully licensed, so the permit is tried at Europa.
     resetStores(5_000);
     useProgressionStore.getState().hydrate({
       ...createDefaultSave().progression,
-      licenses: { '1': 'permit' },
+      unlockedMapIds: [1, 3],
+      licenses: { '1': 'licensed', '3': 'permit' },
     });
-    session().startSession(1);
+    session().startSession(3);
 
-    expect(session().addChipToBet(100)).toBe(true); // permit cap: 1,000 / 10
-    expect(session().addChipToBet(1)).toBe(false);
-    expect(session().wager).toBe(100);
+    expect(session().addChipToBet(1000)).toBe(true); // permit cap: 10,000 / 10
+    expect(session().addChipToBet(25)).toBe(false);
+    expect(session().wager).toBe(1000);
 
-    useProgressionStore.getState().grantLicense(1, 'licensed');
-    expect(session().addChipToBet(100)).toBe(true); // cap lifted live
-    expect(session().wager).toBe(200);
+    useProgressionStore.getState().grantLicense(3, 'licensed');
+    expect(session().addChipToBet(1000)).toBe(true); // cap lifted live
+    expect(session().wager).toBe(2000);
   });
 
   it('records an all-in bet for achievements', () => {

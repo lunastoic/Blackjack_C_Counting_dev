@@ -66,6 +66,7 @@ export function FlipPointScreen({ mapId, level }: FlipPointScreenProps) {
   const tableOpen = useDojoStore((dojo) => dojo.isMapFlashComplete(mapId));
   const cleared = useDojoStore((dojo) => isFlashLevelDone(dojo.flashLevels, mapId, level));
   const best = useDojoStore((dojo) => dojo.flashBests[flashLevelKey(mapId, level)]);
+  const starsEarned = useDojoStore((dojo) => dojo.flashLevels[flashLevelKey(mapId, level)] ?? 0);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [hasBegun, setHasBegun] = useState(false);
@@ -197,6 +198,7 @@ export function FlipPointScreen({ mapId, level }: FlipPointScreenProps) {
             difficulty={speedProfile(levelSpec.speed).label}
             body={levelSpec.brief}
             starTargets={targets}
+            starsEarned={starsEarned}
             starUnit="sets"
             best={best && best.run > 0 ? `${best.run} sets` : undefined}
             scene={BRIEF_SCENES[mapId]?.[level]}

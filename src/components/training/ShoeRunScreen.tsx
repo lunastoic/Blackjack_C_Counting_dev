@@ -12,6 +12,7 @@ import { PlayerAction } from '../../engine/blackjack/rules';
 import { CARDS_PER_DECK } from '../../engine/cards/deck';
 import {
   DOJO_XP,
+  flashLevelKey,
   HEAT_LIMIT,
   PreviewDrillId,
   previewShoeRunSpec,
@@ -82,6 +83,7 @@ export function ShoeRunScreen({ mapId, level, daily = false, drill }: ShoeRunScr
   const state = useShoeRunStore();
   const { spec, status, round, shoe, question, verdict, heat, hands, score, stars, outcome, backedOff } = state;
   const tableOpen = useDojoStore((dojo) => dojo.isMapFlashComplete(mapId));
+  const starsEarned = useDojoStore((dojo) => dojo.flashLevels[flashLevelKey(mapId, level)] ?? 0);
   const dailyRecord = useDojoStore((dojo) => dojo.dailyShoe);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [betUnits, setBetUnits] = useState(1);
@@ -441,6 +443,7 @@ export function ShoeRunScreen({ mapId, level, daily = false, drill }: ShoeRunScr
               scene={daily || drill ? undefined : BRIEF_SCENES[mapId]?.[level]}
               // A level's stars come from its accuracy: one for finishing, two at the pass mark, three at the perfect mark.
               starTargets={daily || drill ? undefined : [1, 2, 3]}
+              starsEarned={daily || drill ? undefined : starsEarned}
               starLabels={daily || drill ? undefined : shoeRunStarLabels(spec)}
               ruleTiles={daily || drill ? undefined : shoeRunTiles(spec).tiles}
               ruleNote={daily || drill ? undefined : shoeRunTiles(spec).note}

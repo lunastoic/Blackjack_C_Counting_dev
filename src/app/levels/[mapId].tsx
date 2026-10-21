@@ -38,7 +38,7 @@ import { FEATURES } from '../../constants/features';
 import { mapUnlockCost } from '../../constants/mapUnlockCosts';
 import { LevelPath } from '../../components/levels/LevelPath';
 import { RewardRevealSheet } from '../../components/levels/RewardRevealSheet';
-import { CASINO_MAPS, CasinoMap, mapById } from '../../engine/betting/casino';
+import { CASINO_MAPS, CasinoMap, isAlwaysOpenMap, mapById } from '../../engine/betting/casino';
 import {
   FLASH_LEVELS_PER_MAP,
   FlashProgress,
@@ -330,7 +330,7 @@ export default function LevelMapScreen() {
             isLast={index === CASINO_MAPS.length - 1}
             progress={progress}
             pace={pace}
-            unlocked={unlockedMapIds.includes(item.id) || debugUnlockAll}
+            unlocked={isAlwaysOpenMap(item.id) || unlockedMapIds.includes(item.id) || debugUnlockAll}
             unlockAll={debugUnlockAll}
             price={canUnlockMap(item.id) ? mapUnlockCost(item.id) : null}
             onUnlock={() => offerUnlock(item)}

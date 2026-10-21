@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { FEATURES } from '../constants/features';
 import { mapUnlockCost } from '../constants/mapUnlockCosts';
-import { mapById, TableLicense } from '../engine/betting/casino';
+import { isAlwaysOpenMap, mapById, TableLicense } from '../engine/betting/casino';
 import {
   awardXp as engineAwardXp,
   INITIAL_PROGRESS,
@@ -79,7 +79,7 @@ export const useProgressionStore = create<ProgressionState>()((set, get) => ({
     return result;
   },
 
-  isMapUnlocked: (mapId) => get().unlockedMapIds.includes(mapId),
+  isMapUnlocked: (mapId) => isAlwaysOpenMap(mapId) || get().unlockedMapIds.includes(mapId),
 
   canUnlockMap: (mapId) => {
     const map = mapById(mapId);
@@ -94,13 +94,19 @@ export const useProgressionStore = create<ProgressionState>()((set, get) => ({
   },
 
   unlockMap: (mapId) => {
-    if (!get().canUnlockMap(mapId)) {
+    if (!mapById(mapId) || get().unlockedMapIds.includes(mapId)) {
+      return false;
+    }
+    // A casino that was never locked is only recorded as earned (no reveal to
+    // play); the rest go through the gate.
+    const alwaysOpen = isAlwaysOpenMap(mapId);
+    if (!alwaysOpen && !get().canUnlockMap(mapId)) {
       return false;
     }
     set((state) => ({
       unlockedMapIds: [...state.unlockedMapIds, mapId],
       licenses: { ...state.licenses, [mapId]: 'licensed' },
-      pendingRevealMapId: mapId,
+      pendingRevealMapId: alwaysOpen ? state.pendingRevealMapId : mapId,
     }));
     return true;
   },
@@ -123,7 +129,8 @@ export const useProgressionStore = create<ProgressionState>()((set, get) => ({
 
   clearMapReveal: () => set({ pendingRevealMapId: null }),
 
-  licenseForMap: (mapId) => get().licenses[mapId] ?? 'none',
+  licenseForMap: (mapId) =>
+    isAlwaysOpenMap(mapId) ? 'licensed' : (get().licenses[mapId] ?? 'none'),
 
   grantLicense: (mapId, license) => {
     if (!mapById(mapId)) {

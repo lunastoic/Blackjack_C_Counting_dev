@@ -16,7 +16,7 @@ import { ArcadeInfoBox, ArcadePanel, ArcadePill, ArcadePlaque } from './ArcadePa
 import { RuleTile } from '../training/copy';
 import { ExampleCards } from './ExampleCards';
 import { RuleTiles } from './RuleTiles';
-import { StarGoals } from './StarGoals';
+import { StarBadges } from './StarBadges';
 
 /** The scenes are drawn 260×104 (scripts/level-art/briefs.py) and shown at the panel's width. */
 const SCENE_ASPECT = 260 / 104;
@@ -33,8 +33,10 @@ export interface ArcadeLevelBriefProps {
   readonly starUnit?: string;
   /** Each star tile's goal in full, when "target unit" does not say it — a shoe run's accuracy marks. */
   readonly starLabels?: readonly [string, string, string];
-  /** The player's best run, "27 right · combo 12", shown under the star goals. */
+  /** The player's best run, "27 right · combo 12", shown in a star's pop-out. */
   readonly best?: string;
+  /** Stars already banked on this level, 0–3: lit on the plaque. */
+  readonly starsEarned?: number;
   /**
    * The level's picture — what it deals and what it asks for — in place of
    * the three example cards (BRIEF_SCENES in the asset registry).
@@ -61,10 +63,10 @@ export interface ArcadeLevelBriefProps {
 }
 
 /**
- * The Modern look's level intro: felt panel, burgundy plaque, the level's
- * scene (or the three example cards), the description, the star goals, the
- * rules as stat tiles and the big gold Start — the mock-up, built from the
- * app's own pieces.
+ * The Modern look's level intro: felt panel, burgundy plaque with the level's
+ * three stars on it (tap one for its goal), the level's scene (or the three
+ * example cards), the description, the rules as stat tiles and the big gold
+ * Start — the mock-up, built from the app's own pieces.
  */
 export function ArcadeLevelBrief({
   kicker,
@@ -75,6 +77,7 @@ export function ArcadeLevelBrief({
   starUnit = 'right',
   starLabels,
   best,
+  starsEarned = 0,
   scene,
   ruleTiles,
   ruleNote,
@@ -121,6 +124,18 @@ export function ArcadeLevelBrief({
       <ArcadePlaque
         kicker={kicker}
         title={title}
+        // The three stars under the title; each pops its goal out when tapped.
+        badge={
+          starTargets ? (
+            <StarBadges
+              targets={starTargets}
+              unit={starUnit}
+              labels={starLabels}
+              best={best}
+              earned={starsEarned}
+            />
+          ) : undefined
+        }
         footer={difficulty ? <ArcadePill label={difficulty} tone="mint" /> : undefined}
       />
       {scene ? (
@@ -136,7 +151,6 @@ export function ArcadeLevelBrief({
         <View style={styles.cardsGap} />
       )}
       <ArcadeInfoBox>{body}</ArcadeInfoBox>
-      {starTargets ? <StarGoals targets={starTargets} unit={starUnit} labels={starLabels} best={best} /> : null}
       {ruleTiles || ruleNote ? <RuleTiles tiles={ruleTiles ?? []} note={ruleNote} /> : null}
       {rules.length > 0 ? (
         <View style={styles.rules}>

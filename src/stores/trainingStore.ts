@@ -191,6 +191,11 @@ export interface TrainingState {
   readonly countTipPending: boolean;
 
   readonly meter: MeterState;
+  /**
+   * False until the run's first answer: the first question is read at leisure,
+   * and the meter only starts draining from the one after it.
+   */
+  readonly meterArmed: boolean;
   /** Full-to-empty time for this level (ms). */
   readonly meterDrainMs: number;
   /** The run failed because the meter ran dry, not on strikes. */
@@ -336,7 +341,8 @@ function choicesFor(part: QuestionPart, spec: TrainingLevelSpec): number[] {
       return buildNumberChoices(part.correct, 1, -RUNNING_COUNT_BOUND, RUNNING_COUNT_BOUND, random);
     case 'decksRemaining': {
       const max = isCheckpointLevel(spec) ? spec.deckCount : 8;
-      return buildNumberChoices(part.correct, 0.5, 0.5, max, random);
+      // Decks left read smallest to biggest, left to right.
+      return buildNumberChoices(part.correct, 0.5, 0.5, max, random).sort((a, b) => a - b);
     }
     case 'trueCount':
       return buildNumberChoices(part.correct, 1, -TRUE_COUNT_BOUND, TRUE_COUNT_BOUND, random);
@@ -383,6 +389,7 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
       stretch: false,
       countTipPending: false,
       meter: { fill: 1, at: Date.now(), draining: false },
+      meterArmed: false,
       meterDrainMs: Math.round(
         meterDrainMs(mapId, level) * (answersByEntry(spec) ? ENTRY_METER_FACTOR : 1),
       ),
@@ -413,6 +420,19 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
   /** How long the open question has been up (ms); read before the meter is held. */
   function questionOpenFor(): number {
     return openedAt !== null ? Math.max(0, Date.now() - openedAt) : Number.POSITIVE_INFINITY;
+  }
+
+  /**
+   * The first answer of a run starts the clock for the questions after it.
+   * Returns how long the question was open for the combo: the unclocked first
+   * question counts as answered at once.
+   */
+  function armMeter(): number {
+    if (get().meterArmed) {
+      return questionOpenFor();
+    }
+    set({ meterArmed: true });
+    return 0;
   }
 
   /** One answer into the combo: fast and right grows it (and its bonus), a miss drops it. */
@@ -477,11 +497,12 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
    * the question waits and speed only feeds the combo.
    */
   function drainMeter(): void {
-    const { meter, meterDrainMs: drainMs, spec } = get();
+    const { meter, meterDrainMs: drainMs, spec, meterArmed } = get();
     cancelMeterTimer();
     const now = Date.now();
-    openedAt = now;
-    if (!isMeteredLevel(spec)) {
+    // The first question of a run is off the clock: not timed, not paced.
+    openedAt = meterArmed ? now : null;
+    if (!isMeteredLevel(spec) || !meterArmed) {
       return;
     }
     const fill = meterFillAt(meter, drainMs, now);
@@ -644,7 +665,7 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
     }
     const correct = streakCorrect(state.item);
     const wasCorrect = value === correct;
-    noteCombo(wasCorrect, questionOpenFor());
+    noteCombo(wasCorrect, armMeter());
     holdMeter();
     if (wasCorrect) {
       feedMeter();
@@ -775,7 +796,7 @@ export const useTrainingStore = create<TrainingState>()((set, get) => {
     }
     const checkpoint = script.checkpoints[state.checkpointIndex];
     const wasCorrect = value === question.correct;
-    noteCombo(wasCorrect, questionOpenFor());
+    noteCombo(wasCorrect, armMeter());
     holdMeter();
     if (wasCorrect) {
       feedMeter();

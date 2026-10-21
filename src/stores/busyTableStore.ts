@@ -119,10 +119,13 @@ function specFor(mapId: number, level: number): BusyTableLevel | null {
 export const useBusyTableStore = create<BusyTableState>()((set, get) => {
   /** The run's best is recorded once, when it ends. */
   let runSettled = false;
+  /** False until the first count is called: that table is read at leisure, the next is on the clock. */
+  let armed = false;
 
   function idle(mapId: number, level: number) {
     const spec = specFor(mapId, level);
     runSettled = false;
+    armed = false;
     return {
       mapId,
       level,
@@ -160,6 +163,9 @@ export const useBusyTableStore = create<BusyTableState>()((set, get) => {
   function drain(): void {
     const { meter, meterDrainMs: drainMs } = get();
     cancelMeterTimer();
+    if (!armed) {
+      return;
+    }
     const now = Date.now();
     const fill = meterFillAt(meter, drainMs, now);
     set({ meter: { fill, at: now, draining: true } });
@@ -282,6 +288,7 @@ export const useBusyTableStore = create<BusyTableState>()((set, get) => {
       if (status !== 'asking' || !deal || !spec) {
         return false;
       }
+      armed = true;
       hold();
       const right = value === deal.count;
       set({ lastAnswer: { value, right } });

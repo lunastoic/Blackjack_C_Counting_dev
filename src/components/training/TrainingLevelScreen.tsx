@@ -286,6 +286,9 @@ export function TrainingLevelScreen({
   const levelBest = useDojoStore(
     (state) => state.flashBests[flashLevelKey(mapId, level)],
   );
+  const starsEarned = useDojoStore(
+    (state) => state.flashLevels[flashLevelKey(mapId, level)] ?? 0,
+  );
   const tableOpen = useDojoStore((state) => state.isMapFlashComplete(mapId));
   const cleared = useDojoStore((state) =>
     isFlashLevelDone(state.flashLevels, mapId, level),
@@ -1411,6 +1414,7 @@ export function TrainingLevelScreen({
               difficulty={speed.label}
               body={spec.brief}
               starTargets={targets}
+              starsEarned={drill ? undefined : starsEarned}
               starUnit={briefUnit}
               // A best of zero is no best yet.
               best={levelBest && levelBest.run > 0 ? bestLine(levelBest, briefUnit) : undefined}

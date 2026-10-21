@@ -161,12 +161,17 @@ describe('swipe strategy — the level', () => {
     expect(useDojoStore.getState().flashLevels[flashLevelKey(2, 2)]).toBeUndefined();
   });
 
-  it('the meter drains while a hand is up, a right swipe tops it up, and empty ends the run', () => {
+  it('the first hand waits; from the next the meter drains, a right swipe tops it up, and empty ends the run', () => {
     store().begin();
     const drainMs = meterDrainMs(2, 2);
+    expect(store().meter.draining).toBe(false);
+    jest.advanceTimersByTime(30_000);
+    expect(store().status).toBe('playing');
+    answerRight(); // starts the clock
     expect(store().meter.draining).toBe(true);
     jest.advanceTimersByTime(4000);
     const before = meterFillAt(store().meter, drainMs, Date.now());
+    expect(before).toBeCloseTo(1 - 4000 / drainMs, 2);
     answerRight();
     expect(meterFillAt(store().meter, drainMs, Date.now())).toBeCloseTo(Math.min(1, before + 0.25), 2);
     jest.advanceTimersByTime(drainMs * 2);

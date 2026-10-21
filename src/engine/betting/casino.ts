@@ -112,6 +112,18 @@ export const CASINO_MAPS: readonly CasinoMap[] = [
 
 export const LUNA_LUXE: CasinoMap = CASINO_MAPS[0];
 
+/**
+ * Casinos that are open from the first launch, ladder and table alike: Luna
+ * Luxe, and Io Inferno so the second curriculum is always a tap away. The
+ * ladder still records them as earned in order, so "the newest casino" (the
+ * home screen, the daily reward scale) follows the player's progress.
+ */
+export const ALWAYS_OPEN_MAP_IDS: readonly number[] = [1, 2];
+
+export function isAlwaysOpenMap(mapId: number): boolean {
+  return ALWAYS_OPEN_MAP_IDS.includes(mapId);
+}
+
 export function mapById(id: number): CasinoMap | undefined {
   return CASINO_MAPS.find((map) => map.id === id);
 }

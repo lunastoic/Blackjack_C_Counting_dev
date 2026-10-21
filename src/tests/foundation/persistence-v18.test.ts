@@ -51,6 +51,8 @@ describe('v17 → v18 migration', () => {
     expect(save.progression.licenses).toEqual({ '1': 'licensed' });
     useProgressionStore.getState().hydrate(save.progression);
     expect(useProgressionStore.getState().licenseForMap(1)).toBe('licensed');
-    expect(useProgressionStore.getState().isMapUnlocked(2)).toBe(false);
+    // Io Inferno is open from the first launch too; Europa is the first locked casino.
+    expect(useProgressionStore.getState().isMapUnlocked(2)).toBe(true);
+    expect(useProgressionStore.getState().isMapUnlocked(3)).toBe(false);
   });
 });

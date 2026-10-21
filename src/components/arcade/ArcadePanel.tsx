@@ -71,13 +71,15 @@ interface ArcadePlaqueProps {
   /** The small line on the tab above the title, e.g. "LEVEL 1". */
   readonly kicker: string;
   readonly title: string;
+  /** Sits on the plaque under the title — the level's three stars. */
+  readonly badge?: React.ReactNode;
   /** Hangs off the plaque's bottom edge, half in and half out. */
   readonly footer?: React.ReactNode;
   readonly style?: StyleProp<ViewStyle>;
 }
 
 /** Burgundy plaque: the kicker on a tab over the big gold title. */
-export function ArcadePlaque({ kicker, title, footer, style }: ArcadePlaqueProps) {
+export function ArcadePlaque({ kicker, title, badge, footer, style }: ArcadePlaqueProps) {
   return (
     <View style={[styles.plaqueSlot, style]}>
       <View style={styles.plaqueTab}>
@@ -98,6 +100,7 @@ export function ArcadePlaque({ kicker, title, footer, style }: ArcadePlaqueProps
         <Text style={styles.plaqueTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
           {title.toUpperCase()}
         </Text>
+        {badge ? <View style={styles.plaqueBadge}>{badge}</View> : null}
       </ArcadeBevel>
       {footer ? <View style={styles.plaqueFooter}>{footer}</View> : null}
     </View>
@@ -247,6 +250,11 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 2, height: 3 },
     textShadowRadius: 0,
     includeFontPadding: false,
+  },
+  plaqueBadge: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    marginTop: spacing.xxs,
   },
   plaqueFooter: {
     marginTop: -(spacing.md + spacing.xxs),

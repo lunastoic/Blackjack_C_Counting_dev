@@ -46,41 +46,51 @@ describe('progression store', () => {
   });
 
   describe('map unlocks', () => {
-    it('only Luna Luxe is unlocked by default, with its table open', () => {
-      expect(useProgressionStore.getState().isMapUnlocked(1)).toBe(true);
-      expect(useProgressionStore.getState().licenseForMap(1)).toBe('licensed');
-      for (const id of [2, 3, 4, 5, 6]) {
+    it('Luna Luxe and Io Inferno are open by default, tables included; the rest are locked', () => {
+      for (const id of [1, 2]) {
+        expect(useProgressionStore.getState().isMapUnlocked(id)).toBe(true);
+        expect(useProgressionStore.getState().licenseForMap(id)).toBe('licensed');
+      }
+      // Open is not earned: the ladder still records Io Inferno in order.
+      expect(useProgressionStore.getState().unlockedMapIds).toEqual([1]);
+      for (const id of [3, 4, 5, 6]) {
         expect(useProgressionStore.getState().isMapUnlocked(id)).toBe(false);
         expect(useProgressionStore.getState().licenseForMap(id)).toBe('none');
       }
     });
 
     it('every locked casino can be opened, each only once', () => {
-      expect(useProgressionStore.getState().canUnlockMap(2)).toBe(true);
       expect(useProgressionStore.getState().canUnlockMap(3)).toBe(true);
+      expect(useProgressionStore.getState().canUnlockMap(4)).toBe(true);
       expect(useProgressionStore.getState().canUnlockMap(1)).toBe(false); // already open
+      expect(useProgressionStore.getState().canUnlockMap(2)).toBe(false); // never locked
 
       expect(useProgressionStore.getState().unlockMap(3)).toBe(true);
       expect(useProgressionStore.getState().isMapUnlocked(3)).toBe(true);
       expect(useProgressionStore.getState().unlockMap(3)).toBe(false); // once
       expect(useProgressionStore.getState().canUnlockMap(3)).toBe(false);
+      // An always-open casino is still recorded as earned once its turn comes — without a reveal.
       expect(useProgressionStore.getState().unlockMap(2)).toBe(true);
+      expect(useProgressionStore.getState().unlockedMapIds).toEqual([1, 3, 2]);
+      expect(useProgressionStore.getState().pendingRevealMapId).toBe(3);
+      expect(useProgressionStore.getState().unlockMap(2)).toBe(false); // once
     });
 
     it('opens the table with the casino', () => {
-      useProgressionStore.getState().unlockMap(2);
-      expect(useProgressionStore.getState().licenseForMap(2)).toBe('licensed');
+      expect(useProgressionStore.getState().licenseForMap(3)).toBe('none');
+      useProgressionStore.getState().unlockMap(3);
+      expect(useProgressionStore.getState().licenseForMap(3)).toBe('licensed');
     });
 
     it('queues a one-time reveal for the Select Map screen when a casino unlocks', () => {
       expect(useProgressionStore.getState().pendingRevealMapId).toBeNull();
-      useProgressionStore.getState().unlockMap(2);
-      expect(useProgressionStore.getState().pendingRevealMapId).toBe(2);
+      useProgressionStore.getState().unlockMap(3);
+      expect(useProgressionStore.getState().pendingRevealMapId).toBe(3);
 
       useProgressionStore.getState().clearMapReveal();
       expect(useProgressionStore.getState().pendingRevealMapId).toBeNull();
       // The reveal is not part of the save.
-      expect(useProgressionStore.getState().unlockMap(2)).toBe(false);
+      expect(useProgressionStore.getState().unlockMap(3)).toBe(false);
       expect(useProgressionStore.getState().pendingRevealMapId).toBeNull();
     });
 
@@ -113,33 +123,36 @@ describe('progression store', () => {
     });
 
     it('debits the price once and opens the casino, its table and its reveal', () => {
-      useEconomyStore.setState({ chips: 105_000 });
-      expect(store().buyMap(2)).toBe(true);
+      useEconomyStore.setState({ chips: 255_000 });
+      expect(store().buyMap(3)).toBe(true);
       expect(chips()).toBe(5_000);
-      expect(store().isMapUnlocked(2)).toBe(true);
-      expect(store().licenseForMap(2)).toBe('licensed');
-      expect(store().pendingRevealMapId).toBe(2);
+      expect(store().isMapUnlocked(3)).toBe(true);
+      expect(store().licenseForMap(3)).toBe('licensed');
+      expect(store().pendingRevealMapId).toBe(3);
     });
 
     it('refuses when short on chips and leaves everything untouched', () => {
-      useEconomyStore.setState({ chips: 99_999 });
-      expect(store().buyMap(2)).toBe(false);
-      expect(chips()).toBe(99_999);
-      expect(store().isMapUnlocked(2)).toBe(false);
-      expect(store().licenseForMap(2)).toBe('none');
+      useEconomyStore.setState({ chips: 249_999 });
+      expect(store().buyMap(3)).toBe(false);
+      expect(chips()).toBe(249_999);
+      expect(store().isMapUnlocked(3)).toBe(false);
+      expect(store().licenseForMap(3)).toBe('none');
       expect(store().pendingRevealMapId).toBeNull();
     });
 
     it('never charges twice for a casino that is already open', () => {
       useEconomyStore.setState({ chips: 300_000 });
-      expect(store().buyMap(2)).toBe(true);
+      // Io Inferno was never locked, so it is never for sale.
       expect(store().buyMap(2)).toBe(false);
-      expect(chips()).toBe(200_000);
+      expect(chips()).toBe(300_000);
+      expect(store().buyMap(3)).toBe(true);
+      expect(store().buyMap(3)).toBe(false);
+      expect(chips()).toBe(50_000);
 
       // An earned unlock is not for sale either.
-      store().unlockMap(3);
-      expect(store().buyMap(3)).toBe(false);
-      expect(chips()).toBe(200_000);
+      store().unlockMap(4);
+      expect(store().buyMap(4)).toBe(false);
+      expect(chips()).toBe(50_000);
     });
 
     it('sells any locked casino, in any order; Luna Luxe never', () => {
@@ -150,9 +163,9 @@ describe('progression store', () => {
       // Skipping ahead is allowed — the price climbs for it.
       expect(store().buyMap(6)).toBe(true);
       expect(store().isMapUnlocked(6)).toBe(true);
-      expect(store().isMapUnlocked(2)).toBe(false);
-      expect(store().buyMap(2)).toBe(true);
-      expect(chips()).toBe(10_000_000 - 3_900_000 - 100_000);
+      expect(store().isMapUnlocked(3)).toBe(false);
+      expect(store().buyMap(3)).toBe(true);
+      expect(chips()).toBe(10_000_000 - 3_900_000 - 250_000);
     });
 
     it('only buys access: the previous casino\'s ladder, stars and XP stay put', () => {
@@ -167,13 +180,13 @@ describe('progression store', () => {
         xpIntoLevel: store().xpIntoLevel,
         totalDojoXp: useDojoStore.getState().totalDojoXp,
       };
-      useEconomyStore.setState({ chips: 100_000 });
+      useEconomyStore.setState({ chips: 250_000 });
 
-      expect(store().buyMap(2)).toBe(true);
+      expect(store().buyMap(3)).toBe(true);
 
       expect(useDojoStore.getState().flashLevels).toEqual(before.flashLevels);
       expect(useDojoStore.getState().nextFlashLevel(1)).toBe(4);
-      expect(useDojoStore.getState().isFlashLevelUnlocked(2, 1)).toBe(true);
+      expect(useDojoStore.getState().isFlashLevelUnlocked(3, 1)).toBe(true);
       expect(store().level).toBe(before.level);
       expect(store().xpIntoLevel).toBe(before.xpIntoLevel);
       expect(useDojoStore.getState().totalDojoXp).toBe(before.totalDojoXp);
@@ -181,14 +194,14 @@ describe('progression store', () => {
     });
 
     it('a bought casino still opens the next one for free once its ladder is cleared', () => {
-      useEconomyStore.setState({ chips: 100_000 });
+      useEconomyStore.setState({ chips: 250_000 });
       useDojoStore.getState().hydrate(createDefaultSave().dojo);
-      expect(store().buyMap(2)).toBe(true);
+      expect(store().buyMap(3)).toBe(true);
       for (let level = 1; level <= 6; level++) {
-        useDojoStore.getState().completeTrainingLevel(2, level, 2);
+        useDojoStore.getState().completeTrainingLevel(3, level, 2);
       }
-      expect(store().isMapUnlocked(3)).toBe(true);
-      expect(store().licenseForMap(3)).toBe('licensed');
+      expect(store().isMapUnlocked(4)).toBe(true);
+      expect(store().licenseForMap(4)).toBe('licensed');
       expect(useEconomyStore.getState().chips).toBeGreaterThan(0); // star chips only
     });
   });
@@ -196,13 +209,13 @@ describe('progression store', () => {
   describe('table licenses', () => {
     it('closed tables upgrade none → permit → licensed', () => {
       const store = () => useProgressionStore.getState();
-      expect(store().licenseForMap(2)).toBe('none');
+      expect(store().licenseForMap(3)).toBe('none');
 
-      expect(store().grantLicense(2, 'permit')).toBe(true);
-      expect(store().licenseForMap(2)).toBe('permit');
+      expect(store().grantLicense(3, 'permit')).toBe(true);
+      expect(store().licenseForMap(3)).toBe('permit');
 
-      expect(store().grantLicense(2, 'licensed')).toBe(true);
-      expect(store().licenseForMap(2)).toBe('licensed');
+      expect(store().grantLicense(3, 'licensed')).toBe(true);
+      expect(store().licenseForMap(3)).toBe('licensed');
     });
 
     it('never downgrades, re-grants, or licenses unknown maps', () => {
@@ -219,12 +232,13 @@ describe('progression store', () => {
       useProgressionStore.getState().hydrate({
         level: 5,
         xpIntoLevel: 0,
-        unlockedMapIds: [1, 2],
-        licenses: { '1': 'licensed', '2': 'permit' },
+        unlockedMapIds: [1, 3],
+        licenses: { '1': 'licensed', '3': 'permit' },
       });
       expect(useProgressionStore.getState().licenseForMap(1)).toBe('licensed');
-      expect(useProgressionStore.getState().licenseForMap(2)).toBe('permit');
-      expect(useProgressionStore.getState().licenseForMap(3)).toBe('none');
+      expect(useProgressionStore.getState().licenseForMap(2)).toBe('licensed'); // always open
+      expect(useProgressionStore.getState().licenseForMap(3)).toBe('permit');
+      expect(useProgressionStore.getState().licenseForMap(4)).toBe('none');
     });
   });
 });

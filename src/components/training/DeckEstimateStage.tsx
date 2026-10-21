@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: spacing.xxl,
+    gap: spacing.xxxl,
   },
   reveal: {
     color: colors.textSecondary,

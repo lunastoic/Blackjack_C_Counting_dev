@@ -225,9 +225,13 @@ describe('divide and match — the level', () => {
     expect(useDojoStore.getState().flashLevels[flashLevelKey(3, 2)]).toBe(2);
   });
 
-  it('the meter drains while the grid is up, a match tops it up, and running dry ends the run', () => {
+  it('the board waits for the first move; then the meter drains, a match tops it up, and running dry ends the run', () => {
     store().begin();
     expect(store().status).toBe('playing');
+    expect(store().meter.draining).toBe(false);
+    jest.advanceTimersByTime(30_000);
+    expect(store().status).toBe('playing');
+    matchOne(); // the first move starts the clock
     expect(store().meter.draining).toBe(true);
     jest.advanceTimersByTime(3000);
     const drainMs = store().meterDrainMs;

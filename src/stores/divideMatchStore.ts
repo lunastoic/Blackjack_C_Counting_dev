@@ -125,10 +125,13 @@ function specFor(mapId: number, level: number): DivideMatchLevel | null {
 export const useDivideMatchStore = create<DivideMatchState>()((set, get) => {
   /** The run's best is recorded once, when it ends. */
   let runSettled = false;
+  /** False until the first move: the board is read at leisure, then the clock starts. */
+  let armed = false;
 
   function idle(mapId: number, level: number) {
     const spec = specFor(mapId, level);
     runSettled = false;
+    armed = false;
     return {
       mapId,
       level,
@@ -167,6 +170,9 @@ export const useDivideMatchStore = create<DivideMatchState>()((set, get) => {
   function drain(): void {
     const { meter, meterDrainMs: drainMs } = get();
     cancelMeterTimer();
+    if (!armed) {
+      return;
+    }
     const now = Date.now();
     const fill = meterFillAt(meter, drainMs, now);
     set({ meter: { fill, at: now, draining: true } });
@@ -189,6 +195,16 @@ export const useDivideMatchStore = create<DivideMatchState>()((set, get) => {
     if (meter.draining) {
       cancelMeterTimer();
       meterTimer = schedule(meterEmpty, fill * drainMs);
+    }
+  }
+
+  /** The first move of the run: from here the meter drains whenever a board is up. */
+  function arm(): void {
+    if (!armed) {
+      armed = true;
+      if (get().status === 'playing') {
+        drain();
+      }
     }
   }
 
@@ -336,6 +352,7 @@ export const useDivideMatchStore = create<DivideMatchState>()((set, get) => {
       if (status !== 'playing' || !grid || from === to) {
         return false;
       }
+      arm();
       return tryPair(from, to);
     },
 
@@ -344,6 +361,7 @@ export const useDivideMatchStore = create<DivideMatchState>()((set, get) => {
       if (status !== 'playing' || !grid || !grid.cells.some((cell) => cell?.id === id)) {
         return false;
       }
+      arm();
       if (selected === null || selected === id) {
         set({ selected: selected === id ? null : id });
         return true;

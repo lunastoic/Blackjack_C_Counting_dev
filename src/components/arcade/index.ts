@@ -33,4 +33,4 @@ export {
 } from './ArcadePanel';
 export { ArcadeTutorialPanel } from './ArcadeTutorialPanel';
 export { ExampleCards } from './ExampleCards';
-export { StarGoals } from './StarGoals';
+export { StarBadges } from './StarBadges';

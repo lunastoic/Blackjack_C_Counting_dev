@@ -137,10 +137,16 @@ export function PlayingCard({
     if (reducedMotion) {
       return undefined;
     }
+    // Solid almost at once: while a card is translucent the felt's house
+    // print shows through its face, and a streamed card is in motion half its life.
     return new Keyframe({
       0: {
         opacity: 0,
         transform: [{ translateX: 110 }, { translateY: -130 }, { rotate: '14deg' }],
+      },
+      15: {
+        opacity: 1,
+        transform: [{ translateX: 94 }, { translateY: -110 }, { rotate: '12deg' }],
       },
       100: {
         opacity: 1,
@@ -155,10 +161,15 @@ export function PlayingCard({
     if (reducedMotion) {
       return undefined;
     }
+    // Stays solid for most of the way out, fading only over the last stretch.
     return new Keyframe({
       0: {
         opacity: 1,
         transform: [{ translateX: 0 }, { translateY: 0 }, { rotate: '0deg' }],
+      },
+      80: {
+        opacity: 1,
+        transform: [{ translateX: -80 }, { translateY: -72 }, { rotate: '-8deg' }],
       },
       100: {
         opacity: 0,

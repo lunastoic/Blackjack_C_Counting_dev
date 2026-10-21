@@ -210,9 +210,13 @@ describe('cancel grid — the level', () => {
     expect(useDojoStore.getState().flashLevels[flashLevelKey(1, 2)]).toBe(2);
   });
 
-  it('the meter drains while the grid is up, a clear tops it up, and running dry ends the run', () => {
+  it('the board waits for the first move; then the meter drains, a clear tops it up, and running dry ends the run', () => {
     store().begin();
     expect(store().status).toBe('playing');
+    expect(store().meter.draining).toBe(false);
+    jest.advanceTimersByTime(30_000);
+    expect(store().status).toBe('playing');
+    makeRightMove(); // the first move starts the clock
     expect(store().meter.draining).toBe(true);
     jest.advanceTimersByTime(3000);
     const drainMs = store().meterDrainMs;
