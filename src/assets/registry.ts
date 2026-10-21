@@ -344,3 +344,14 @@ export const BRIEF_SCENES: Record<number, Record<number, number>> = {
     6: require('../../assets/briefs/map6/level-6.png'),
   },
 };
+
+/**
+ * Card-edge grain for the side of a stack (DeckGauge), tiled vertically over
+ * the cream face: coarse reads as one card a line on a one- or two-deck shoe,
+ * fine as the tighter grain of four decks and up. Authored at 1×/2×/3× so a
+ * card edge stays one device pixel.
+ */
+export const STACK_EDGE_TEXTURE = {
+  coarse: require('../../assets/cards/stack/card-edges.png'),
+  fine: require('../../assets/cards/stack/card-edges-fine.png'),
+} as const;

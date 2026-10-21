@@ -5,6 +5,10 @@ import { DeckEstimateItem } from '../../engine/dojo';
 import { colors, fontSizes, fontWeights, spacing } from '../../theme';
 import { DeckGauge } from './DeckGauge';
 
+/** The drill's piles are the whole stage, so they stand bigger than the ones beside a dealer. */
+const PILE_CARD_WIDTH = 58;
+const PILE_TRAY_HEIGHT = 120;
+
 interface DeckEstimateStageProps {
   readonly item: DeckEstimateItem;
   readonly showScale: boolean;
@@ -27,6 +31,8 @@ export function DeckEstimateStage({ item, showScale, reveal, serial }: DeckEstim
           totalCards={totalCards}
           showScale={showScale}
           label="DISCARDS"
+          cardWidth={PILE_CARD_WIDTH}
+          trayHeight={PILE_TRAY_HEIGHT}
         />
         <DeckGauge
           variant="shoe"
@@ -34,6 +40,8 @@ export function DeckEstimateStage({ item, showScale, reveal, serial }: DeckEstim
           totalCards={totalCards}
           showScale={showScale}
           label="SHOE"
+          cardWidth={PILE_CARD_WIDTH}
+          trayHeight={PILE_TRAY_HEIGHT}
         />
       </View>
       <Text style={styles.reveal}>
